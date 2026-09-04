@@ -158,7 +158,8 @@ function welcomeHTML(){
     </div>
     ${welcomeReel()}
     <div style="flex:1;min-height:18px;"></div>
-    <div style="margin-top:22px;padding:20px 20px 24px;background:#F5F7FA;border-radius:26px 26px 0 0;box-shadow:0 -10px 34px rgba(6,14,26,.22);display:flex;flex-direction:column;gap:10px;">
+    ${window._a2hsMobile?`<div style="display:flex;justify-content:center;margin:0 0 25px;"><button type="button" onclick="a2hsShow()" style="display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.30);color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px);box-shadow:0 3px 10px rgba(6,14,26,.18);">${icon('download',15)} Save as app</button></div>`:''}
+    <div style="padding:20px 20px 24px;background:#F5F7FA;border-radius:26px 26px 0 0;box-shadow:0 -10px 34px rgba(6,14,26,.22);display:flex;flex-direction:column;gap:10px;">
       <button type="button" onclick="obGoCreate()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">Create account</span></button>
       <button type="button" onclick="obGoSignIn()" style="width:100%;cursor:pointer;padding:17px;border-radius:999px;background:#fff;border:1px solid #ECEFF3;color:var(--ink);font-family:inherit;font-size:15px;font-weight:600;box-shadow:var(--shadow);">I already have an account</button>
       <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:2px;">For Zimmer Biomet colleagues only &nbsp;·&nbsp; <a href="javascript:void(0)" onclick="obHow()" style="color:var(--zb-blue);font-weight:700">How it works</a></div>
@@ -166,16 +167,31 @@ function welcomeHTML(){
   </div>`;
 }
 function howItWorksHTML(){
-  const step=(n,ic,t,d)=>`<div class="card" style="display:flex;gap:14px;align-items:flex-start"><div style="width:40px;height:40px;flex:none;border-radius:12px;background:var(--zb-blue-soft);color:var(--zb-blue);display:flex;align-items:center;justify-content:center;position:relative">${ic}<span style="position:absolute;-top:6px;top:-8px;right:-8px;width:20px;height:20px;border-radius:50%;background:var(--zb-blue);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">${n}</span></div><div><div style="font-weight:700;font-size:15px">${t}</div><div class="muted small" style="margin-top:3px;line-height:1.45">${d}</div></div></div>`;
-  return `<div style="min-height:100vh;background:var(--bg);padding:16px 18px 28px">
-    <button class="btn ghost sm" onclick="obBackWelcome()">${icon('back',16)} Back</button>
-    <div class="card" style="background:linear-gradient(135deg,var(--zb-blue),var(--zb-blue-dark));color:#fff;border:none;text-align:center;padding:22px 16px"><div style="font-weight:800;font-size:20px">How ZB MeetUP works</div><div class="small" style="opacity:.9;margin-top:6px">Meet colleagues, have great chats, earn points — in five simple steps.</div></div>
-    ${step(1,spinnerIcon(22),"Get matched","Each day, tap Spin to be paired with a colleague from a different part of the business. Matches are made so they work for on-site and remote people alike.")}
-    ${step(2,icon('chat',22),"Say hi & plan","When you both accept, a shared space opens with a chat. Agree a time and place together.")}
-    ${step(3,icon('users',22),"Meet up","A coffee, a walk, a shared break — or a quick Teams call if one of you is remote.")}
-    ${step(4,icon('camera',22),"Log it for points","Share a photo of your meetup and answer three quick discussion questions together to earn points. Photos go to the community wall; your answers stay private.")}
-    ${step(5,icon('trophy',22),"Climb & win","Points climb the leaderboard, and a panel picks the best ideas shared — with prizes for top contributors and top of the board.")}
-    <button class="btn" style="margin-top:6px" onclick="obGoCreate()">${icon('check',18)} Got it — create my account</button>
+  const STEPS=[
+    {n:1,ic:spinnerIcon(19),title:"Get matched",body:"Each day, tap Spin to be paired with a colleague from a different part of the business. Matches are made so they work for on-site and remote people alike.",note:""},
+    {n:2,ic:icon('chat',19),title:"Say hi & plan",body:"When you both accept, a shared space opens with a chat. Agree a time and place together.",note:""},
+    {n:3,ic:icon('users',19),title:"Meet up",body:"A coffee, a walk, a shared break — or a quick Teams call if one of you is remote.",note:""},
+    {n:4,ic:icon('camera',19),title:"Log it for points",body:"Share a photo of your meetup and answer three quick discussion questions together to earn points. Photos go to the community wall; your answers stay private.",note:"Answers stay private"},
+    {n:5,ic:icon('trophy',19),title:"Climb & win",body:"Points climb the leaderboard, and a panel picks the best ideas shared — with prizes for top contributors and top of the board.",note:"Prizes for the best ideas"},
+  ];
+  const rows=STEPS.map((s,i)=>`<div style="position:relative;display:flex;gap:16px;padding-bottom:20px;">
+    ${i<STEPS.length-1?`<div style="position:absolute;left:19px;top:44px;bottom:-2px;width:0;border-left:2px dashed #C6D8E6;"></div>`:''}
+    <div style="position:relative;z-index:2;flex:none;width:38px;height:38px;border-radius:999px;background:var(--zb-blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(0,121,189,.28),0 0 0 4px #F5F7FA;">${s.n}</div>
+    <div style="flex:1;min-width:0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 16px 15px;box-shadow:var(--shadow);">
+      <div style="display:flex;align-items:center;gap:11px;"><div style="flex:none;width:34px;height:34px;border-radius:11px;background:var(--zb-blue-soft);color:var(--zb-blue);display:flex;align-items:center;justify-content:center;">${s.ic}</div><div style="font-size:16.5px;font-weight:650;letter-spacing:-.2px;">${s.title}</div></div>
+      <div style="margin-top:10px;font-size:13.5px;line-height:1.55;color:var(--muted);">${s.body}</div>
+      ${s.note?`<div style="margin-top:11px;display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:var(--bg);border:1px solid var(--line);font-size:12px;font-weight:600;color:var(--zb-blue);">${icon('check',13)} ${s.note}</div>`:''}
+    </div>
+  </div>`).join('');
+  return `<div style="min-height:100vh;background:var(--bg);display:flex;flex-direction:column;">
+    <div style="position:sticky;top:0;z-index:20;display:flex;align-items:center;padding:16px 14px;background:rgba(245,247,250,.9);backdrop-filter:blur(12px);"><button type="button" onclick="obBackWelcome()" style="display:flex;align-items:center;gap:6px;padding:8px 12px 8px 8px;border:0;border-radius:999px;background:transparent;cursor:pointer;color:var(--ink);font-family:inherit;font-size:15px;font-weight:600;">${icon('back',18)}<span>Back</span></button></div>
+    <div style="padding:2px 16px 0;animation:riseIn .5s ease-out both;"><div style="position:relative;overflow:hidden;border-radius:20px;padding:30px 26px 28px;background:linear-gradient(170deg,#3E6EA8 0%,#2F5F9E 42%,#20416F 100%);box-shadow:var(--shadow-lg);color:#fff;"><div style="position:absolute;right:-52px;top:-52px;width:172px;height:172px;border-radius:999px;border:2px dashed rgba(255,255,255,.22);"></div><div style="position:relative;font-size:11.5px;font-weight:700;letter-spacing:1.6px;color:rgba(255,255,255,.72);">FIVE SIMPLE STEPS</div><div style="position:relative;margin-top:10px;font-size:27px;line-height:1.18;font-weight:700;letter-spacing:-.5px;">How ZB MeetUP works</div><div style="position:relative;margin-top:10px;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.82);max-width:300px;">Meet colleagues, have great chats, earn points — in five simple steps.</div></div></div>
+    <div style="padding:22px 16px 0;">${rows}</div>
+    <div style="flex:1;min-height:8px;"></div>
+    <div style="position:sticky;bottom:0;padding:14px 16px 22px;background:linear-gradient(to top,#F5F7FA 55%,rgba(245,247,250,0));">
+      <button type="button" onclick="obGoCreate()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">Got it — create my account</span></button>
+      <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:12px;">For Zimmer Biomet colleagues only</div>
+    </div>
   </div>`;
 }
 window.obGoCreate=function(){stopTagline();onboardStep=0;renderOnboard();};
@@ -374,16 +390,14 @@ function initA2HS(){
   try{
     var w=window, nav=(typeof navigator!=='undefined')?navigator:{userAgent:''};
     var standalone=(w.matchMedia&&w.matchMedia('(display-mode: standalone)').matches)||nav.standalone===true;
-    if(standalone)return;
-    var dismissed=false; try{dismissed=localStorage.getItem('zb_a2hs')==='1';}catch(e){}
-    if(dismissed)return;
     var ua=nav.userAgent||''; var isIOS=/iphone|ipad|ipod/i.test(ua); var isAndroid=/android/i.test(ua);
-    if(!isIOS&&!isAndroid)return; // desktop: skip
+    window._a2hsMobile=(!standalone)&&(isIOS||isAndroid);   // drives the "Save as app" chip
+    if(!window._a2hsMobile)return; // desktop / already installed: no hint, no chip
     var deferred=null;
     window._a2hsClose=function(){var b=document.getElementById('a2hs');if(b&&b.remove)b.remove();try{localStorage.setItem('zb_a2hs','1');}catch(e){}};
     window._a2hsInstall=function(){if(deferred){deferred.prompt();if(deferred.userChoice&&deferred.userChoice.finally)deferred.userChoice.finally(window._a2hsClose);}else{window._a2hsClose();}};
     function iosShare(){return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0079BD" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M8 7l4-4 4 4"/><path d="M6 12v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6"/></svg>';}
-    function show(){
+    window.a2hsShow=function(){     // callable any time (from the chip, or auto on first visit)
       if(document.getElementById('a2hs'))return;
       var b=document.createElement('div'); b.id='a2hs'; b.className='a2hs';
       var html='<div class="a2hs-ic"><img src="assets/icon-192.png" alt=""></div>';
@@ -396,9 +410,11 @@ function initA2HS(){
         html+='<button class="btn sm" style="width:auto" onclick="_a2hsInstall()">Add</button><button class="a2hs-x" onclick="_a2hsClose()">'+icon('x',18)+'</button>';
       }
       b.innerHTML=html; document.body.appendChild(b);
-    }
-    if(isAndroid){ w.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;show();}); setTimeout(function(){if(!document.getElementById('a2hs'))show();},4000); }
-    else { setTimeout(show,2500); }
+    };
+    if(isAndroid) w.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;});
+    // auto-show once (unless previously dismissed) — the chip brings it back afterwards
+    var dismissed=false; try{dismissed=localStorage.getItem('zb_a2hs')==='1';}catch(e){}
+    if(!dismissed) setTimeout(window.a2hsShow, isAndroid?3500:2500);
   }catch(e){}
 }
 

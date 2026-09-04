@@ -30,6 +30,7 @@ body{font-family:var(--font);background:#e9edf2;color:var(--ink);-webkit-font-sm
 @keyframes dashFlow{from{stroke-dashoffset:0}to{stroke-dashoffset:-24}}
 @keyframes sparkPulse{0%,100%{transform:scale(1);box-shadow:0 6px 18px rgba(0,121,189,.26),0 0 0 rgba(0,121,189,.30)}50%{transform:scale(1.09);box-shadow:0 8px 22px rgba(0,121,189,.3),0 0 0 14px rgba(0,121,189,0)}}
 @keyframes a2up{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes riseIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .a2hs{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;width:calc(100% - 24px);max-width:436px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;z-index:200;animation:fade .3s ease}
 .a2hs .a2hs-ic img{width:46px;height:46px;border-radius:12px;display:block}
 .a2hs .a2hs-txt{flex:1;min-width:0}

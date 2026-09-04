@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
   <!-- Bump ?v= on every deploy so phones fetch fresh (no stale cache). -->
-  <link rel="stylesheet" href="css/styles.css?v=3">
+  <link rel="stylesheet" href="css/styles.css?v=4">
 </head>
 <body>
   <div id="app">
@@ -23,21 +23,21 @@
   <div class="toast" id="toast"></div>
 
   <!-- Config first (sets ZB_LIVE) -->
-  <script src="js/firebase-config.js?v=3"></script>
+  <script src="js/firebase-config.js?v=4"></script>
 
   <!-- Storage layer: Firebase (live) when keys are present, else the local demo store -->
   <script>
     (function () {
       var FB = "https://www.gstatic.com/firebasejs/10.12.2/";
       var tags = window.ZB_LIVE
-        ? [FB + "firebase-app-compat.js", FB + "firebase-auth-compat.js", FB + "firebase-firestore-compat.js", "js/store-firebase.js?v=3"]
-        : ["js/store.js?v=3"];
+        ? [FB + "firebase-app-compat.js", FB + "firebase-auth-compat.js", FB + "firebase-firestore-compat.js", "js/store-firebase.js?v=4"]
+        : ["js/store.js?v=4"];
       tags.forEach(function (src) { document.write('<script src="' + src + '"><\/script>'); });
     })();
   </script>
 
   <!-- App UI -->
-  <script src="js/app.js?v=3"></script>
+  <script src="js/app.js?v=4"></script>
   <script>
     (function () {
       function boot() { window.ZB_BOOT && window.ZB_BOOT(); }
