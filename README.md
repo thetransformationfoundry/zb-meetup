@@ -33,4 +33,8 @@ Firestore)**, protected by security rules — never in this repo. The Firebase w
 code is public by design (a project address, not a secret); access is governed by the rules. The
 employee list is never committed — colleagues sign themselves up.
 
-Made with care for the ZB community. ⚽ → 🤝
+## Credits
+
+Designed and developed by The Transformation Foundry — thetransformationfoundry.nl — for Zimmer Biomet.
+
+Made with care for the ZB community. 🤝
