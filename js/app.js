@@ -51,6 +51,33 @@ function av(p,cls=''){const bg=p.color||'#cfd8e3';const label=p.photo?'':inits(p
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2000);}
 function wcLabel(w){return w==='on-site'?'On-site':w==='remote'?'Fully remote':'Partially remote';}
 function mention(txt){return (txt||'').replace(/@([A-Za-z]+)/g,'<span class="ment">@$1</span>');}
+// Pick an image (camera or library on mobile), crop-to-square + downscale to a small base64 JPEG.
+function pickImage(cb){
+  try{
+    var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+    inp.style.position='fixed'; inp.style.left='-9999px';
+    function cleanup(){ if(inp&&inp.remove)inp.remove(); }
+    inp.onchange=function(){
+      var f=inp.files&&inp.files[0]; if(!f){cleanup();return;}
+      var fr=new FileReader();
+      fr.onload=function(){
+        var img=new Image();
+        img.onload=function(){
+          var s=256, c=document.createElement('canvas'); c.width=s; c.height=s; var ctx=c.getContext('2d');
+          var min=Math.min(img.width,img.height), sx=(img.width-min)/2, sy=(img.height-min)/2;
+          ctx.drawImage(img, sx,sy,min,min, 0,0,s,s);
+          var data; try{ data=c.toDataURL('image/jpeg',0.82); }catch(e){ data=null; }
+          cleanup(); if(data) cb(data); else toast("Couldn't process that image");
+        };
+        img.onerror=function(){cleanup();toast("Couldn't read that image");};
+        img.src=fr.result;
+      };
+      fr.onerror=function(){cleanup();toast("Couldn't read that file");};
+      fr.readAsDataURL(f);
+    };
+    document.body.appendChild(inp); inp.click();
+  }catch(e){ toast("Photo picker unavailable"); }
+}
 
 /* ---------------- state ---------------- */
 let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],respins:2,admin:false,leaderboard:[],bugs:[]};
@@ -219,7 +246,10 @@ function renderOnboard(){
     body=`<h2>Where do you work?</h2><p class="sub">This helps us match you with the right colleagues.</p><div class="card"><label class="small" style="font-weight:700">Work setup</label><select class="input" id="ob-wc" style="margin:6px 0 14px"><option value="warehouse">GSSC Warehouse — On-site (floor)</option><option value="on-site">On-site (office / desk)</option><option value="partial" selected>Partially remote</option><option value="remote">Fully remote</option></select><label class="small" style="font-weight:700">Your role</label><select class="input" id="ob-role" style="margin-top:6px">${ROLES.map(r=>`<option ${r==='IT Sr Analyst'?'selected':''}>${r}</option>`).join('')}</select></div>`;
     cta=`<button class="btn" onclick="obWork()">Continue</button><p class="muted small center" style="margin-top:10px">Warehouse/floor colleagues are matched only with on-site colleagues.</p>`;
   } else if(onboardStep===3){
-    body=`<h2>Add a photo</h2><p class="sub">Or keep your initials — totally fine.</p><div class="center"><span class="avatar lg" style="margin:0 auto;background:${OB.color}">${inits(OB.name||'You')}</span></div><div class="card" style="margin-top:16px"><span class="small" style="font-weight:700">Pick an avatar colour</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="obColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${OB.color===c?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div>`;
+    body=`<h2>Add a photo</h2><p class="sub">Take a photo or choose one — or keep your initials.</p>
+      <div class="center"><span class="avatar lg" style="margin:0 auto;background:${OB.color}">${OB.photo?`<img src="${OB.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(OB.name||'You')}</span></div>
+      <button class="btn secondary" style="margin-top:16px" onclick="obPickPhoto()">${icon('camera',18)} ${OB.photo?'Change photo':'Add a photo'}</button>
+      <div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">…or pick an avatar colour</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="obColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${(OB.color===c&&!OB.photo)?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div>`;
     cta=`<button class="btn" onclick="obStep(4)">Continue</button>`;
   } else {
     body=`<h2>One quick thing</h2><p class="sub">Your consent, so the app can work.</p><div class="card small" style="line-height:1.5">ZB MeetUP stores your profile, meetup <b>photos</b> and question <b>answers</b> so the app works. Meetup photos appear on the community wall; your answers stay <b>private</b> (visible only to admins). You can delete your account any time.</div><label class="row" style="gap:10px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ob-consent" style="width:20px;height:20px"> <span class="small">I understand and consent (GDPR).</span></label>`;
@@ -228,7 +258,8 @@ function renderOnboard(){
   $("#screen").innerHTML=`<div class="ob"><div>${dots}${body}</div><div class="ob-cta">${cta}</div></div>`;
 }
 window.obStep=n=>{onboardStep=n;renderOnboard();};
-window.obColor=c=>{OB.color=c;OB.hasPhoto=false;renderOnboard();};
+window.obColor=c=>{OB.color=c;OB.hasPhoto=false;OB.photo=null;renderOnboard();};
+window.obPickPhoto=function(){pickImage(function(d){OB.photo=d;OB.hasPhoto=true;renderOnboard();});};
 window.obCreate=function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e){toast("Please enter your email");return;}if((p||'').length<6){toast("Password must be at least 6 characters");return;}OB.email=e;OB.pass=p;onboardStep=1;renderOnboard();};
 window.obSignIn=async function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e||!p){toast("Enter your email and password");return;}try{await S.signIn(e,p);}catch(err){toast("Sign-in failed — check your details or tap Create account.");}};
 window.obForgot=async function(){const e=$("#ob-email").value.trim();if(!e){toast("Enter your email first");return;}try{await S.resetPassword(e);toast("If an account exists, we've sent a reset link.");}catch(err){toast("Couldn't send reset — check the email.");}};
@@ -240,7 +271,7 @@ window.finishOnboard=async function(){
   authBusy=true;
   try{ if(!S.currentUser()) await S.signUp(OB.email,OB.pass); }
   catch(err){ authBusy=false; toast(err&&/in-use/.test(err.code||'')?"That email already has an account — tap sign in.":"Couldn't create the account."); return; }
-  await S.saveMe({name:OB.name,email:OB.email,color:OB.color,photo:OB.hasPhoto?OB.color:null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now()});
+  await S.saveMe({name:OB.name,email:OB.email,color:OB.color,photo:OB.photo||null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now()});
   await S.welcome();
   authBusy=false; mode="app"; view="spin"; await refresh();
 };
@@ -251,14 +282,14 @@ const SHEEN=`<span style="position:absolute;top:-40%;bottom:-40%;left:0;width:46
 function viewSpin(){
   const idle=!current;
   const rule=C.me.floor?"You're a warehouse/floor colleague, so you'll match with other on-site colleagues.":"You're desk-based, so you can match with on-site and remote colleagues.";
-  const faceInner=idle?`<span style="display:inline-flex;animation:ringSpin 3.6s linear infinite">${spinnerIcon(54)}</span>`:inits(current.name);
+  const faceInner=idle?`<span style="display:inline-flex;animation:ringSpin 3.6s linear infinite">${spinnerIcon(54)}</span>`:(current.photo?`<img src="${current.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:999px">`:inits(current.name));
   const faceBg=idle?"#3E6EA8":current.color;
   return `<div style="display:flex;flex-direction:column;min-height:calc(100vh - 150px)">
     <div style="text-align:center;font-size:11.5px;font-weight:700;letter-spacing:1.6px;color:#7C8798;">TODAY'S MATCH</div>
     <div style="text-align:center;font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-.5px;margin-top:8px;">${idle?'Spin to meet someone new':'You matched!'}</div>
     <div style="display:flex;justify-content:center;margin:22px 0 -86px;position:relative;z-index:5;"><div style="position:relative;width:172px;height:172px;display:flex;align-items:center;justify-content:center;"><div style="position:absolute;inset:0;border-radius:999px;border:2px dashed #A9C6DC;animation:ringSpin 26s linear infinite;"></div><div id="spinFace" style="width:112px;height:112px;border-radius:999px;border:3px solid #F5F7FA;box-shadow:0 6px 20px rgba(16,24,40,.18);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:700;color:#fff;background-color:${faceBg};">${faceInner}</div></div></div>
     <div style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;border-radius:20px;padding:100px 20px 18px;background:linear-gradient(170deg,#3E6EA8 0%,#2F5F9E 42%,#20416F 100%);box-shadow:var(--shadow-lg);color:#fff;min-height:520px;">
-      ${idle?`<div style="text-align:center;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.82);margin:0 auto;max-width:300px;">Tap the button below and we'll find you a colleague to grab a coffee or a call with.</div>`:`<div style="margin-top:18px;background:#fff;color:var(--ink);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(16,24,40,.18);animation:popIn .34s cubic-bezier(.2,.9,.3,1.2) both;"><div style="display:flex;align-items:center;gap:12px;"><div style="width:44px;height:44px;flex:none;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;background:${current.color};">${inits(current.name)}</div><div style="min-width:0;"><div style="font-size:16px;font-weight:650;">${current.name}</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px;">${current.role} · ${current.dept}</div></div><div style="margin-left:auto;flex:none;padding:4px 9px;border-radius:999px;background:#F5F7FA;border:1px solid #ECEFF3;font-size:11px;font-weight:600;color:var(--muted);">${wcLabel(current.workClass)}</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #ECEFF3;font-size:13.5px;font-weight:600;color:var(--zb-blue);">Suggested: ${current._type}</div></div>`}
+      ${idle?`<div style="text-align:center;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.82);margin:0 auto;max-width:300px;">Tap the button below and we'll find you a colleague to grab a coffee or a call with.</div>`:`<div style="margin-top:18px;background:#fff;color:var(--ink);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(16,24,40,.18);animation:popIn .34s cubic-bezier(.2,.9,.3,1.2) both;"><div style="display:flex;align-items:center;gap:12px;"><div style="width:44px;height:44px;flex:none;border-radius:999px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;background:${current.color};">${current.photo?`<img src="${current.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(current.name)}</div><div style="min-width:0;"><div style="font-size:16px;font-weight:650;">${current.name}</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px;">${current.role} · ${current.dept}</div></div><div style="margin-left:auto;flex:none;padding:4px 9px;border-radius:999px;background:#F5F7FA;border:1px solid #ECEFF3;font-size:11px;font-weight:600;color:var(--muted);">${wcLabel(current.workClass)}</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #ECEFF3;font-size:13.5px;font-weight:600;color:var(--zb-blue);">Suggested: ${current._type}</div></div>`}
       <div style="flex:1;min-height:14px;"></div>${reelHTML()}
     </div>
     ${idle?`<button type="button" onclick="doSpin()" style="position:relative;overflow:hidden;margin-top:14px;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span id="spinLabel" style="position:relative;">Spin the wheel</span></button>`:`<div style="margin-top:14px;display:flex;flex-direction:column;gap:9px;"><button type="button" onclick="sendReq()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">Send request to ${current.first}</span></button><div style="display:flex;gap:9px;"><button type="button" onclick="doSpin()" ${C.respins<=0?'disabled':''} style="flex:1;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px;border-radius:12px;background:#fff;border:1px solid #ECEFF3;color:var(--muted);font-family:inherit;font-size:14px;font-weight:600;${C.respins<=0?'opacity:.5;cursor:not-allowed;':''}">${icon('refresh',15)}<span>Spin again (${C.respins})</span></button><button type="button" onclick="skip()" style="flex:1;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px;border-radius:12px;background:#fff;border:1px solid #ECEFF3;color:var(--muted);font-family:inherit;font-size:14px;font-weight:600;">${icon('x',14)}<span>Skip</span></button></div></div>`}
@@ -335,14 +366,14 @@ window.addComment=async function(id){const inp=$("#cin"+id);const v=(inp.value||
 /* ---------------- RANKS ---------------- */
 function viewRanks(){
   let h=`<h2>Leaderboard</h2><p class="sub">Getting to know colleagues, one meetup at a time.</p><div class="card prize"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${icon('trophy',14)} Prizes · winners announced end of October 2026</span><p class="small" style="margin:11px 0 0;line-height:1.5;opacity:.96">Every meetup earns you points — but there's more. A panel of <b>CB management judges</b> will pick the best <b>ideas</b> shared in the discussions. Win a <b>cash prize for the best idea</b>, or a prize for <b>climbing the leaderboard</b>. Get to know your colleagues, brainstorm some fun ideas — and help make an impact on people's lives.</p><div class="prizerow"><div class="prizecard"><div class="pk">BEST IDEA</div><div class="pv">Cash prize</div></div><div class="prizecard"><div class="pk">TOP OF BOARD</div><div class="pv">Prize</div></div><div class="prizecard"><div class="pk">RUNNER-UP</div><div class="pv">Prize</div></div></div></div><div class="card">`;
-  C.leaderboard.slice(0,15).forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${inits(r.name)}</span><div class="nm">${r.name}</div><div class="p">${r.points}</div></div>`;});
+  C.leaderboard.slice(0,15).forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${r.photo?`<img src="${r.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(r.name)}</span><div class="nm">${r.name}</div><div class="p">${r.points}</div></div>`;});
   return h+`</div>`;
 }
 
 /* ---------------- PROFILE ---------------- */
 function viewProfile(){
   const me=C.me;
-  return `<h2>You</h2><p class="sub">Manage your profile and account.</p><div class="card center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${inits(me.name||'You')}</span><div style="font-weight:800;font-size:18px;margin-top:12px">${me.name||'You'}</div><div class="muted small">${me.role} · ${me.dept}</div><div class="muted small">${me.email||''}</div><div style="margin-top:10px"><span class="chip">${me.points} pts</span> <span class="chip grey">${history().length} meetups</span></div></div>
+  return `<h2>You</h2><p class="sub">Manage your profile and account.</p><div class="card center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span><div style="font-weight:800;font-size:18px;margin-top:12px">${me.name||'You'}</div><div class="muted small">${me.role} · ${me.dept}</div><div class="muted small">${me.email||''}</div><div style="margin-top:10px"><span class="chip">${me.points} pts</span> <span class="chip grey">${history().length} meetups</span></div></div>
    <button class="btn secondary" onclick="go('editprofile')">${icon('pencil',18)} Edit profile &amp; avatar</button>
    <button class="btn secondary" style="margin-top:10px" onclick="go('bug')">${icon('bug',18)} Report a bug</button>
    ${C.admin?`<button class="btn secondary" style="margin-top:10px" onclick="go('admin')">${icon('chart',18)} Admin dashboard</button>`:''}
@@ -350,9 +381,10 @@ function viewProfile(){
 }
 function viewEditProfile(){
   const me=C.me;
-  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Edit profile</h2><p class="sub">Update how colleagues see you.</p><div class="center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${inits(me.name||'You')}</span></div><div class="card" style="margin-top:14px"><span class="small" style="font-weight:700">Avatar colour</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="epColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${me.color===c?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div><div class="card"><label class="small" style="font-weight:700">Name</label><input class="input" id="ep-name" value="${me.name}" style="margin-top:6px"></div><button class="btn" onclick="saveProfile()">${icon('check',18)} Save changes</button>`;
+  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Edit profile</h2><p class="sub">Update how colleagues see you.</p><div class="center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span></div><button class="btn secondary" style="margin-top:14px" onclick="epPickPhoto()">${icon('camera',18)} ${me.photo?'Change photo':'Add a photo'}</button><div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">…or pick an avatar colour</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="epColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${me.color===c?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div><div class="card"><label class="small" style="font-weight:700">Name</label><input class="input" id="ep-name" value="${me.name}" style="margin-top:6px"></div><button class="btn" onclick="saveProfile()">${icon('check',18)} Save changes</button>`;
 }
 window.epColor=async function(c){await S.saveMe({color:c,photo:null});await refresh();};
+window.epPickPhoto=function(){pickImage(async function(d){await S.saveMe({photo:d});await refresh();toast("Photo updated");});};
 window.saveProfile=async function(){const n=$("#ep-name").value.trim();await S.saveMe(n?{name:n}:{});toast("Profile saved");view='profile';await refresh();};
 window.signOut=async function(){toast("Signed out");await S.signOut();current=null;OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};onboardStep="welcome";mode="onboarding";renderOnboard();};
 window.askDelete=function(){$("#screen").innerHTML=`<h2>Delete your account?</h2><p class="sub">This permanently removes your profile, photos and answers. This can't be undone.</p><div class="card small" style="line-height:1.5">In line with GDPR this deletes your account and your data.</div><button class="btn danger" onclick="doDelete()">${icon('trash',18)} Yes, delete my account</button><button class="btn ghost" style="margin-top:10px" onclick="go('profile')">Cancel</button>`;};
