@@ -36,7 +36,8 @@ matches/{matchId}
   meetupType: string
   questionIds: [id, id, id]
   answers: { <uid>: {q0,q1,q2}, <uid>: {...} }   // PRIVATE (participants + admins only)
-  photoBy: { <uid>: base64 | null }
+  photo: base64 | null                 // ONE shared photo per meetup (v=7); either participant
+                                       // may set or replace it. Replaced the per-uid photoBy map.
   pointsAwarded: { <uid>: number }
   messages: [ { by: uid, text, at } ]  // 1:1 coordination chat
   createdAt, acceptedAt, completedAt, remindedAt
