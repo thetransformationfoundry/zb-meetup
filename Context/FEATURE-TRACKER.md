@@ -11,13 +11,13 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Add to Home Screen hint + "Save as app" chip | ✅ | iOS/Android; mobile only |
 | Daily **Spin** + match (floor-worker rule, 2 respins/day) | ✅ | |
 | Match request → accept/decline (incoming requests) | ✅ | |
-| Shared meetup space: 1:1 chat, photo flag, 3 tiered questions, complete (+10) | ✅ | Chat + notifications |
+| Shared meetup space: 1:1 chat, **real shared photo**, 3 tiered questions, complete (+10) | ✅ | Chat + notifications; photo per BRIEF-001 (v=7) |
 | Community wall (seed-then-replace, hearts, comments, @mention) | ✅ | Seed posts client-side |
 | Leaderboard + prize banner | ✅ | Judged idea prize + climb prize |
 | Notifications (bell + deep-links) | ✅ | |
 | Profile / edit / **real photo** / sign out / delete account | ✅ | |
 | Admin dashboard (stats, question bank add, bug reports) | ✅ | |
-| Real photo capture on **meetup completion** (→ wall) | 📋 | BRIEF-001 |
+| Real photo capture on **meetup completion** (→ wall) | 🔨 | BRIEF-001 built (v=7) on `feat/meetup-photo-capture` — one shared photo per meetup; awaiting Sean's test + merge |
 | Real ~50-question bank (Donnae) + tiering | 💡 | Needs Donnae's list |
 | Admin: live question-count analytics + Excel/CSV export | 💡 | |
 | 3-day "complete your meetup" reminder (scheduled Cloud Function) | 💡 | Needs Blaze |

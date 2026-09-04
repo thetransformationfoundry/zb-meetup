@@ -96,7 +96,7 @@
     },
     useRespin() { const d = new Date().toISOString().slice(0,10); if (RESPINS.date !== d) RESPINS = { date:d, used:0 }; RESPINS.used++; return P(true); },
     createMatch(other, type, questions) {
-      const m = { id:"m"+(mid++), a:"me", b:other.uid, person:other, status:"requested", type, questionIds:questions.map(q=>q.id||q.t), questions, answers:["","",""], photo:false, messages:[], createdAt:now() };
+      const m = { id:"m"+(mid++), a:"me", b:other.uid, person:other, status:"requested", type, questionIds:questions.map(q=>q.id||q.t), questions, answers:["","",""], photo:null, messages:[], createdAt:now() };
       MATCHES.push(m);
       // DEMO: simulate the other person accepting shortly after
       setTimeout(() => {
@@ -120,7 +120,8 @@
       }, 1400);
       return P(true);
     },
-    setMatchPhoto(id, photo) { const m = MATCHES.find(x=>x.id===id); if (m) m.photo = photo || true; return P(true); },
+    // One shared photo per meetup — either participant may set or replace it.
+    setMatchPhoto(id, photo) { const m = MATCHES.find(x=>x.id===id); if (m) m.photo = photo || null; return P(true); },
     setMatchAnswers(id, answers) { const m = MATCHES.find(x=>x.id===id); if (m) m.answers = answers; return P(true); },
     completeMatch(id, post) {
       const m = MATCHES.find(x=>x.id===id); if (!m) return P(false);
@@ -129,7 +130,8 @@
       const u = USERS.find(x=>x.uid===m.person.uid); if (u) u.points += 10;
       m.questions.forEach(q => { const b = QUESTIONS.find(x => x.text === (q.t||q.text)); if (b) b.count++; });
       m.completedAt = now();  // keep the match (status=completed) for history + no-repeat matching
-      POSTS.unshift({ id:"p"+(wid++), seed:false, names:post.names, scene:post.scene, photo:post.photo||null, hearts:0, liked:false, comments:[] });
+      const shared = typeof m.photo === "string" ? m.photo : null;
+      POSTS.unshift({ id:"p"+(wid++), seed:false, names:post.names, scene:post.scene, photo:post.photo||shared||null, hearts:0, liked:false, comments:[] });
       return P(true);
     },
 

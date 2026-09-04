@@ -6,7 +6,8 @@
 const fs = require("fs");
 
 function El(){return new Proxy({_html:"",_txt:"",value:"",checked:true,disabled:false,style:{},files:[],
-  classList:{add(){},remove(){},toggle(){}},remove(){},click(){},appendChild(){},
+  classList:{add(){},remove(){},toggle(){}},remove(){},appendChild(){},
+  click(){ if(this.onchange){ this.files=[{name:"meetup.jpg",type:"image/jpeg"}]; this.onchange(); } },
   getContext(){return {drawImage(){}};},toDataURL(){return "data:image/jpeg;base64,X";}},{
   get(t,k){if(k==="innerHTML")return t._html;if(k==="textContent")return t._txt;if(k in t)return t[k];return function(){};},
   set(t,k,v){if(k==="innerHTML")t._html=v;else if(k==="textContent")t._txt=v;else t[k]=v;return true;}});}
@@ -15,6 +16,10 @@ const document = { querySelector:s=>store[s]||(store[s]=El()), getElementById:id
   createElement:()=>El(), body:{appendChild(){}} };
 const window = new Proxy({}, { set(t,k,v){t[k]=v;global[k]=v;return true;}, get(t,k){return t[k];} });
 global.document = document; global.window = window;
+// pickImage(): FileReader -> Image -> canvas.toDataURL. Synchronous stubs.
+global.FileReader = function(){ this.readAsDataURL = () => { this.result = "data:image/jpeg;base64,SRC"; this.onload && this.onload(); }; };
+global.Image = function(){ const self = this; this.width = 800; this.height = 600;
+  Object.defineProperty(this, "src", { set(){ self.onload && self.onload(); } }); };
 let depth = 0;
 global.setTimeout = fn => { if (depth++ > 9000) return 0; fn(); return 0; };
 global.setInterval = undefined; global.clearInterval = ()=>{}; global.clearTimeout = ()=>{};
@@ -46,10 +51,14 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
   const id = (await window.ZB_STORE.myMatches())[0].id;
   window.go("meet:"+id);
   await window.addPhoto(id);
+  const withPhoto = (await window.ZB_STORE.myMatches()).find(x => x.id === id);
+  chk("meetup photo stored as a base64 string", typeof withPhoto.photo === "string" && /^data:image\//.test(withPhoto.photo));
   await window.ans(id,0,"a"); await window.ans(id,1,"b"); await window.ans(id,2,"c");
   await window.complete(id);
   chk("completes meetup (+10 pts)", /10 pts/.test(bar()));
   window.go("wall");  chk("wall renders + real post", /Community wall/.test(scr()) && /Test User & /.test(scr()));
+  const real = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
+  chk("one wall post, carrying the real photo", real.length === 1 && /^data:image\//.test(real[0].photo || ""));
   window.go("ranks"); chk("leaderboard + prizes", /CB management judges/.test(scr()));
   window.go("profile"); chk("profile", /Manage your profile/.test(scr()));
   window.go("admin"); chk("admin dashboard", /Admin dashboard/.test(scr()));

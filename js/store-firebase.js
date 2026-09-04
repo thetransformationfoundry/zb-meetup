@@ -59,13 +59,23 @@ function attachListeners() {
 }
 function detachListeners() { _unsub.forEach(u => { try { u(); } catch(e){} }); _unsub = []; }
 
+// One shared photo per meetup, stored as a base64 string on the match doc (`photo`).
+// Legacy fallback: matches created before v=7 kept a per-uid `photos` map (a flag or a
+// base64) — read the first value so in-flight meetups don't lose their completed photo step.
+function matchPhoto(d) {
+  if (typeof d.photo === "string" && d.photo) return d.photo;
+  const legacy = d.photos ? Object.keys(d.photos).map(k => d.photos[k]).filter(Boolean) : [];
+  const str = legacy.filter(v => typeof v === "string")[0];
+  return str || (legacy.length ? true : null);
+}
+
 function mapMatch(id, d, uid) {
   const other = d.a === uid ? d.bProfile : d.aProfile;
   const myAns = (d.answers && d.answers[uid]) || ["","",""];
   const msgs = (d.messages || []).map(m => ({ by: m.by === uid ? "me" : "them", text:m.text }));
   const unread = Math.max(0, msgs.filter(m => m.by === "them").length - ((d.reads && d.reads[uid]) || 0));
   return { id, a:d.a, b:d.b, status:d.status, type:d.type, questions:d.questions || [], person:other,
-           answers:myAns.slice(), photo: !!(d.photos && d.photos[uid]), messages:msgs, unread,
+           answers:myAns.slice(), photo: matchPhoto(d), messages:msgs, unread,
            incoming: (d.b === uid && d.status === "requested") };
 }
 
@@ -135,7 +145,7 @@ const ZB_STORE = {
   async createMatch(other, type, questions) {
     const uid = uidNow(); const me = cachedMe || (await this.getMe());
     const doc = { a:uid, b:other.uid, aProfile:profileToPublic(Object.assign({ uid }, me)), bProfile:profileToPublic(other),
-                  status:"requested", type, questions, answers:{}, photos:{}, messages:[], reads:{}, createdAt:nowTs() };
+                  status:"requested", type, questions, answers:{}, photo:null, messages:[], reads:{}, createdAt:nowTs() };
     const ref = await db.collection("matches").add(doc);
     await addNotif(other.uid, { type:"request", icon:"users", text:(me.name||"A colleague")+" wants to meet you — open Meetups to accept.", target:"meetups" });
     return ref.id;
@@ -158,7 +168,8 @@ const ZB_STORE = {
     return true;
   },
   async clearMatchUnread(id) { const uid = uidNow(); const ref = db.collection("matches").doc(id); const d = (await ref.get()).data(); if (d) await ref.update({ ["reads."+uid]: (d.messages||[]).length }); return true; },
-  async setMatchPhoto(id, photo) { const uid = uidNow(); await db.collection("matches").doc(id).update({ ["photos."+uid]: photo || true }); return true; },
+  // One shared photo per meetup — either participant may set or replace it.
+  async setMatchPhoto(id, photo) { await db.collection("matches").doc(id).update({ photo: photo || null }); return true; },
   async setMatchAnswers(id, answers) { const uid = uidNow(); await db.collection("matches").doc(id).update({ ["answers."+uid]: answers }); return true; },
   async completeMatch(id, post) {
     const uid = uidNow(); const ref = db.collection("matches").doc(id);
@@ -168,7 +179,8 @@ const ZB_STORE = {
       tx.update(db.collection("users").doc(d.a), { points: FV.increment(10) });
       tx.update(db.collection("users").doc(d.b), { points: FV.increment(10) });
       const pref = db.collection("posts").doc();
-      tx.set(pref, { authorUid:uid, matchId:id, names:post.names, scene:post.scene, photo:post.photo||null, hearts:0, heartedBy:[], comments:[], createdAt:nowTs() });
+      const shared = typeof d.photo === "string" ? d.photo : null;
+      tx.set(pref, { authorUid:uid, matchId:id, names:post.names, scene:post.scene, photo:post.photo||shared||null, hearts:0, heartedBy:[], comments:[], createdAt:nowTs() });
     });
     cache["users"] = null;
     return true;
