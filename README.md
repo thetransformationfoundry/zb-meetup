@@ -35,6 +35,6 @@ employee list is never committed — colleagues sign themselves up.
 
 ## Credits
 
-Designed and developed by The Transformation Foundry — thetransformationfoundry.nl — for Zimmer Biomet.
+Designed and developed by **The Transformation Foundry** — [thetransformationfoundry.nl](https://thetransformationfoundry.nl) — for Zimmer Biomet.
 
 Made with care for the ZB community. 🤝
