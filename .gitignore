@@ -1,0 +1,6 @@
+# macOS
+.DS_Store
+
+# Editor / OS scraps
+*.swp
+Thumbs.db
