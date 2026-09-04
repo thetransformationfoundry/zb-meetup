@@ -84,6 +84,8 @@ async function refresh(){
 /* ---------------- render / router ---------------- */
 function render(){
   if(mode==="onboarding"){renderOnboard();return;}
+  stopTagline();
+  $("#appbar").style.display='';$("#tabbar").style.display='';$("#screen").style.padding='';
   S.setViewing && S.setViewing(view);
   renderAppbar();renderTabs();
   const s=$("#screen");
@@ -110,8 +112,83 @@ function renderTabs(){
   $("#tabbar").innerHTML=tabs.map(([id,ic,lb])=>{const b=id==='meetups'&&reqB?`<span class="badge" style="margin-left:4px">${reqB}</span>`:'';const ico=ic==='spinner'?spinnerIcon(21):icon(ic,22);return `<button class="${root===id?'active':''}" onclick="go('${id}')">${ico}<span>${lb}${b}</span></button>`;}).join("");
 }
 
+/* ---------------- welcome / splash ---------------- */
+const ZB_LOGO_WHITE=`<svg viewBox="0 0 199 36" height="24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block"><path d="M43.252 24.0777L51.4668 11.3H43.9816V9.85922H53.9001V10.124L45.9094 22.8611H53.7797V24.3629H43.2538V24.0777H43.252ZM56.6779 9.86107H58.4427V23.3129V24.3629H56.6779V9.86107ZM62.1927 9.86107H64.6464L69.1297 21.1592L73.4705 9.86107H75.9038V24.3629H74.139V12.1537L69.3316 24.3629H68.7834L63.8149 12.1537V24.3629H62.1927V9.86107ZM79.5519 9.86107H82.0057L86.4871 21.1592L90.8279 9.86107H93.2612V24.3629H91.4964V12.1537L86.689 24.3629H86.1408L81.1723 12.1537V24.3629H79.5501V9.86107H79.5519ZM96.9112 9.86107H105.369V11.3018H98.676V16.2296H104.07V17.6703H98.676V22.9222H105.733V24.3629H96.9112V9.86107ZM108.389 9.86107H112.75C115.528 9.86107 117.82 10.9963 117.82 13.8981V13.9796C117.82 16.3722 116.219 17.5481 114.23 17.9351L118.67 24.3648H116.704L112.383 18.0574H110.152V24.3648H108.387V9.86107H108.389ZM112.872 16.6555C114.941 16.6555 116.056 15.7629 116.056 13.9777V13.8963C116.056 11.9296 114.839 11.2796 112.872 11.2796H110.154V16.6537H112.872V16.6555ZM126.498 9.86107H130.859C133.556 9.86107 135.524 10.7537 135.524 13.6129V13.6944C135.524 15.0129 134.996 16.1888 133.333 16.7574C135.443 17.2648 136.233 18.3388 136.233 20.2259V20.3074C136.233 23.0463 134.367 24.3648 131.467 24.3648H126.498V9.86107ZM130.859 16.1888C132.989 16.1888 133.8 15.4185 133.8 13.6333V13.5518C133.8 11.9092 132.848 11.2388 130.819 11.2388H128.222V16.187H130.859V16.1888ZM131.428 22.9833C133.537 22.9833 134.511 22.05 134.511 20.287V20.2055C134.511 18.4203 133.517 17.5685 131.185 17.5685H128.222V22.9833H131.428ZM139.215 9.86107H140.98V23.1111V24.3629H139.215V9.86107ZM144.02 17.2037V17.0407C144.02 12.924 146.9 9.67773 151.159 9.67773C155.419 9.67773 158.237 12.9222 158.237 17V17.1629C158.237 21.2592 155.419 24.5463 151.2 24.5463C146.92 24.5444 144.02 21.2592 144.02 17.2037ZM156.413 17.1425V16.9796C156.413 13.7351 154.506 11.0981 151.159 11.0981C147.793 11.0981 145.846 13.5722 145.846 17.0203V17.1814C145.846 20.6907 148.178 23.0833 151.2 23.0833C154.424 23.0851 156.413 20.6518 156.413 17.1425ZM161.176 9.86107H163.63L168.111 21.1592L172.452 9.86107H174.885V24.3629H173.12V12.1537L168.313 24.3629H167.765L162.796 12.1537V24.3629H161.174V9.86107H161.176ZM178.535 9.86107H186.993V11.3018H180.3V16.2296H185.695V17.6703H180.3V22.9222H187.357V24.3629H178.535V9.86107ZM192.995 11.3018H188.776V9.86107H198.978V11.3018H194.759V24.3629H192.995V11.3018Z" fill="#FFFFFF"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M18.4984 0.015625C28.3688 0.015625 36.3688 8.01377 36.3688 17.8841C36.3688 27.7545 28.3688 35.7545 18.4984 35.7545C8.62988 35.7545 0.629883 27.7527 0.629883 17.8841C0.628031 7.22674 7.83914 0.015625 18.4984 0.015625ZM6.38729 29.3453L18.4558 6.42859L18.3391 6.41562C12.3817 6.41562 7.46692 11.0286 6.97988 16.8601V5.93044H30.1188C27.1151 3.01192 23.0169 1.21377 18.4965 1.21377C8.50766 1.21377 1.82248 7.89711 1.82248 17.8841C1.82433 22.323 3.55766 26.3564 6.38729 29.3453ZM6.68174 29.6416C9.70025 32.6786 13.878 34.5582 18.4965 34.5582C27.7058 34.5582 35.1706 27.0934 35.1706 17.8841C35.1706 13.3434 33.3558 9.22488 30.4114 6.21748L18.4577 29.1619C24.1595 29.1027 28.8558 24.8397 29.6058 19.3286L29.6077 29.6397H6.68174V29.6416Z" fill="#8FD0F5"></path></svg>`;
+const TAGLINES=["Meet a new colleague, one coffee at a time.","Different team, different floor — same coffee break.","Small conversations, big connections."];
+let _tagi=0,_tagTimer=null;
+function startTagline(){ if(typeof setInterval!=='function')return; clearInterval(_tagTimer); _tagi=0; _tagTimer=setInterval(()=>{const el=document.getElementById('wtag');if(!el){clearInterval(_tagTimer);return;}el.style.opacity='0';setTimeout(()=>{_tagi=(_tagi+1)%TAGLINES.length;el.textContent=TAGLINES[_tagi];el.style.opacity='1';},350);},3800); }
+function stopTagline(){ if(typeof clearInterval==='function')clearInterval(_tagTimer); }
+const RW=["rgba(255,255,255,.17)","rgba(255,255,255,.26)","rgba(255,255,255,.12)"];
+const REELW=[
+ {label:"Priya met Tom",caption:"Priya & Tom",src:"assets/holding-demo-photos/priya-and-tom.jpg",color:"#7B4FA8",rot:"-6deg",likes:12,comments:3,top:"Coffee on site",topX:"-18px",topRot:"7deg",topShade:RW[0],arc:"down"},
+ {label:"Marco met Inés",caption:"Marco & Inés",src:"assets/holding-demo-photos/marco-and-ines.jpg",color:"#C9821B",rot:"3deg",likes:8,comments:2,mid:"A walk & talk",midX:"62px",midRot:"-6deg",midShade:RW[1],bottom:"Lunch together",bottomX:"-6px",bottomRot:"9deg",bottomShade:RW[0],arc:"up"},
+ {label:"Lena met Sven",caption:"Lena & Sven",src:"assets/holding-demo-photos/lena-and-sven.jpg",color:"#B03A4A",rot:"-3deg",likes:6,comments:1,top:"Teams coffee call",topX:"16px",topRot:"10deg",topShade:RW[2],arc:"down"},
+ {label:"Anna met Mateo",caption:"Anna & Mateo",src:"assets/holding-demo-photos/anna-and-mateo.jpg",color:"#3E7C74",rot:"5deg",likes:15,comments:4,bottom:"Coffee on site",bottomX:"-14px",bottomRot:"5deg",bottomShade:RW[1],arc:"down"},
+ {label:"Ravi met Chloé",caption:"Ravi & Chloé",src:"assets/holding-demo-photos/ravi-and-chloe.jpg",color:"#2F5F9E",rot:"-4deg",likes:9,comments:2,top:"Lunch together",topX:"-10px",topRot:"8deg",topShade:RW[0],arc:"up"},
+ {label:"Yuki met Ben",caption:"Yuki & Ben",src:"assets/holding-demo-photos/yuki-and-ben.jpg",color:"#C2557E",rot:"2deg",likes:11,comments:5,top:"A walk & talk",topX:"20px",topRot:"-4deg",topShade:RW[2],bottom:"Teams coffee call",bottomX:"4px",bottomRot:"11deg",bottomShade:RW[0],arc:"down"},
+];
+function welcomeReel(){
+  const items=REELW.concat(REELW).map(r=>`<div style="flex:none;position:relative;width:132px;height:300px;display:flex;align-items:center;justify-content:center;">
+    ${r.arc==='down'?`<div style="position:absolute;z-index:1;left:100px;top:206px;width:98px;height:46px;border-bottom:2px dashed rgba(255,255,255,.55);border-radius:0 0 46px 46px / 0 0 46px 46px;"></div>`:`<div style="position:absolute;z-index:1;left:100px;top:62px;width:98px;height:46px;border-top:2px dashed rgba(255,255,255,.55);border-radius:46px 46px 0 0 / 46px 46px 0 0;"></div>`}
+    ${r.top?`<div style="position:absolute;z-index:3;top:2px;left:${r.topX};padding:9px 16px;border-radius:999px;background:${r.topShade};border:1px solid rgba(255,255,255,.24);color:#fff;font-size:13.5px;font-weight:600;white-space:nowrap;backdrop-filter:blur(4px);box-shadow:0 3px 8px rgba(10,20,40,.10);transform:rotate(${r.topRot});">${r.top}</div>`:''}
+    ${r.mid?`<div style="position:absolute;z-index:3;top:2px;left:${r.midX};padding:9px 16px;border-radius:999px;background:${r.midShade};border:1px solid rgba(255,255,255,.24);color:#fff;font-size:13.5px;font-weight:600;white-space:nowrap;backdrop-filter:blur(4px);box-shadow:0 3px 8px rgba(10,20,40,.10);transform:rotate(${r.midRot});">${r.mid}</div>`:''}
+    ${r.bottom?`<div style="position:absolute;z-index:3;bottom:2px;left:${r.bottomX};padding:9px 16px;border-radius:999px;background:${r.bottomShade};border:1px solid rgba(255,255,255,.24);color:#fff;font-size:13.5px;font-weight:600;white-space:nowrap;backdrop-filter:blur(4px);box-shadow:0 3px 8px rgba(10,20,40,.10);transform:rotate(${r.bottomRot});">${r.bottom}</div>`:''}
+    <div style="position:relative;z-index:2;width:132px;background:#fff;border-radius:12px;padding:8px;box-shadow:0 10px 24px rgba(10,20,40,.26);transform:rotate(${r.rot});">
+      <div style="display:flex;align-items:center;gap:6px;padding:0 1px 7px;"><div style="width:16px;height:16px;border-radius:999px;flex:none;background:${r.color};"></div><div style="font-size:9px;font-weight:600;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.label}</div></div>
+      <div style="position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background-color:${r.color};"><div style="position:absolute;inset:0;background-image:url('${r.src}');background-size:cover;background-position:center;"></div><div style="position:absolute;inset:0;display:flex;align-items:flex-end;padding:8px;background:linear-gradient(to top,rgba(6,14,26,.6),rgba(6,14,26,0) 58%);"><div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.96);">${r.caption}</div></div></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 1px 0;color:#6B7280;font-size:9px;font-weight:600;"><span style="display:flex;align-items:center;gap:3px;">${icon('heart',9)}${r.likes}</span><span style="display:flex;align-items:center;gap:3px;">${icon('chat',9)}${r.comments}</span></div>
+    </div></div>`).join('');
+  return `<div style="position:relative;margin:78px 0 0;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);transform:rotate(-4deg);"><div style="display:flex;width:max-content;align-items:center;gap:64px;padding:10px 8px;animation:reelDrift 40s linear infinite;">${items}</div></div>`;
+}
+function welcomeHTML(){
+  return `<div style="min-height:100vh;background:linear-gradient(170deg,#3E6EA8 0%,#2F5F9E 42%,#20416F 100%);display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:34px 24px 0;display:flex;flex-direction:column;align-items:center;">
+      ${ZB_LOGO_WHITE}
+      <div style="margin-top:26px;font-size:32px;font-weight:700;letter-spacing:-.6px;color:#fff;">ZB <span style="color:#8FD0F5;">MeetUP</span></div>
+      <div id="wtag" style="margin-top:8px;font-size:15px;line-height:1.5;color:rgba(255,255,255,.82);text-align:center;max-width:290px;transition:opacity .35s ease;">${TAGLINES[0]}</div>
+    </div>
+    <div style="position:relative;margin:30px 0 0;padding:0 24px;display:flex;justify-content:center;">
+      <div style="position:relative;width:320px;height:184px;">
+        <svg viewBox="0 0 320 184" width="320" height="184" fill="none" style="position:absolute;inset:0;"><path d="M74 96 C 118 26, 202 26, 246 96" stroke="rgba(255,255,255,.6)" stroke-width="2" stroke-dasharray="7 8" stroke-linecap="round" style="animation:dashDraw 1.5s ease-out .25s both, dashFlow 2.4s linear 1.75s infinite;"></path></svg>
+        <div style="position:absolute;left:2px;top:44px;"><div style="position:relative;width:104px;height:104px;display:flex;align-items:center;justify-content:center;"><div style="position:absolute;inset:0;border-radius:999px;border:2px dashed rgba(255,255,255,.42);animation:ringSpin 30s linear infinite;"></div><img src="assets/priya_headshot.jpg" alt="" style="width:82px;height:82px;border-radius:999px;object-fit:cover;border:3px solid #F5F7FA;box-shadow:0 6px 20px rgba(16,24,40,.16);display:block;"></div></div>
+        <div style="position:absolute;right:2px;top:44px;"><div style="position:relative;width:104px;height:104px;display:flex;align-items:center;justify-content:center;"><div style="position:absolute;inset:0;border-radius:999px;border:2px dashed rgba(255,255,255,.42);animation:ringSpin 30s linear infinite reverse;"></div><img src="assets/tom_headshot.jpg" alt="" style="width:82px;height:82px;border-radius:999px;object-fit:cover;border:3px solid rgba(255,255,255,.9);box-shadow:0 6px 20px rgba(6,14,26,.28);display:block;"></div></div>
+        <div style="position:absolute;left:50%;top:22px;transform:translateX(-50%);"><div style="width:54px;height:54px;border-radius:999px;background:#fff;display:flex;align-items:center;justify-content:center;animation:sparkPulse 2.6s ease-in-out 2s infinite;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0079BD" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3.4 12.9 8.3 17.8 10.2 12.9 12.1 11 17 9.1 12.1 4.2 10.2 9.1 8.3 11 3.4Z"></path><path d="M17.4 15.6l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2Z"></path></svg></div></div>
+        <div style="position:absolute;left:50%;bottom:2px;transform:translateX(-50%);"><div style="padding:8px 16px;border-radius:999px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);color:#fff;font-size:13px;font-weight:600;white-space:nowrap;backdrop-filter:blur(4px);">Matched for a coffee</div></div>
+      </div>
+    </div>
+    ${welcomeReel()}
+    <div style="flex:1;min-height:18px;"></div>
+    <div style="margin-top:22px;padding:20px 20px 24px;background:#F5F7FA;border-radius:26px 26px 0 0;box-shadow:0 -10px 34px rgba(6,14,26,.22);display:flex;flex-direction:column;gap:10px;">
+      <button type="button" onclick="obGoCreate()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">Create account</span></button>
+      <button type="button" onclick="obGoSignIn()" style="width:100%;cursor:pointer;padding:17px;border-radius:999px;background:#fff;border:1px solid #ECEFF3;color:var(--ink);font-family:inherit;font-size:15px;font-weight:600;box-shadow:var(--shadow);">I already have an account</button>
+      <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:2px;">For Zimmer Biomet colleagues only &nbsp;·&nbsp; <a href="javascript:void(0)" onclick="obHow()" style="color:var(--zb-blue);font-weight:700">How it works</a></div>
+    </div>
+  </div>`;
+}
+function howItWorksHTML(){
+  const step=(n,ic,t,d)=>`<div class="card" style="display:flex;gap:14px;align-items:flex-start"><div style="width:40px;height:40px;flex:none;border-radius:12px;background:var(--zb-blue-soft);color:var(--zb-blue);display:flex;align-items:center;justify-content:center;position:relative">${ic}<span style="position:absolute;-top:6px;top:-8px;right:-8px;width:20px;height:20px;border-radius:50%;background:var(--zb-blue);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">${n}</span></div><div><div style="font-weight:700;font-size:15px">${t}</div><div class="muted small" style="margin-top:3px;line-height:1.45">${d}</div></div></div>`;
+  return `<div style="min-height:100vh;background:var(--bg);padding:16px 18px 28px">
+    <button class="btn ghost sm" onclick="obBackWelcome()">${icon('back',16)} Back</button>
+    <div class="card" style="background:linear-gradient(135deg,var(--zb-blue),var(--zb-blue-dark));color:#fff;border:none;text-align:center;padding:22px 16px"><div style="font-weight:800;font-size:20px">How ZB MeetUP works</div><div class="small" style="opacity:.9;margin-top:6px">Meet colleagues, have great chats, earn points — in five simple steps.</div></div>
+    ${step(1,spinnerIcon(22),"Get matched","Each day, tap Spin to be paired with a colleague from a different part of the business. Matches are made so they work for on-site and remote people alike.")}
+    ${step(2,icon('chat',22),"Say hi & plan","When you both accept, a shared space opens with a chat. Agree a time and place together.")}
+    ${step(3,icon('users',22),"Meet up","A coffee, a walk, a shared break — or a quick Teams call if one of you is remote.")}
+    ${step(4,icon('camera',22),"Log it for points","Share a photo of your meetup and answer three quick discussion questions together to earn points. Photos go to the community wall; your answers stay private.")}
+    ${step(5,icon('trophy',22),"Climb & win","Points climb the leaderboard, and a panel picks the best ideas shared — with prizes for top contributors and top of the board.")}
+    <button class="btn" style="margin-top:6px" onclick="obGoCreate()">${icon('check',18)} Got it — create my account</button>
+  </div>`;
+}
+window.obGoCreate=function(){stopTagline();onboardStep=0;renderOnboard();};
+window.obGoSignIn=function(){stopTagline();onboardStep=0;renderOnboard();};
+window.obHow=function(){stopTagline();onboardStep='how';renderOnboard();};
+window.obBackWelcome=function(){onboardStep='welcome';renderOnboard();};
+
 /* ---------------- onboarding ---------------- */
 function renderOnboard(){
+  const sc=$("#screen"),ab=$("#appbar"),tb=$("#tabbar");
+  if(onboardStep==='welcome'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=welcomeHTML();startTagline();return; }
+  if(onboardStep==='how'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=howItWorksHTML();return; }
+  ab.style.display='';tb.style.display='';sc.style.padding='';
   $("#appbar").innerHTML=`<div class="brand" style="margin:0 auto">ZB <span>MeetUP</span></div>`;$("#tabbar").innerHTML="";
   const dots=`<div class="steps">${[0,1,2,3,4].map(i=>`<i class="${i<=onboardStep?'on':''}"></i>`).join('')}</div>`;
   let body="",cta="";
@@ -261,9 +338,9 @@ function viewEditProfile(){
 }
 window.epColor=async function(c){await S.saveMe({color:c,photo:null});await refresh();};
 window.saveProfile=async function(){const n=$("#ep-name").value.trim();await S.saveMe(n?{name:n}:{});toast("Profile saved");view='profile';await refresh();};
-window.signOut=async function(){toast("Signed out");await S.signOut();current=null;OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};onboardStep=0;mode="onboarding";renderOnboard();};
+window.signOut=async function(){toast("Signed out");await S.signOut();current=null;OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};onboardStep="welcome";mode="onboarding";renderOnboard();};
 window.askDelete=function(){$("#screen").innerHTML=`<h2>Delete your account?</h2><p class="sub">This permanently removes your profile, photos and answers. This can't be undone.</p><div class="card small" style="line-height:1.5">In line with GDPR this deletes your account and your data.</div><button class="btn danger" onclick="doDelete()">${icon('trash',18)} Yes, delete my account</button><button class="btn ghost" style="margin-top:10px" onclick="go('profile')">Cancel</button>`;};
-window.doDelete=async function(){toast("Account deleted");await (S.deleteAccount?S.deleteAccount():S.signOut());current=null;onboardStep=0;mode="onboarding";renderOnboard();};
+window.doDelete=async function(){toast("Account deleted");await (S.deleteAccount?S.deleteAccount():S.signOut());current=null;onboardStep="welcome";mode="onboarding";renderOnboard();};
 
 /* ---------------- BUG ---------------- */
 function viewBug(){return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Report a bug</h2><p class="sub">Spotted something odd? Tell us — it goes straight to the admins.</p><div class="card"><label class="small" style="font-weight:700">What happened?</label><textarea class="input" id="bugtxt" rows="4" placeholder="Describe the issue…" style="margin-top:6px"></textarea></div><button class="btn" onclick="sendBug()">${icon('send',18)} Send report</button>`;}
@@ -292,12 +369,46 @@ function viewNotifs(){
 window.openNotif=async function(id){const n=C.notifs.find(x=>String(x.id)===String(id));if(!n)return;await S.markNotifRead(id);if(n.target){view=n.target;await refresh();}else await refresh();};
 window.clearNotifs=async function(){await S.markNotifsRead();await refresh();};
 
+/* ---------------- Add to Home Screen hint ---------------- */
+function initA2HS(){
+  try{
+    var w=window, nav=(typeof navigator!=='undefined')?navigator:{userAgent:''};
+    var standalone=(w.matchMedia&&w.matchMedia('(display-mode: standalone)').matches)||nav.standalone===true;
+    if(standalone)return;
+    var dismissed=false; try{dismissed=localStorage.getItem('zb_a2hs')==='1';}catch(e){}
+    if(dismissed)return;
+    var ua=nav.userAgent||''; var isIOS=/iphone|ipad|ipod/i.test(ua); var isAndroid=/android/i.test(ua);
+    if(!isIOS&&!isAndroid)return; // desktop: skip
+    var deferred=null;
+    window._a2hsClose=function(){var b=document.getElementById('a2hs');if(b&&b.remove)b.remove();try{localStorage.setItem('zb_a2hs','1');}catch(e){}};
+    window._a2hsInstall=function(){if(deferred){deferred.prompt();if(deferred.userChoice&&deferred.userChoice.finally)deferred.userChoice.finally(window._a2hsClose);}else{window._a2hsClose();}};
+    function iosShare(){return '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0079BD" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11"/><path d="M8 7l4-4 4 4"/><path d="M6 12v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6"/></svg>';}
+    function show(){
+      if(document.getElementById('a2hs'))return;
+      var b=document.createElement('div'); b.id='a2hs'; b.className='a2hs';
+      var html='<div class="a2hs-ic"><img src="assets/icon-192.png" alt=""></div>';
+      if(isIOS){
+        html+='<div class="a2hs-txt"><b>Add ZB MeetUP to your home screen</b><div class="a2hs-sub">Tap '+iosShare()+' in the toolbar, then <b>Add to Home Screen</b>.</div></div>';
+        html+='<button class="a2hs-x" onclick="_a2hsClose()">'+icon('x',18)+'</button>';
+        html+='<div class="a2hs-arrow"><svg width="20" height="12" viewBox="0 0 20 12" fill="currentColor"><path d="M10 12L0 0h20z"/></svg></div>';
+      } else {
+        html+='<div class="a2hs-txt"><b>Install ZB MeetUP</b><div class="a2hs-sub">Add it to your home screen for quick access.</div></div>';
+        html+='<button class="btn sm" style="width:auto" onclick="_a2hsInstall()">Add</button><button class="a2hs-x" onclick="_a2hsClose()">'+icon('x',18)+'</button>';
+      }
+      b.innerHTML=html; document.body.appendChild(b);
+    }
+    if(isAndroid){ w.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferred=e;show();}); setTimeout(function(){if(!document.getElementById('a2hs'))show();},4000); }
+    else { setTimeout(show,2500); }
+  }catch(e){}
+}
+
 /* ---------------- boot ---------------- */
 window.ZB_BOOT=function(){
+  initA2HS();
   if(S.onChange)S.onChange(()=>{ if(mode==='app'&&!authBusy) refresh(); });
   S.onAuth(async user=>{
     if(authBusy)return;
-    if(!user){mode="onboarding";onboardStep=0;renderOnboard();return;}
+    if(!user){mode="onboarding";onboardStep="welcome";renderOnboard();return;}
     const me=await S.getMe();
     if(!me||!me.name){mode="onboarding";if(onboardStep<1)onboardStep=1;OB.email=user.email||OB.email;renderOnboard();return;}
     mode="app";await refresh();
