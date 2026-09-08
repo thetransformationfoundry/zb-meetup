@@ -38,6 +38,15 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
 (async () => {
   window.ZB_BOOT(); await new Promise(r=>setTimeout(r,0));
   chk("boots to welcome", /Matched for a coffee/.test(scr()));
+
+  // returning users get a real sign-in screen, not the create-account step
+  window.obGoSignIn();
+  const si = scr();
+  chk("sign-in screen renders", /Welcome back/.test(si) && /ob-email/.test(si) && /ob-pass/.test(si)
+      && /Sign in<\/button>|>Sign in</.test(si) && /Forgot password\?/.test(si) && /Create an account instead/.test(si));
+  chk("sign-in is not the create step", !/Create account<\/button>/.test(si));
+  window.obBackWelcome(); chk("back to welcome from sign-in", /Matched for a coffee/.test(scr()));
+
   window.obGoCreate();
   document.getElementById("ob-email").value = "test@zimmerbiomet.com";
   document.getElementById("ob-pass").value = "demo1234"; window.obCreate();
