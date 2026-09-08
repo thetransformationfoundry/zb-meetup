@@ -33,7 +33,12 @@ matching push. Data model: `users/{uid}` already exists; add an `fcmTokens` arra
 3. **Consent step** (`js/app.js:255`): add a line + default-on toggle — "Get notified about matches and
    messages" — that drives the permission request. Respect a user who declines at the OS level (don't nag;
    re-offerable from Profile). Keep the GDPR consent copy accurate (mention push).
-4. **Docs + rules:** document the Functions in `Context/`; ensure Firestore/token rules don't leak tokens
+4. **Instant shared-photo award (from BRIEF-005):** BRIEF-005 made the photo's +5 to the *other* participant a
+   client "self-claim" (lands on their next sync, seconds later) because rules forbid a participant writing
+   another user's points doc. With Blaze on, add a Cloud Function that grants the other participant's +5 the
+   moment a shared photo is set, so it's truly instant and doesn't depend on their client being open. Keep the
+   client self-claim as the fallback; the Function must be idempotent (respect `photoAwarded[uid]`, never double-award).
+5. **Docs + rules:** document the Functions in `Context/`; ensure Firestore/token rules don't leak tokens
    (a user can write only their own tokens). Bump `?v=`.
 
 ## Guardrails (do NOT touch)

@@ -20,7 +20,12 @@
    sensible aspect ratio (square or ~4:3), `object-fit:cover`, rounded corners — like the wall/`sceneSquare`
    treatment (`js/app.js:38`) — so there are no white gutters.
 3. Confirm the wall + reel already use `object-fit:cover` (they do at `:38`) so the higher-res photo simply looks crisp.
-4. Bump `?v=`.
+4. **Late-photo wall post (from BRIEF-005, flagged by CC):** the wall post is created on first completion. Since
+   questions-only completion is now legal, a meetup completed without a photo, then given a photo later, produces
+   no post (or a photoless one that never gets the image). Fix in `setMatchPhoto`: if the meetup is already
+   completed and has a `postId`, update that post with the new photo; if it's completed with no post yet, create
+   the one post now. Still exactly one post per meetup (guard on `postId`).
+5. Bump `?v=`.
 
 ## Guardrails (do NOT touch)
 - Keep the photo **shared** (BRIEF-001) and **base64 inline** — do NOT introduce Cloud Storage.

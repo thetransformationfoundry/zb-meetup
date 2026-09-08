@@ -233,7 +233,7 @@ function howItWorksHTML(){
   </div>`;
 }
 window.obGoCreate=function(){stopTagline();onboardStep=0;renderOnboard();};
-window.obGoSignIn=function(){stopTagline();onboardStep=0;renderOnboard();};
+window.obGoSignIn=function(){stopTagline();onboardStep='signin';renderOnboard();};
 window.obHow=function(){stopTagline();onboardStep='how';renderOnboard();};
 window.obBackWelcome=function(){onboardStep='welcome';renderOnboard();};
 
@@ -242,6 +242,25 @@ function renderOnboard(){
   const sc=$("#screen"),ab=$("#appbar"),tb=$("#tabbar");
   if(onboardStep==='welcome'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=welcomeHTML();startTagline();return; }
   if(onboardStep==='how'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=howItWorksHTML();return; }
+  if(onboardStep==='signin'){
+    ab.style.display='';tb.style.display='';sc.style.padding='';
+    ab.innerHTML=`<div class="brand" style="margin:0 auto">ZB <span>MeetUP</span></div>`;tb.innerHTML="";
+    sc.innerHTML=`<div class="ob"><div>
+      <button class="btn ghost sm" onclick="obBackWelcome()">${icon('back',16)} Back</button>
+      <div class="center" style="padding-top:6px"><div class="avatar lg" style="margin:0 auto 16px;background:var(--zb-blue)">${icon('users',54)}</div><h2>Welcome back</h2><p class="sub">Sign in with your work email to pick up where you left off.</p></div>
+      <div class="card"><label class="small" style="font-weight:700">Work email</label>
+        <input class="input" id="ob-email" placeholder="you@zimmerbiomet.com" style="margin:6px 0 12px" value="${OB.email||''}">
+        <label class="small" style="font-weight:700">Password</label>
+        <input class="input" id="ob-pass" type="password" placeholder="Your password" style="margin-top:6px" onkeydown="if(event.key==='Enter')obSignIn()"></div>
+      </div><div class="ob-cta">
+      <button class="btn" onclick="obSignIn()">${icon('check',18)} Sign in</button>
+      <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">Forgot password?</button>
+      <div class="hr"></div>
+      <p class="muted small center" style="margin:0 0 8px">New to ZB MeetUP?</p>
+      <button class="btn secondary" onclick="obGoCreate()">Create an account instead</button>
+    </div></div>`;
+    return;
+  }
   ab.style.display='';tb.style.display='';sc.style.padding='';
   $("#appbar").innerHTML=`<div class="brand" style="margin:0 auto">ZB <span>MeetUP</span></div>`;$("#tabbar").innerHTML="";
   const dots=`<div class="steps">${[0,1,2,3,4].map(i=>`<i class="${i<=onboardStep?'on':''}"></i>`).join('')}</div>`;
