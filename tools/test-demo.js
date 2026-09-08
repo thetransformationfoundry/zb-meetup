@@ -50,15 +50,31 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
   await window.sendReq(); await new Promise(r=>setTimeout(r,0));
   const id = (await window.ZB_STORE.myMatches())[0].id;
   window.go("meet:"+id);
+  const other = (await window.ZB_STORE.myMatches()).find(x => x.id === id).person;
+  const ptsOf = async name => { const r = (await window.ZB_STORE.leaderboard()).find(x => x.name === name); return r ? r.points : null; };
+  const mePts0 = await ptsOf("Test User"), otherPts0 = await ptsOf(other.name);
+
   await window.addPhoto(id);
   const withPhoto = (await window.ZB_STORE.myMatches()).find(x => x.id === id);
   chk("meetup photo stored as a base64 string", typeof withPhoto.photo === "string" && /^data:image\//.test(withPhoto.photo));
+  chk("shared photo awards +5 to BOTH", (await ptsOf("Test User")) === mePts0 + 5 && (await ptsOf(other.name)) === otherPts0 + 5);
+
+  await window.addPhoto(id);   // replacing the photo must not re-award
+  chk("re-adding the photo does not re-award", (await ptsOf("Test User")) === mePts0 + 5 && (await ptsOf(other.name)) === otherPts0 + 5);
   await window.ans(id,0,"a"); await window.ans(id,1,"b"); await window.ans(id,2,"c");
   await window.complete(id);
-  chk("completes meetup (+10 pts)", /10 pts/.test(bar()));
+  chk("completes my part (+10 pts total)", /10 pts/.test(bar()));
+  chk("my questions award only me", (await ptsOf("Test User")) === mePts0 + 10);
+  chk("the other participant's points do not move", (await ptsOf(other.name)) === otherPts0 + 5);
+  const mine = (await window.ZB_STORE.myMatches()).find(x => x.id === id);
+  chk("completion is per-user", mine.completed === true && mine.otherCompleted === false);
+  chk("completing twice awards nothing more", (await window.ZB_STORE.completeMatch(id, {names:"x",scene:"coffee",photo:null})) === false
+      && (await ptsOf("Test User")) === mePts0 + 10);
   window.go("wall");  chk("wall renders + real post", /Community wall/.test(scr()) && /Test User & /.test(scr()));
   const real = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
   chk("one wall post, carrying the real photo", real.length === 1 && /^data:image\//.test(real[0].photo || ""));
+  window.go("meetups"); chk("shows under Completed", /Completed/.test(scr()) && /\+10 pts/.test(scr()));
+  window.go("recap:"+id); chk("recap shows my answers, not theirs", /Your answers/.test(scr()) && /Not answered/.test(scr()) === false);
   window.go("ranks"); chk("leaderboard + prizes", /CB management judges/.test(scr()));
   window.go("profile"); chk("profile", /Manage your profile/.test(scr()));
   window.go("admin"); chk("admin dashboard", /Admin dashboard/.test(scr()));

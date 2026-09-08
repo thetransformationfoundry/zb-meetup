@@ -87,8 +87,11 @@ const ROLES=["Warehouse Clerk","NonEE Warehouse Clerk","Rotating Kit Handling As
 const COLORS=["#0079BD","#1E9E5A","#E8B923","#D64545","#7A5AF8","#0EA5A5","#E5731E","#C026A3","#2563EB","#57606A"];
 const IN_PERSON=["a coffee","a walk at lunch","a shared break","a litter-pick challenge"], REMOTE=["a Teams coffee call","a virtual catch-up"];
 
-const activeMatches=()=>C.matches.filter(m=>m.status==='requested'||m.status==='active');
-const history=()=>C.matches.filter(m=>m.status==='completed');
+// Completion is PER USER: a meetup leaves my active list once *I* finish my part,
+// even if the other person hasn't finished theirs yet.
+const activeMatches=()=>C.matches.filter(m=>(m.status==='requested'||m.status==='active')&&!m.completed);
+const history=()=>C.matches.filter(m=>m.completed);
+const myPoints=m=>(m.photoAwarded?5:0)+(m.completed?5:0);   // up to 10 per meetup, earned independently
 function eligible(){
   const matched=new Set(history().map(m=>m.person.uid)), busy=new Set(activeMatches().map(m=>m.person.uid));
   return C.users.filter(p=>{if(matched.has(p.uid)||busy.has(p.uid))return false;if(C.me.floor||p.floor)return C.me.workClass==='on-site'&&p.workClass==='on-site';return true;});
@@ -96,7 +99,8 @@ function eligible(){
 function meetupType(p){const list=(p.workClass==='remote'||C.me.workClass==='remote')?REMOTE:IN_PERSON;return list[Math.floor(Math.random()*list.length)];}
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
 function pickQuestions(){const first=history().length===0&&activeMatches().length===0;let ch;if(first)ch=C.questions.filter(q=>q.tier===1).slice(0,3);else{const t1=shuffle(C.questions.filter(q=>q.tier===1)),t2=shuffle(C.questions.filter(q=>q.tier===2));ch=[t1[0],t2[0],t2[1]].filter(Boolean);}return ch.map(q=>({id:q.id,t:q.text,tier:q.tier}));}
-function isComplete(m){return m.photo&&m.answers.every(a=>(a||'').trim());}
+const myAnswersDone=m=>m.answers.every(a=>(a||'').trim());
+const canComplete=m=>myAnswersDone(m)&&!m.completed;   // my 3 answers = my +5; the photo earns its own +5
 function unread(){return C.notifs.filter(n=>!n.read).length;}
 
 /* ---------------- data load ---------------- */
@@ -105,6 +109,12 @@ async function refresh(){
     S.getMe(),S.listUsers(),S.myMatches(),S.listPosts(),S.listNotifs(),S.questionBank(),S.respinsLeft(),S.isAdmin(),S.leaderboard(),S.listBugs()
   ]);
   C.me=me;C.users=users;C.matches=matches;C.posts=posts;C.notifs=notifs;C.questions=questions;C.respins=respins;C.admin=admin;C.leaderboard=lb;C.bugs=bugs;
+  // A shared photo is worth +5 to both, but each side may only write its own points, so claim mine here.
+  const unclaimed=C.matches.filter(m=>m.photo&&!m.photoAwarded);
+  if(unclaimed.length&&S.claimPhotoAward){
+    let got=false;for(const m of unclaimed){ if(await S.claimPhotoAward(m.id))got=true; }
+    if(got){const [me2,matches2,lb2]=await Promise.all([S.getMe(),S.myMatches(),S.leaderboard()]);C.me=me2;C.matches=matches2;C.leaderboard=lb2;}
+  }
   render();
 }
 
@@ -121,6 +131,7 @@ function render(){
   else if(view==="messages")s.innerHTML=viewMessages();
   else if(view.startsWith("thread:"))s.innerHTML=viewThread(view.slice(7));
   else if(view.startsWith("meet:"))s.innerHTML=viewMeet(view.slice(5));
+  else if(view.startsWith("recap:"))s.innerHTML=viewRecap(view.slice(6));
   else if(view==="wall")s.innerHTML=viewWall();
   else if(view==="ranks")s.innerHTML=viewRanks();
   else if(view==="profile")s.innerHTML=viewProfile();
@@ -133,7 +144,7 @@ function render(){
 window.go=v=>{view=v;render();};
 function renderAppbar(){$("#appbar").innerHTML=`<div class="brand">ZB <span>MeetUP</span></div><div class="spacer"></div><div class="pts">${C.me?C.me.points:0} pts</div><button class="bell" onclick="go('notifs')">${icon('bell',24)}${unread()?`<span class="badge">${unread()}</span>`:''}</button>`;}
 function renderTabs(){
-  const reqB=activeMatches().filter(m=>(m.status==='active'&&!isComplete(m))||(m.status==='requested'&&m.incoming)).length;
+  const reqB=activeMatches().filter(m=>(m.status==='active'&&!myAnswersDone(m))||(m.status==='requested'&&m.incoming)).length;
   const tabs=[["spin","spinner","Spin"],["meetups","users","Meetups"],["wall","image","Wall"],["ranks","trophy","Ranks"],["profile","user","You"]];
   const root=(view.startsWith("meet:")||view.startsWith("thread:")||view==="messages")?"meetups":(view==="admin"||view==="editprofile"||view==="bug")?"profile":view;
   $("#tabbar").innerHTML=tabs.map(([id,ic,lb])=>{const b=id==='meetups'&&reqB?`<span class="badge" style="margin-left:4px">${reqB}</span>`:'';const ico=ic==='spinner'?spinnerIcon(21):icon(ic,22);return `<button class="${root===id?'active':''}" onclick="go('${id}')">${ico}<span>${lb}${b}</span></button>`;}).join("");
@@ -318,20 +329,36 @@ function viewMeetups(){
   act.forEach(m=>{
     if(m.status==='requested'&&m.incoming)h+=`<div class="card"><div class="row"><div class="nicon" style="background:var(--zb-blue-soft)">${icon('users',20)}</div><div style="flex:1"><div style="font-weight:700">${m.person.name} wants to meet</div><div class="muted small">${m.person.role} · suggested ${m.type}</div></div></div><div class="row" style="gap:10px;margin-top:12px"><button class="btn sm" style="flex:1;justify-content:center" onclick="acceptReq('${m.id}')">${icon('check',16)} Accept</button><button class="btn ghost sm" style="flex:1;justify-content:center" onclick="declineReq('${m.id}')">${icon('x',16)} Decline</button></div></div>`;
     else if(m.status==='requested')h+=`<div class="card"><div class="row between"><div class="row">${av(m.person)}<div><div style="font-weight:700">${m.person.name}</div><div class="muted small">${m.person.role}</div></div></div><span class="chip grey">Waiting…</span></div></div>`;
-    else{const done=isComplete(m);h+=`<div class="card"><div class="row between"><div class="row">${av(m.person)}<div><div style="font-weight:700">${m.person.name}</div><div class="muted small">${m.person.dept}</div></div></div><span class="chip ${done?'good':''}">${done?'Ready':'Active'}</span></div><div class="muted small" style="margin:10px 0 4px">Meetup: <b>${m.type}</b></div><button class="btn ${done?'secondary':''} sm" style="width:100%;margin-top:8px;justify-content:center" onclick="go('meet:${m.id}')">${done?'Review & complete':'Open shared space'}</button></div>`;}
+    else{const done=canComplete(m);h+=`<div class="card"><div class="row between"><div class="row">${av(m.person)}<div><div style="font-weight:700">${m.person.name}</div><div class="muted small">${m.person.dept}</div></div></div><span class="chip ${done?'good':''}">${done?'Ready':'Active'}</span></div><div class="muted small" style="margin:10px 0 4px">Meetup: <b>${m.type}</b></div><button class="btn ${done?'secondary':''} sm" style="width:100%;margin-top:8px;justify-content:center" onclick="go('meet:${m.id}')">${done?'Review & complete':'Open shared space'}</button></div>`;}
   });
-  if(hist.length){h+=`<div class="hr"></div><p class="sub" style="font-weight:700;color:var(--ink)">Completed</p>`;hist.forEach(m=>{h+=`<div class="card"><div class="row between"><div class="row">${av(m.person,'sm')}<div style="font-weight:600">${m.person.name}</div></div><span class="chip good">+10 pts</span></div></div>`;});}
+  if(hist.length){h+=`<div class="hr"></div><p class="sub" style="font-weight:700;color:var(--ink)">Completed</p>`;hist.forEach(m=>{h+=`<div class="card" style="cursor:pointer" onclick="go('recap:${m.id}')"><div class="row between"><div class="row">${av(m.person,'sm')}<div><div style="font-weight:600">${m.person.name}</div><div class="muted small">${m.type}${m.otherCompleted?'':` · waiting on ${m.person.first}`}</div></div></div><div class="row" style="gap:8px"><span class="chip good">+${myPoints(m)} pts</span>${icon('back',16)}</div></div></div>`;});}
   return h;
 }
 function viewMeet(id){
-  const m=C.matches.find(x=>x.id===id&&x.status!=='completed');if(!m)return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><div class="card muted">This meetup is complete.</div>`;
+  const m=C.matches.find(x=>x.id===id&&!x.completed);if(!m)return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><div class="card muted">You've finished your part of this meetup.</div><button class="btn secondary" onclick="go('recap:${id}')">${icon('check',18)} View the recap</button>`;
   const last=m.messages.length?m.messages[m.messages.length-1]:null;
   const mp=typeof m.photo==='string'?m.photo:null;   // the shared meetup photo (base64), if set
   return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Meetup with ${m.person.first}</h2><p class="sub">A shared space you both fill in</p>
    <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">You both accepted — suggested: <b>${m.type}</b>. Plan a time and place together.</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} Plan your meetup${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Last message: ${(last.by==='me'?'You: ':'')+last.text}</div>`:''}</div>
-   <div class="card"><div class="row between"><b>1 · Share a photo</b><span class="chip ${m.photo?'good':'grey'}">${m.photo?'+5':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">A quick pic of the two of you — or a Teams screenshot. One photo per meetup: either of you can add it, and you both see it.</p>${m.photo?`${mp?`<img src="${mp}" alt="Your meetup photo" style="display:block;width:100%;max-width:220px;margin:0 auto;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} Add meetup photo</button>`}</div>
-   <div class="card"><div class="row between"><b>2 · Discussion questions</b><span class="chip ${m.answers.every(a=>(a||'').trim())?'good':'grey'}">${m.answers.every(a=>(a||'').trim())?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${q.t}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="Your answer…">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">Your answers stay private (admins only). The photo goes to the community wall.</p></div>
-   <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${isComplete(m)?'':'disabled'}>${icon('check',18)} Complete meetup</button><p class="muted small center" style="margin-top:8px">${isComplete(m)?'Nice — full 10 points!':'Add a photo and answer all 3 to complete.'}</p>`;
+   <div class="card"><div class="row between"><b>1 · Share a photo</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">A quick pic of the two of you — or a Teams screenshot. One photo per meetup: either of you can add it, and you both see it.</p>${m.photo?`${mp?`<img src="${mp}" alt="Your meetup photo" style="display:block;width:100%;max-width:220px;margin:0 auto;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} Add meetup photo</button>`}</div>
+   <div class="card"><div class="row between"><b>2 · Discussion questions</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${q.t}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="Your answer…">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">Your answers stay private (admins only). The photo goes to the community wall.</p></div>
+   <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} Complete my part</button>
+   <p class="muted small center" style="margin-top:8px">${canComplete(m)?"That's your +5 for the questions — the photo earns its own +5.":'Answer all 3 questions to complete your part.'}</p>
+   <p class="muted small center" style="margin-top:6px">${m.otherCompleted?`${m.person.first} has finished their part.`:`Waiting on ${m.person.first} to finish their part — your points don't depend on it.`}</p>`;
+}
+function viewRecap(id){
+  const m=C.matches.find(x=>x.id===id);
+  if(!m)return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><div class="card muted">Meetup not found.</div>`;
+  const mp=typeof m.photo==='string'?m.photo:null;
+  const sc=typeToScene(m.type);
+  return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button>
+   <h2 style="margin-top:6px">Meetup with ${m.person.first}</h2><p class="sub">${m.type}${m.completed?' · your part is complete':''}</p>
+   <div class="card"><div class="row between"><div class="row">${av(m.person)}<div><div style="font-weight:700">${m.person.name}</div><div class="muted small">${m.person.role} · ${m.person.dept}</div></div></div><span class="chip good">+${myPoints(m)} pts</span></div>
+     <div class="muted small" style="margin-top:10px">${m.photoAwarded?'Shared photo +5':'No photo — no photo points'} · ${m.completed?'Your questions +5':'Questions not completed'}</div>
+     <div class="muted small" style="margin-top:4px">${m.otherCompleted?`${m.person.first} has finished their part too.`:`${m.person.first} hasn't finished their part yet.`}</div></div>
+   <div class="card"><b>The photo</b><div style="margin-top:10px">${sceneSquare(sc,'',mp)}</div>${mp?'':`<p class="muted small" style="margin-top:8px">No photo was added for this meetup.</p>`}</div>
+   <div class="card"><b>Your answers</b><p class="muted small" style="margin:6px 0 10px">Only you (and admins) can see these — never the other participant.</p>
+     ${m.questions.map((q,i)=>`<div class="q"><div class="t">${q.t}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><div class="small" style="margin-top:6px;white-space:pre-wrap">${(m.answers[i]||'').trim()||'<span class="muted">Not answered</span>'}</div></div>`).join('')}</div>`;
 }
 function viewMessages(){
   const chats=activeMatches().filter(m=>m.status==='active');
@@ -347,11 +374,13 @@ function viewThread(id){
   return `<button class="btn ghost sm" onclick="go('meet:${m.id}')">${icon('back',16)} Back to meetup</button><div class="row" style="margin:10px 2px 12px">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.type}</div></div></div><div class="card threadcard"><div class="thread">${thread}</div><div class="row" style="gap:8px;margin-top:12px"><input class="input" id="msgIn" placeholder="Message ${m.person.first}…" onkeydown="if(event.key==='Enter')sendMsg('${m.id}')"><button class="btn sm" onclick="sendMsg('${m.id}')">${icon('send',17)}</button></div></div>`;
 }
 window.sendMsg=async function(id){const inp=$("#msgIn");const v=(inp.value||'').trim();if(!v)return;await S.sendMessage(id,v);await refresh();};
-function refreshCompleteBtn(m){const b=document.getElementById('completeBtn');if(b)b.disabled=!isComplete(m);}
+function refreshCompleteBtn(m){const b=document.getElementById('completeBtn');if(b)b.disabled=!canComplete(m);}
 window.addPhoto=function(id){const had=!!(C.matches.find(x=>x.id===id)||{}).photo;
   return new Promise(function(res){pickImage(async function(d){await S.setMatchPhoto(id,d);toast(had?"Photo updated":"Photo added +5 pts");await refresh();res(true);});});};
 window.ans=async function(id,i,v){const m=C.matches.find(x=>x.id===id);if(!m)return;m.answers[i]=v;await S.setMatchAnswers(id,m.answers);refreshCompleteBtn(m);};
-window.complete=async function(id){const m=C.matches.find(x=>x.id===id);if(!m||!isComplete(m))return;await S.completeMatch(id,{names:(C.me.name||'You')+' & '+m.person.first,scene:typeToScene(m.type),photo:typeof m.photo==='string'?m.photo:null});toast("Meetup complete! +10 pts");view="meetups";await refresh();};
+window.complete=async function(id){const m=C.matches.find(x=>x.id===id);if(!m||!canComplete(m))return;
+  await S.completeMatch(id,{names:(C.me.name||'You')+' & '+m.person.first,scene:typeToScene(m.type),photo:typeof m.photo==='string'?m.photo:null});
+  toast(m.photoAwarded?"Your part is complete! +5 pts (10 in total)":"Your part is complete! +5 pts");view="meetups";await refresh();};
 
 /* ---------------- WALL ---------------- */
 function viewWall(){

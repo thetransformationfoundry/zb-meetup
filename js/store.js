@@ -87,7 +87,14 @@
     },
 
     // ---- matches ----
-    myMatches() { return P(MATCHES.map(m => ({ ...m }))); },
+    // Per-user view of each match: MY completion + MY photo award, plus the other side read-only.
+    myMatches() {
+      return P(MATCHES.map(m => Object.assign({}, m, {
+        completed: !!(m.completedBy||{})["me"] || m.status === "completed",
+        otherCompleted: !!(m.completedBy||{})[m.person.uid] || m.status === "completed",
+        photoAwarded: !!(m.photoAwarded||{})["me"]
+      })));
+    },
     getMatch(id) { return P(MATCHES.find(m => m.id === id)); },
     respinsLeft() {
       const d = new Date().toISOString().slice(0,10);
@@ -96,7 +103,7 @@
     },
     useRespin() { const d = new Date().toISOString().slice(0,10); if (RESPINS.date !== d) RESPINS = { date:d, used:0 }; RESPINS.used++; return P(true); },
     createMatch(other, type, questions) {
-      const m = { id:"m"+(mid++), a:"me", b:other.uid, person:other, status:"requested", type, questionIds:questions.map(q=>q.id||q.t), questions, answers:["","",""], photo:null, messages:[], createdAt:now() };
+      const m = { id:"m"+(mid++), a:"me", b:other.uid, person:other, status:"requested", type, questionIds:questions.map(q=>q.id||q.t), questions, answers:["","",""], photo:null, completedBy:{}, photoAwarded:{}, postId:null, messages:[], createdAt:now() };
       MATCHES.push(m);
       // DEMO: simulate the other person accepting shortly after
       setTimeout(() => {
@@ -121,17 +128,42 @@
       return P(true);
     },
     // One shared photo per meetup — either participant may set or replace it.
-    setMatchPhoto(id, photo) { const m = MATCHES.find(x=>x.id===id); if (m) m.photo = photo || null; return P(true); },
+    // First photo = +5 to BOTH participants, once. Replacing it never re-awards.
+    setMatchPhoto(id, photo) {
+      const m = MATCHES.find(x=>x.id===id); if (!m) return P(true);
+      m.photo = photo || null;
+      if (photo && !m.photoAwarded["me"]) { m.photoAwarded["me"] = true; if (ME) ME.points += 5; }
+      // the demo simulates the other participant's client claiming their own +5
+      if (photo && !m.photoAwarded[m.person.uid]) {
+        m.photoAwarded[m.person.uid] = true;
+        const u = USERS.find(x=>x.uid===m.person.uid); if (u) u.points += 5;
+      }
+      return P(true);
+    },
+    // Claim MY unclaimed +5 for a shared photo the other person added (live: each client claims its own).
+    claimPhotoAward(id) {
+      const m = MATCHES.find(x=>x.id===id); if (!m || !m.photo) return P(false);
+      if (m.photoAwarded["me"]) return P(false);
+      m.photoAwarded["me"] = true; if (ME) ME.points += 5; return P(true);
+    },
     setMatchAnswers(id, answers) { const m = MATCHES.find(x=>x.id===id); if (m) m.answers = answers; return P(true); },
+    // Completes only the CALLING user's side and awards only their own questions (+5).
+    // The other participant's points never move here — they complete their own part.
     completeMatch(id, post) {
       const m = MATCHES.find(x=>x.id===id); if (!m) return P(false);
-      m.status = "completed";
-      if (ME) ME.points += 10;
-      const u = USERS.find(x=>x.uid===m.person.uid); if (u) u.points += 10;
+      if (m.completedBy["me"]) return P(false);            // my part is already done
+      m.completedBy["me"] = now();
+      if (ME) ME.points += 5;                              // my 3 answers
       m.questions.forEach(q => { const b = QUESTIONS.find(x => x.text === (q.t||q.text)); if (b) b.count++; });
-      m.completedAt = now();  // keep the match (status=completed) for history + no-repeat matching
+      // match-level "completed" only once BOTH sides are in (keeps it out of no-repeat matching either way)
+      if (m.completedBy[m.person.uid]) { m.status = "completed"; m.completedAt = now(); }
       const shared = typeof m.photo === "string" ? m.photo : null;
-      POSTS.unshift({ id:"p"+(wid++), seed:false, names:post.names, scene:post.scene, photo:post.photo||shared||null, hearts:0, liked:false, comments:[] });
+      const photo = post.photo || shared || null;
+      if (!m.postId && photo) {                            // ONE wall post per meetup
+        const pid = "p"+(wid++);
+        POSTS.unshift({ id:pid, seed:false, matchId:id, names:post.names, scene:post.scene, photo, hearts:0, liked:false, comments:[] });
+        m.postId = pid;
+      }
       return P(true);
     },
 
