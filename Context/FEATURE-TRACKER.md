@@ -17,9 +17,21 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Notifications (bell + deep-links) | ✅ | |
 | Profile / edit / **real photo** / sign out / delete account | ✅ | |
 | Admin dashboard (stats, question bank add, bug reports) | ✅ | |
-| Real photo capture on **meetup completion** (→ wall) | 🔨 | BRIEF-001 built (v=7) on `feat/meetup-photo-capture` — one shared photo per meetup; awaiting Sean's test + merge |
-| Real ~50-question bank (Donnae) + tiering | 💡 | Needs Donnae's list |
-| Admin: live question-count analytics + Excel/CSV export | 💡 | |
-| 3-day "complete your meetup" reminder (scheduled Cloud Function) | 💡 | Needs Blaze |
+| Real photo capture on **meetup completion** (→ wall) | ✅ | BRIEF-001 — merged + live v=7 (2026-09-08, SHA b557fe3) |
+| **First live deploy** (v=7 on main) | ✅ | 2026-09-08 — tested live by Sean + Donnae |
+| Sign-in screen for returning users (+ forgot password) | 📋 | BRIEF-002 |
+| In-app bell: requests/accepts/messages + deep-links; message composer layout | 📋 | BRIEF-003 |
+| Real push notifications (FCM + SW + Cloud Functions) + 3-day reminder | 📋 | BRIEF-004 — Blaze approved |
+| Per-user completion + correct points + completed-meetups view | 📋 | BRIEF-005 |
+| Meetup photo quality (crisp) + card fit (no gutters) | 📋 | BRIEF-006 |
+| Admin: surface captured answers + real Excel export | 📋 | BRIEF-007 |
+| Admin: editable question bank with tiers | 📋 | BRIEF-008 |
+| Real ~50-question bank (Donnae) + tiering | 💡 | Feeds BRIEF-008 once list ready |
 | Version footer (semver + build id) + CI harness check | 💡 | Per operating model |
 | Styled invite email (real screenshots) | 💡 | For launch comms |
+
+## Live-feedback → brief map (2026-09-08)
+1. Sign-in screen → BRIEF-002 · 2. Notifications in-app → BRIEF-003, push → BRIEF-004 ·
+3. Points logic → BRIEF-005 · 4. Message layout + message notif → BRIEF-003 ·
+5. Photo fit → BRIEF-006 · 6. Completed-meetups view → BRIEF-005 · 7. Photo pixelation → BRIEF-006 ·
+8. Admin answers/export → BRIEF-007, editable questions → BRIEF-008.
