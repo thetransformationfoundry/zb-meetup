@@ -71,11 +71,17 @@ function matchPhoto(d) {
 
 function mapMatch(id, d, uid) {
   const other = d.a === uid ? d.bProfile : d.aProfile;
+  const otherUid = d.a === uid ? d.b : d.a;
+  const cb = d.completedBy || {};
+  const legacyDone = d.status === "completed";   // matches completed under the old both-at-once model
   const myAns = (d.answers && d.answers[uid]) || ["","",""];
   const msgs = (d.messages || []).map(m => ({ by: m.by === uid ? "me" : "them", text:m.text }));
   const unread = Math.max(0, msgs.filter(m => m.by === "them").length - ((d.reads && d.reads[uid]) || 0));
   return { id, a:d.a, b:d.b, status:d.status, type:d.type, questions:d.questions || [], person:other,
            answers:myAns.slice(), photo: matchPhoto(d), messages:msgs, unread,
+           completed: !!cb[uid] || legacyDone,
+           otherCompleted: !!cb[otherUid] || legacyDone,
+           photoAwarded: !!(d.photoAwarded && d.photoAwarded[uid]),
            incoming: (d.b === uid && d.status === "requested") };
 }
 
@@ -145,7 +151,8 @@ const ZB_STORE = {
   async createMatch(other, type, questions) {
     const uid = uidNow(); const me = cachedMe || (await this.getMe());
     const doc = { a:uid, b:other.uid, aProfile:profileToPublic(Object.assign({ uid }, me)), bProfile:profileToPublic(other),
-                  status:"requested", type, questions, answers:{}, photo:null, messages:[], reads:{}, createdAt:nowTs() };
+                  status:"requested", type, questions, answers:{}, photo:null, completedBy:{}, photoAwarded:{}, postId:null,
+                  messages:[], reads:{}, createdAt:nowTs() };
     const ref = await db.collection("matches").add(doc);
     await addNotif(other.uid, { type:"request", icon:"users", text:(me.name||"A colleague")+" wants to meet you — open Meetups to accept.", target:"meetups" });
     return ref.id;
@@ -169,21 +176,62 @@ const ZB_STORE = {
   },
   async clearMatchUnread(id) { const uid = uidNow(); const ref = db.collection("matches").doc(id); const d = (await ref.get()).data(); if (d) await ref.update({ ["reads."+uid]: (d.messages||[]).length }); return true; },
   // One shared photo per meetup — either participant may set or replace it.
-  async setMatchPhoto(id, photo) { await db.collection("matches").doc(id).update({ photo: photo || null }); return true; },
-  async setMatchAnswers(id, answers) { const uid = uidNow(); await db.collection("matches").doc(id).update({ ["answers."+uid]: answers }); return true; },
-  async completeMatch(id, post) {
+  // The photo is worth +5 to BOTH, but the Firestore rules only let me write MY OWN user doc
+  // (users/{uid}: isMe(uid) || isAdmin()), so each side claims its own +5: I claim mine here,
+  // the other participant claims theirs via claimPhotoAward() on their next load. Replacing
+  // the photo never re-awards, because the photoAwarded flag is already set.
+  async setMatchPhoto(id, photo) {
     const uid = uidNow(); const ref = db.collection("matches").doc(id);
     await db.runTransaction(async tx => {
-      const s = await tx.get(ref); const d = s.data(); if (!d || d.status === "completed") return;
-      tx.update(ref, { status:"completed", completedAt:nowTs() });
-      tx.update(db.collection("users").doc(d.a), { points: FV.increment(10) });
-      tx.update(db.collection("users").doc(d.b), { points: FV.increment(10) });
-      const pref = db.collection("posts").doc();
-      const shared = typeof d.photo === "string" ? d.photo : null;
-      tx.set(pref, { authorUid:uid, matchId:id, names:post.names, scene:post.scene, photo:post.photo||shared||null, hearts:0, heartedBy:[], comments:[], createdAt:nowTs() });
+      const s = await tx.get(ref); const d = s.data(); if (!d) return;
+      const upd = { photo: photo || null };
+      const claim = !!photo && !(d.photoAwarded && d.photoAwarded[uid]);
+      if (claim) upd["photoAwarded."+uid] = true;
+      tx.update(ref, upd);
+      if (claim) tx.update(db.collection("users").doc(uid), { points: FV.increment(5) });
     });
     cache["users"] = null;
     return true;
+  },
+  // Claim MY +5 for a shared photo (whoever added it). One-time, self-only, idempotent.
+  async claimPhotoAward(id) {
+    const uid = uidNow(); const ref = db.collection("matches").doc(id); let claimed = false;
+    await db.runTransaction(async tx => {
+      const s = await tx.get(ref); const d = s.data();
+      if (!d || !matchPhoto(d)) return;
+      if (d.photoAwarded && d.photoAwarded[uid]) return;
+      claimed = true;
+      tx.update(ref, { ["photoAwarded."+uid]: true });
+      tx.update(db.collection("users").doc(uid), { points: FV.increment(5) });
+    });
+    if (claimed) cache["users"] = null;
+    return claimed;
+  },
+  async setMatchAnswers(id, answers) { const uid = uidNow(); await db.collection("matches").doc(id).update({ ["answers."+uid]: answers }); return true; },
+  // Completes only the CALLING user's side and awards only their own questions (+5).
+  // The other participant's points never move here — they complete their own part.
+  async completeMatch(id, post) {
+    const uid = uidNow(); const ref = db.collection("matches").doc(id); let done = false;
+    await db.runTransaction(async tx => {
+      const s = await tx.get(ref); const d = s.data(); if (!d) return;
+      if (d.completedBy && d.completedBy[uid]) return;    // my part is already done
+      done = true;
+      const other = d.a === uid ? d.b : d.a;
+      const upd = { ["completedBy."+uid]: Date.now() };   // a map value, so not serverTimestamp()
+      // match-level "completed" only once BOTH sides are in
+      if (d.completedBy && d.completedBy[other]) { upd.status = "completed"; upd.completedAt = nowTs(); }
+      tx.update(db.collection("users").doc(uid), { points: FV.increment(5) });   // my 3 answers
+      const shared = typeof d.photo === "string" ? d.photo : null;
+      const photo = post.photo || shared || null;
+      if (!d.postId && photo) {                           // ONE wall post per meetup
+        const pref = db.collection("posts").doc();
+        tx.set(pref, { authorUid:uid, matchId:id, names:post.names, scene:post.scene, photo, hearts:0, heartedBy:[], comments:[], createdAt:nowTs() });
+        upd.postId = pref.id;
+      }
+      tx.update(ref, upd);
+    });
+    cache["users"] = null;
+    return done;
   },
 
   // ---- wall ----

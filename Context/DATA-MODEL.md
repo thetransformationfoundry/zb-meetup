@@ -38,7 +38,10 @@ matches/{matchId}
   answers: { <uid>: {q0,q1,q2}, <uid>: {...} }   // PRIVATE (participants + admins only)
   photo: base64 | null                 // ONE shared photo per meetup (v=7); either participant
                                        // may set or replace it. Replaced the per-uid photoBy map.
-  pointsAwarded: { <uid>: number }
+  photoAwarded: { <uid>: true }        // v=8 — the shared photo's +5, claimed once per participant
+  completedBy: { <uid>: millis }       // v=8 — PER-USER completion; status flips to "completed"
+                                       // only once BOTH uids are present
+  postId: string | null                // v=8 — the one wall post for this meetup (guards duplicates)
   messages: [ { by: uid, text, at } ]  // 1:1 coordination chat
   createdAt, acceptedAt, completedAt, remindedAt
 
