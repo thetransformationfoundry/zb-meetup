@@ -104,13 +104,18 @@ select.input{appearance:none;-webkit-appearance:none;background:#fff url("data:i
 .meet-hero{background:linear-gradient(160deg,#0079BD,#005f95);border-radius:18px;padding:18px;color:#fff;box-shadow:var(--shadow-lg);margin-bottom:16px}
 .meet-hero .muted{color:rgba(255,255,255,.8)}
 /* full-height chat */
-/* 100vh includes mobile browser chrome, which pushed the composer under the fixed nav.
-   dvh tracks the *visible* viewport; the vh line stays first as the fallback for older
-   Safari, and we subtract the nav + home-bar inset explicitly. */
-.threadcard{display:flex;flex-direction:column;
-  height:calc(100vh - 176px - 64px - 20px);
-  height:calc(100dvh - 176px - 64px - 20px - env(safe-area-inset-bottom,0px))}
-.threadcard .thread{flex:1;max-height:none}
+/* The composer used to slide under the fixed nav because the CARD was sized off the
+   viewport (height:calc(100vh - ...)): any error in the estimate of the chrome above it,
+   or a mobile-browser viewport quirk, pushed its bottom edge past the nav.
+   So: the card stays in NORMAL FLOW (no viewport height) and only the scrolling message
+   list is sized. .screen's bottom padding (nav + home-bar inset) is then a hard floor the
+   card cannot cross, whatever the viewport does — worst case the page scrolls a little. */
+.threadcard{display:flex;flex-direction:column}
+.threadcard>.row{flex:0 0 auto}
+.threadcard .thread{flex:0 0 auto;max-height:none;overflow:auto;
+  height:calc(100vh - 380px);
+  height:calc(100dvh - 380px - env(safe-area-inset-bottom,0px));
+  min-height:200px}
 /* notifications as spaced cards */
 .ncard{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);cursor:pointer}
 .ncard.unread{background:var(--zb-blue-soft);border-color:#cfe6f5}
