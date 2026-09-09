@@ -56,7 +56,24 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
 
   window.obBackWelcome(); chk("back to welcome from sign-in", /Matched for a coffee/.test(scr()));
 
+  // only the two org domains may create an account
   window.obGoCreate();
+  document.getElementById("ob-email").value = "someone@gmail.com";
+  document.getElementById("ob-pass").value = "demo1234";
+  window.obCreate();
+  chk("off-domain email is blocked at create", /Work email/.test(scr()) && !/What's your name/.test(scr()));
+  let rejected = false;
+  try { await window.ZB_STORE.signUp("someone@gmail.com", "demo1234"); }
+  catch (e) { rejected = /domain-not-allowed/.test((e && e.code) || ""); }
+  chk("the store refuses an off-domain sign-up", rejected);
+  chk("allowed domains come from one constant",
+      Array.isArray(window.ZB_CONFIG.ALLOWED_DOMAINS)
+      && window.ZB_DOMAIN_OK("A.Person@ZimmerBiomet.com") === true
+      && window.ZB_DOMAIN_OK("x@thetransformationfoundry.nl") === true
+      && window.ZB_DOMAIN_OK("x@notzimmerbiomet.com") === false
+      && window.ZB_DOMAIN_OK("x@zimmerbiomet.com.evil.tld") === false
+      && window.ZB_DOMAIN_OK("nodomain") === false);
+
   chk("create step's sign-in link goes to the sign-in screen", /obGoSignIn\(\)/.test(scr()) && !/onclick="obSignIn\(\)"/.test(scr()));
   document.getElementById("ob-email").value = "test@zimmerbiomet.com";
   document.getElementById("ob-pass").value = "demo1234"; window.obCreate();

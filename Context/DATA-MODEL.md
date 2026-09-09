@@ -78,12 +78,21 @@ service cloud.firestore {
       ];
     }
     function isMe(uid) { return signedIn() && request.auth.uid == uid; }
+    // ZB MeetUP is closed to the world: a profile may only be created by someone whose
+    // token email is on an allowed domain. Keep this list in step with ALLOWED_DOMAINS
+    // in js/firebase-config.js — [.] is a literal dot, and ^...$ anchors the whole address
+    // so "zimmerbiomet.com.evil.tld" and "notzimmerbiomet.com" are both rejected.
+    function allowedDomain() {
+      return signedIn() && request.auth.token.email is string
+        && request.auth.token.email.lower()
+             .matches('^[^@]+@(zimmerbiomet[.]com|thetransformationfoundry[.]nl)$');
+    }
 
     // Profiles: anyone signed in can read (needed for spin pool + leaderboard);
     // you may only write your own doc (admins may write any, e.g. to fix points).
     match /users/{uid} {
       allow read: if signedIn();
-      allow create: if isMe(uid);
+      allow create: if isMe(uid) && allowedDomain();   // the hard gate: no profile => no app
       allow update, delete: if isMe(uid) || isAdmin();
     }
 
