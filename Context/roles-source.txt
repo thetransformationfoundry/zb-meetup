@@ -1,0 +1,117 @@
+# Source of truth for ZB MeetUP roles — extracted verbatim from
+# 'Overzicht Medewerkers.xlsx' > Sheet2 (column header cell was 'After Sls Specialist'), 2026-09-09.
+# 107 unique roles (sheet had 108 rows incl. a duplicate 'Tax Manager', now deduped).
+# CC transforms this into the app ROLES list per BRIEF-015:
+#   - 'EMEA - QARA Commercial'  -> kept verbatim (the EMEA role; NOT GSCC-prefixed)
+#   - 'GSCC - QARA'             -> kept verbatim (already GSCC; do not double-prefix)
+#   - every other line          -> prefixed with 'GSCC '  (e.g. 'Warehouse Clerk' -> 'GSCC Warehouse Clerk')
+#   - 'Other' appended as the final catch-all
+# The two matching-critical labels must stay EXACTLY: 'GSCC - QARA' and 'EMEA - QARA Commercial'.
+
+Assoc Dir, Global Legal Ops
+Assoc. Director, Pricing Technology
+Bus Systems Manager
+Buying Group & Tender Manager
+Capex & Inventory Lead
+Capex and Inventory Excellence Lead
+Capital Equipment Sls Representative
+Clinical Operations Project Assoc Manager
+Clinical Operations Sr Manager
+Clinical Programmer
+Clinical Sales Specialist
+Clinical Sales Sr Specialist
+Cluster Payroll Supervisor
+Consignment Auditor
+Contract, Tender & Buying Group Specialist
+Cust Experience Specialist
+Cust Experience Sr Supervisor
+CX Team Lead
+Digital Mktg Senior Specialist
+Distribution / Warehouse Assoc. Director I
+Distribution Coordinator
+Distribution Supervisor
+Distribution Team Lead
+DTS Clincal Sales Specialist
+EUC Team Leader
+Facility Coordinator
+Facility Manager
+Field Svc Engineer
+Finance Manager
+Finance Sr. Director
+Finance VP EMEA
+Glbl Freight & Transportation Manager
+Global Customer Operations Manager
+HR Advisor
+HR Sr Manager
+Inv Sr Analyst
+Inventory Optimization Principal
+IS Security & Controls Sr Analyst
+IT Associate Director
+IT BRM EMEA/APAC Glbl Supply Chain
+IT Bus Relationship Manager
+IT Bus Sys Manager Cust Excellence
+IT Ntwrk Sr Engineer
+IT Sr Analyst
+Litigation Sr Manager
+Marketing & Ops Intern
+Master Data Analyst
+MedEd & Events Manager
+MedEd & Events Specialist
+MedEd Manager UE&SPORTS
+Housekeeping Clerk
+IT Helpdesk Technician
+Payroll Specialist
+Senior Supply Coordination
+Tax Manager
+OpEx Sr. Specialist
+Plant Sourcing Manager
+Portfolio Optimization Lead
+Portfolio Planning Director
+Pricing Operation Support
+Pricing Ops Specialist
+Pricing Ops Sr Specialist / NL Pricing Supervisor
+Pricing Sr Analyst
+Procurement Specialist – Warehouse
+Product Marketing Manager
+Product Marketing Manager HIPS&DTS
+Product Sr Manager
+Program Assoc Director
+Program Development Sr Manager EMEA
+GSCC - QARA
+EMEA - QARA Commercial
+Reg Affairs Specialist
+Rotating Kit Coordinator
+Rotating Kit Handling Assistant
+SC Network Planning Manager
+Senior DTS Clincal Sales Specialist
+Senior Supply Coordinator
+Site Sppt Coordinator
+Sls Manager
+Sls Representative
+Sls Sr Representative
+Software Dev Manager
+Software Developer Principal
+Software Sr Developer
+Solution Consultant
+Sourcing Manager
+Sr Marketing Manager Hips
+Strategic Account Manager & DTS
+Strategic Account Manager R & DTS
+Strategic Initiatives Lead
+Supply Chain Lifecycle Manager
+Supply Chain Manager
+Tax Sr Manager
+Team Lead Kit Creation & In/Outbound
+Team Lead RK BeLux
+Team Lead RK Netherlands & Nordics
+Trade Compl Assoc Director
+Trade Compl Manager
+Trade Compliance Sr Analyst
+Transport & Customs Lead
+Transport Coordinator
+Transportation Specialist
+Warehouse & Distribution Lead
+Warehouse Clerk
+Warehouse In & Outbound Assistant
+Warehouse Supervisor
+Workshops & Demos Coordinator

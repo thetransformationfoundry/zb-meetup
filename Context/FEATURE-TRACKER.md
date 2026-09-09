@@ -33,9 +33,12 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Either participant updates shared photo on wall post | 📋 | BRIEF-013 — low priority; BRIEF-006/010/001 collision (non-author photo replace skips wall post). Pairs with BRIEF-011 posts-rule work |
 | Admin: surface captured answers + real Excel export | 📋 | BRIEF-007 |
 | Admin: editable question bank with tiers | 📋 | BRIEF-008 |
+| Full GSCC/EMEA role list + QARA cross-site matching + onboarding reorder | 🔨 | BRIEF-015 built (v=17) on `feat/emea-gscc-roles` — 108 roles from `roles-source.txt`, EMEA restricted to the QARA set, legacy roles normalised on read |
 | Real ~50-question bank (Donnae) + tiering | 💡 | Feeds BRIEF-008 once list ready |
 | Tabbar Android flicker (transform + backdrop-filter) | 💡 | CC-flagged on BRIEF-003; pre-existing, design call — revisit only if flicker reported |
-| Version / build stamp in-app + Check-for-update | 🔨 | BRIEF-014 built (v=16) on `feat/version-stamp` — auto-stamped by a GitHub Action, which also runs the harness on every push/PR. Staleness is now *detected*, not just displayed |
+| Version / build stamp in-app + Check-for-update | ✅ | BRIEF-014 — merged + live v=16 (2026-09-09, code SHA d696b6e; stamp commit 572d40e). CI (harness + auto-stamp + Pages build) verified end-to-end on first run. Staleness *detected*, not just displayed |
+| CI: harness on every push/PR (GitHub Action) | ✅ | Rode along with BRIEF-014 — roadmap item done |
+| Bump CI actions checkout/setup-node → @v5 | 💡 | Silence GitHub's Node 20 deprecation notice; cosmetic, when convenient |
 | Styled invite email (real screenshots) | 💡 | For launch comms |
 
 ## Live-feedback → brief map (2026-09-08)
@@ -45,8 +48,8 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 8. Admin answers/export → BRIEF-007, editable questions → BRIEF-008.
 
 ## Pre-launch verification (needs real accounts, before inviting colleagues)
-- [ ] **Non-admin earns the photo +5.** Sean + Donnae are both admins, so the rules path where a normal
-  colleague self-claims the shared photo award (BRIEF-005) has never been exercised. Test with one real
-  non-admin account before wider launch. (This was the exact rules gap the +10-to-both bug hid.)
+- [~] **Non-admin earns the photo +5.** LIKELY DONE: Test User 1 (`sean.abbood+testuser@…`, non-admin) shows
+  5 pts / 0 meetups on 2026-09-09 — the shape of the shared-photo self-claim. Confirm the 5 came from adding a
+  meetup photo, then tick. (This was the exact rules gap the +10-to-both bug hid.)
 - [ ] **Donnae's total corrected** as expected after the BRIEF-005 fix.
 - [ ] Two-account live check of each merged feature as the backlog lands.

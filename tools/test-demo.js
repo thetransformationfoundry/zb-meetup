@@ -36,11 +36,21 @@ let depth = 0;
 global.setTimeout = fn => { if (depth++ > 9000) return 0; fn(); return 0; };
 global.setInterval = undefined; global.clearInterval = ()=>{}; global.clearTimeout = ()=>{};
 
-function load(f){ new Function("window","document", fs.readFileSync(f,"utf8"))(window, document); }
+// app.js is wrapped in an IIFE, so test exports have to be injected INSIDE it (before the
+// closing `})();`) rather than appended, or they can't see its internals.
+function load(f, inject){
+  let src = fs.readFileSync(f, "utf8");
+  if (inject) {
+    const i = src.lastIndexOf("})();");
+    src = i === -1 ? src + inject : src.slice(0, i) + inject + "\n" + src.slice(i);
+  }
+  new Function("window", "document", src)(window, document);
+}
 load("js/firebase-config.js");
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
-load("js/app.js");
+// Export the real internals for assertions instead of adding window.* hooks to production code.
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -94,7 +104,11 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   document.getElementById("ob-email").value = "test@zimmerbiomet.com";
   document.getElementById("ob-pass").value = "demo1234"; window.obCreate();
   document.getElementById("ob-name").value = "Test User"; window.obName();
-  document.getElementById("ob-wc").value = "partial"; window.obWork();
+  document.getElementById("ob-wc").value = "partial";
+  document.getElementById("ob-role").value = "";           // the 108-option list has no default
+  window.obWork();
+  chk("role is required before continuing", /Your role/.test(scr()));
+  document.getElementById("ob-role").value = "GSCC IT Sr Analyst"; window.obWork();
   window.obPickPhoto();
   chk("avatar captures at 256px", global.__canvasPx === 256);
   window.obStep(4); document.getElementById("ob-consent").checked = true;
@@ -171,6 +185,54 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("a newer deployed version is reported as stale",
       /Update available/.test(scr()) && /abc1234/.test(scr()) && /remove the icon/.test(scr()));
   window.go("admin"); chk("admin dashboard", /Admin dashboard/.test(scr()));
+
+  /* ---- BRIEF-015: role list, migration, EMEA/GSCC matching ---- */
+  const EMEA = "EMEA - QARA Commercial", QARA = "GSCC - QARA";
+  chk("108 roles, both labels verbatim, Other last",
+      window.__ROLES.length === 108 && window.__ROLES.includes(EMEA) && window.__ROLES.includes(QARA)
+      && window.__ROLES[window.__ROLES.length - 1] === "Other"
+      && !window.__ROLES.some(r => r.startsWith("GSCC GSCC")));
+  chk("legacy roles normalise", window.__normalizeRole("QARA Manager") === QARA
+      && window.__normalizeRole("Quality Specialist") === QARA
+      && window.__normalizeRole("Warehouse Clerk") === "GSCC Warehouse Clerk"
+      && window.__normalizeRole("NonEE Warehouse Clerk") === "GSCC Warehouse Clerk"
+      && window.__normalizeRole("Nonsense Role") === "Other"
+      && window.__normalizeRole(EMEA) === EMEA && window.__normalizeRole(QARA) === QARA);
+
+  const rolesInPool = async patch => {
+    await window.ZB_STORE.saveMe(patch);
+    await refreshAndSettle();
+    return window.__eligible().map(p => p.role);
+  };
+
+  // a normal GSCC colleague must never see EMEA
+  let pool = await rolesInPool({ role:"GSCC IT Sr Analyst", workClass:"partial", floor:false });
+  chk("GSCC non-QARA never sees EMEA", !pool.includes(EMEA) && pool.length > 0);
+
+  // EMEA sees ONLY the QARA set
+  pool = await rolesInPool({ role:EMEA, workClass:"remote", floor:false });
+  chk("EMEA sees only itself + GSCC - QARA",
+      pool.length > 0 && pool.every(r => r === EMEA || r === QARA) && pool.includes(QARA));
+
+  // GSCC - QARA keeps the whole GSCC pool and gains EMEA
+  pool = await rolesInPool({ role:QARA, workClass:"partial", floor:false });
+  chk("GSCC - QARA sees all GSCC plus EMEA",
+      pool.includes(EMEA) && pool.some(r => r.startsWith("GSCC ") && r !== QARA));
+
+  // the migrated legacy user (seeded as "QARA Manager") is in the pool as GSCC - QARA
+  chk("a legacy-role colleague is matchable after normalising",
+      pool.filter(r => r === QARA).length >= 1);
+
+  // floor rule untouched: on-site only, and never a fully-remote colleague
+  const floorPool = (async () => {
+    await window.ZB_STORE.saveMe({ role:"GSCC Warehouse Clerk", workClass:"on-site", floor:true });
+    await refreshAndSettle();
+    return window.__eligible();
+  });
+  const fp = await floorPool();
+  chk("floor rule intact — on-site only, no remote",
+      fp.length > 0 && fp.every(p => p.workClass === "on-site"));
+  chk("floor colleague never sees EMEA (remote)", !fp.map(p => p.role).includes(EMEA));
 
   console.log(ok ? "\nDEMO PATH GREEN ✅" : "\nDEMO PATH FAILED ❌");
   process.exit(ok ? 0 : 1);

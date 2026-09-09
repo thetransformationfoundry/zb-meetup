@@ -128,7 +128,24 @@ window.checkUpdate=function(){
 let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],respins:2,admin:false,leaderboard:[],bugs:[],build:null};
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
 let OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
-const ROLES=["Warehouse Clerk","NonEE Warehouse Clerk","Rotating Kit Handling Assistant","Distribution Coordinator","Distribution Team Lead","Cust Experience Specialist","Clinical Sales Specialist","Sls Sr Representative","Quality Specialist","QARA Manager","IT Sr Analyst","Pricing Analyst","Field Svc Engineer","MedEd & Events Specialist","Inventory Optimization Principal","Facility Coordinator","Payroll Specialist","Other"];
+// The two matching-critical labels — keyed off by eligible(), so never inline these strings.
+const EMEA_ROLE='EMEA - QARA Commercial';
+const GSCC_QARA='GSCC - QARA';
+const QARA_SET=[EMEA_ROLE,GSCC_QARA];
+// Generated from Context/roles-source.txt (107 verbatim rows from the spreadsheet): every row is
+// prefixed 'GSCC ' except the two labels above, plus 'Other' as the catch-all. 108 options.
+const ROLES=["GSCC Assoc Dir, Global Legal Ops","GSCC Assoc. Director, Pricing Technology","GSCC Bus Systems Manager","GSCC Buying Group & Tender Manager","GSCC Capex & Inventory Lead","GSCC Capex and Inventory Excellence Lead","GSCC Capital Equipment Sls Representative","GSCC Clinical Operations Project Assoc Manager","GSCC Clinical Operations Sr Manager","GSCC Clinical Programmer","GSCC Clinical Sales Specialist","GSCC Clinical Sales Sr Specialist","GSCC Cluster Payroll Supervisor","GSCC Consignment Auditor","GSCC Contract, Tender & Buying Group Specialist","GSCC Cust Experience Specialist","GSCC Cust Experience Sr Supervisor","GSCC CX Team Lead","GSCC Digital Mktg Senior Specialist","GSCC Distribution / Warehouse Assoc. Director I","GSCC Distribution Coordinator","GSCC Distribution Supervisor","GSCC Distribution Team Lead","GSCC DTS Clincal Sales Specialist","GSCC EUC Team Leader","GSCC Facility Coordinator","GSCC Facility Manager","GSCC Field Svc Engineer","GSCC Finance Manager","GSCC Finance Sr. Director","GSCC Finance VP EMEA","GSCC Glbl Freight & Transportation Manager","GSCC Global Customer Operations Manager","GSCC HR Advisor","GSCC HR Sr Manager","GSCC Inv Sr Analyst","GSCC Inventory Optimization Principal","GSCC IS Security & Controls Sr Analyst","GSCC IT Associate Director","GSCC IT BRM EMEA/APAC Glbl Supply Chain","GSCC IT Bus Relationship Manager","GSCC IT Bus Sys Manager Cust Excellence","GSCC IT Ntwrk Sr Engineer","GSCC IT Sr Analyst","GSCC Litigation Sr Manager","GSCC Marketing & Ops Intern","GSCC Master Data Analyst","GSCC MedEd & Events Manager","GSCC MedEd & Events Specialist","GSCC MedEd Manager UE&SPORTS","GSCC Housekeeping Clerk","GSCC IT Helpdesk Technician","GSCC Payroll Specialist","GSCC Senior Supply Coordination","GSCC Tax Manager","GSCC OpEx Sr. Specialist","GSCC Plant Sourcing Manager","GSCC Portfolio Optimization Lead","GSCC Portfolio Planning Director","GSCC Pricing Operation Support","GSCC Pricing Ops Specialist","GSCC Pricing Ops Sr Specialist / NL Pricing Supervisor","GSCC Pricing Sr Analyst","GSCC Procurement Specialist – Warehouse","GSCC Product Marketing Manager","GSCC Product Marketing Manager HIPS&DTS","GSCC Product Sr Manager","GSCC Program Assoc Director","GSCC Program Development Sr Manager EMEA","GSCC - QARA","EMEA - QARA Commercial","GSCC Reg Affairs Specialist","GSCC Rotating Kit Coordinator","GSCC Rotating Kit Handling Assistant","GSCC SC Network Planning Manager","GSCC Senior DTS Clincal Sales Specialist","GSCC Senior Supply Coordinator","GSCC Site Sppt Coordinator","GSCC Sls Manager","GSCC Sls Representative","GSCC Sls Sr Representative","GSCC Software Dev Manager","GSCC Software Developer Principal","GSCC Software Sr Developer","GSCC Solution Consultant","GSCC Sourcing Manager","GSCC Sr Marketing Manager Hips","GSCC Strategic Account Manager & DTS","GSCC Strategic Account Manager R & DTS","GSCC Strategic Initiatives Lead","GSCC Supply Chain Lifecycle Manager","GSCC Supply Chain Manager","GSCC Tax Sr Manager","GSCC Team Lead Kit Creation & In/Outbound","GSCC Team Lead RK BeLux","GSCC Team Lead RK Netherlands & Nordics","GSCC Trade Compl Assoc Director","GSCC Trade Compl Manager","GSCC Trade Compliance Sr Analyst","GSCC Transport & Customs Lead","GSCC Transport Coordinator","GSCC Transportation Specialist","GSCC Warehouse & Distribution Lead","GSCC Warehouse Clerk","GSCC Warehouse In & Outbound Assistant","GSCC Warehouse Supervisor","GSCC Workshops & Demos Coordinator","Other"];
+// Live users onboarded on the old 18-role list. Normalised ON READ so nobody is left holding a
+// role absent from ROLES (which would make their pool behave oddly and look broken in the UI).
+const LEGACY_ROLES={'QARA Manager':GSCC_QARA,'Quality Specialist':GSCC_QARA,'NonEE Warehouse Clerk':'GSCC Warehouse Clerk'};
+function normalizeRole(r){
+  r=(r||'').trim(); if(!r) return 'Other';
+  if(ROLES.includes(r)) return r;                 // already current (incl. the two verbatim labels)
+  if(LEGACY_ROLES[r]) return LEGACY_ROLES[r];
+  const prefixed='GSCC '+r;
+  if(ROLES.includes(prefixed)) return prefixed;   // an old GSCC role that survives in the new list
+  return 'Other';                                 // unknown -> a normal non-QARA GSCC role for matching
+}
 const COLORS=["#0079BD","#1E9E5A","#E8B923","#D64545","#7A5AF8","#0EA5A5","#E5731E","#C026A3","#2563EB","#57606A"];
 const IN_PERSON=["a coffee","a walk at lunch","a shared break","a litter-pick challenge"], REMOTE=["a Teams coffee call","a virtual catch-up"];
 
@@ -139,7 +156,15 @@ const history=()=>C.matches.filter(m=>m.completed);
 const myPoints=m=>(m.photoAwarded?5:0)+(m.completed?5:0);   // up to 10 per meetup, earned independently
 function eligible(){
   const matched=new Set(history().map(m=>m.person.uid)), busy=new Set(activeMatches().map(m=>m.person.uid));
-  return C.users.filter(p=>{if(matched.has(p.uid)||busy.has(p.uid))return false;if(C.me.floor||p.floor)return C.me.workClass==='on-site'&&p.workClass==='on-site';return true;});
+  return C.users.filter(p=>{
+    if(matched.has(p.uid)||busy.has(p.uid))return false;
+    // EMEA has a single role and only meets the QARA set: EMEA<->EMEA and EMEA<->GSCC - QARA.
+    // GSCC - QARA keeps its full GSCC pool and gains EMEA. Additive — the floor rule below is unchanged.
+    const involvesEmea=C.me.role===EMEA_ROLE||p.role===EMEA_ROLE;
+    if(involvesEmea&&!(QARA_SET.includes(C.me.role)&&QARA_SET.includes(p.role)))return false;
+    if(C.me.floor||p.floor)return C.me.workClass==='on-site'&&p.workClass==='on-site';
+    return true;
+  });
 }
 function meetupType(p){const list=(p.workClass==='remote'||C.me.workClass==='remote')?REMOTE:IN_PERSON;return list[Math.floor(Math.random()*list.length)];}
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -153,7 +178,12 @@ async function refresh(){
   const [me,users,matches,posts,notifs,questions,respins,admin,lb,bugs]=await Promise.all([
     S.getMe(),S.listUsers(),S.myMatches(),S.listPosts(),S.listNotifs(),S.questionBank(),S.respinsLeft(),S.isAdmin(),S.leaderboard(),S.listBugs()
   ]);
-  C.me=me;C.users=users;C.matches=matches;C.posts=posts;C.notifs=notifs;C.questions=questions;C.respins=respins;C.admin=admin;C.leaderboard=lb;C.bugs=bugs;
+  // Roles are normalised ON READ (see normalizeRole): live users onboarded on the old 18-role
+  // list, and matches carry a profile snapshot taken at creation time, so both can hold legacy strings.
+  if(me)me.role=normalizeRole(me.role);
+  const users2=users.map(u=>Object.assign({},u,{role:normalizeRole(u.role)}));
+  const matches2=matches.map(m=>m.person?Object.assign({},m,{person:Object.assign({},m.person,{role:normalizeRole(m.person.role)})}):m);
+  C.me=me;C.users=users2;C.matches=matches2;C.posts=posts;C.notifs=notifs;C.questions=questions;C.respins=respins;C.admin=admin;C.leaderboard=lb;C.bugs=bugs;
   if(!C.build)loadBuild();          // fire-and-forget; re-renders the You screen when it lands
   // A shared photo is worth +5 to both, but each side may only write its own points, so claim mine here.
   const unclaimed=C.matches.filter(m=>m.photo&&!m.photoAwarded);
@@ -341,7 +371,7 @@ function renderOnboard(){
     body=`<h2>What's your name?</h2><p class="sub">This is how colleagues will see you.</p><div class="card"><input class="input" id="ob-name" placeholder="First and last name" value="${OB.name||''}"></div>`;
     cta=`<button class="btn" onclick="obName()">Continue</button>`;
   } else if(onboardStep===2){
-    body=`<h2>Where do you work?</h2><p class="sub">This helps us match you with the right colleagues.</p><div class="card"><label class="small" style="font-weight:700">Work setup</label><select class="input" id="ob-wc" style="margin:6px 0 14px"><option value="warehouse">GSSC Warehouse — On-site (floor)</option><option value="on-site">On-site (office / desk)</option><option value="partial" selected>Partially remote</option><option value="remote">Fully remote</option></select><label class="small" style="font-weight:700">Your role</label><select class="input" id="ob-role" style="margin-top:6px">${ROLES.map(r=>`<option ${r==='IT Sr Analyst'?'selected':''}>${r}</option>`).join('')}</select></div>`;
+    body=`<h2>Your role</h2><p class="sub">Your role and work setup — this is how we match you with the right colleagues.</p><div class="card"><label class="small" style="font-weight:700">Your role</label><select class="input" id="ob-role" style="margin:6px 0 14px"><option value="" selected disabled>Select your role…</option>${ROLES.map(r=>`<option>${r}</option>`).join('')}</select><label class="small" style="font-weight:700">Work setup</label><select class="input" id="ob-wc" style="margin-top:6px"><option value="warehouse">GSCC Warehouse — On-site (floor)</option><option value="on-site">On-site (office / desk)</option><option value="partial" selected>Partially remote</option><option value="remote">Fully remote</option></select></div>`;
     cta=`<button class="btn" onclick="obWork()">Continue</button><p class="muted small center" style="margin-top:10px">Warehouse/floor colleagues are matched only with on-site colleagues.</p>`;
   } else if(onboardStep===3){
     body=`<h2>Add a photo</h2><p class="sub">Take a photo or choose one — or keep your initials.</p>
@@ -376,8 +406,28 @@ window.obForgot=async function(resend){
   onboardStep='resetsent';renderOnboard();
 };
 window.obName=function(){const n=$("#ob-name").value.trim();if(!n){toast("Please enter your name");return;}OB.name=n;onboardStep=2;renderOnboard();};
-window.obWork=function(){const wc=$("#ob-wc").value,role=$("#ob-role").value;OB.role=role;if(wc==='warehouse'){OB.workClass='on-site';OB.floor=true;OB.dept='Distribution';}else{OB.workClass=wc;OB.floor=false;OB.dept=deptForRole(role);}onboardStep=3;renderOnboard();};
-function deptForRole(r){if(/warehouse|kit|distribution/i.test(r))return 'Distribution';if(/sales|clinical/i.test(r))return 'Sales';if(/quality|qara/i.test(r))return 'Quality & Reg Affairs';if(/IT/i.test(r))return 'IT - EMEA';if(/experience/i.test(r))return 'Customer Experience';if(/pricing/i.test(r))return 'Pricing & Tenders';return 'Zimmer Biomet';}
+window.obWork=function(){const wc=$("#ob-wc").value,role=$("#ob-role").value;
+  if(!role){toast("Please choose your role");return;}   // 108 options and no sensible default
+  OB.role=role;
+  if(wc==='warehouse'){OB.workClass='on-site';OB.floor=true;OB.dept='Distribution';}
+  else{OB.workClass=wc;OB.floor=false;OB.dept=deptForRole(role);}
+  onboardStep=3;renderOnboard();};
+// Substring match, checked against the new GSCC-prefixed names. Order matters: QARA/quality is
+// tested before the generic ones, and the \bIT\b word-boundary stops it catching "Litigation".
+function deptForRole(r){
+  r=r||'';
+  if(/qara|quality|reg affairs/i.test(r))return 'Quality & Reg Affairs';
+  if(/warehouse|kit|distribution|transport|freight|housekeep|inbound|outbound/i.test(r))return 'Distribution';
+  if(/sales|sls|clinical|account manager/i.test(r))return 'Sales';
+  if(/\bIT\b|software|helpdesk|ntwrk|network|euc|security & controls/i.test(r))return 'IT - EMEA';
+  if(/experience|\bcx\b|customer operations/i.test(r))return 'Customer Experience';
+  if(/pricing|tender|buying group/i.test(r))return 'Pricing & Tenders';
+  if(/finance|tax|payroll|procure|sourcing|capex/i.test(r))return 'Finance & Procurement';
+  if(/\bhr\b|legal|litigation|trade compl/i.test(r))return 'HR, Legal & Compliance';
+  if(/marketing|mkt|meded|events|demos|workshops/i.test(r))return 'Marketing & Med Ed';
+  if(/supply|inventory|planning|portfolio|master data|program|opex/i.test(r))return 'Supply Chain';
+  return 'Zimmer Biomet';
+}
 window.finishOnboard=async function(){
   if(!$("#ob-consent").checked){toast("Please tick consent to continue");return;}
   authBusy=true;
