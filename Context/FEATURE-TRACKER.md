@@ -22,7 +22,9 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Sign-in screen for returning users (+ forgot password) | ✅ | BRIEF-002 + amendment — merged + live v=10 (2026-09-09, SHA f413950) |
 | Password-reset confirmation screen (check email + junk) | ✅ | Live feedback 2026-09-09 (reset email hit Outlook Junk) — merged + live v=11 (SHA 948a1cf) |
 | Reset email deliverability (SPF/DKIM / IT allow-list) | 💡 | firebaseapp.com sender flagged by Outlook — decision open (see 2026-09-09 session log): recommend ZB IT allow-list noreply@zb-meetup.firebaseapp.com + custom sender domain for the proper fix |
-| Restrict sign-up to allowed domains (zimmerbiomet.com / thetransformationfoundry.nl) | 🔨 | BRIEF-009 built (v=12) on `feat/allowed-domains` — **needs the Firestore rules published**; Auth blocking function deferred to BRIEF-004 (needs Identity Platform) |
+| Restrict sign-up to allowed domains (zimmerbiomet.com / thetransformationfoundry.nl) | ✅ | BRIEF-009 — merged + live v=12 (2026-09-09, SHA 2cde987); rules published + tested. Auth blocking function deferred to BRIEF-004 (needs Identity Platform) |
+| Lock the wall-post update rule (author/admin edit content; others heart+comment) | 🔨 | BRIEF-010 — rules-only fix on `fix/wall-post-update-rule`; **needs publishing**, no deploy required |
+| Lock wall-post update rule (author/admin edit content; others heart/comment only) | 📋 | BRIEF-010 — security, launch-gating; do before BRIEF-003 |
 | In-app bell: requests/accepts/messages + deep-links; message composer layout | 📋 | BRIEF-003 |
 | Real push notifications (FCM + SW + Cloud Functions) + 3-day reminder | 📋 | BRIEF-004 — Blaze approved |
 | Per-user completion + correct points + completed-meetups view | ✅ | BRIEF-005 — merged + live v=8 (2026-09-08, SHA cc0ddc3) |

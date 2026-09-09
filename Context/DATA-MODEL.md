@@ -52,6 +52,11 @@ posts/{postId}                          // community wall (photos only)
   photo: base64                         // the real meetup photo
   hearts: number, heartedBy: [uid,...]
   comments: [ { by: uid, byName, text, at } ]
+                                          // DRIFT (2026-09-09): the code writes only
+                                          // { by: <display name>, text, at } — no uid. So a
+                                          // comment's attribution is client-supplied. Harmless
+                                          // through the UI; a direct write could spoof a name.
+                                          // Fix = store byUid and render the name from it.
   seed: bool                            // seed/holding posts — excluded from analytics/exports
   createdAt
 
@@ -108,9 +113,16 @@ service cloud.firestore {
     match /posts/{id} {
       allow read: if signedIn();
       allow create: if signedIn() && request.auth.uid == request.resource.data.authorUid;
-      allow update: if signedIn()
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['hearts','heartedBy','comments']);
+      // The author (and admins) may edit the post's own content, photo included.
+      // Everyone else gets the wall's social actions only — heart and comment — and
+      // cannot touch authorUid, names, scene or photo. The app only ever writes those
+      // three fields from heartPost()/commentPost(), so this is exactly what it needs.
+      allow update: if signedIn() && (
+           request.auth.uid == resource.data.authorUid
+        || isAdmin()
+        || request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['hearts','heartedBy','comments'])
+      );
       allow delete: if isAdmin();
     }
 
