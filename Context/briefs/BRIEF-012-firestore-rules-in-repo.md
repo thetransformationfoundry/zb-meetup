@@ -25,6 +25,14 @@ every rule change is a git diff and "what's live" is never in doubt. `DATA-MODEL
 4. Reconcile `DATA-MODEL.md` so its rules description matches `firestore.rules` (it now includes `bugReports`).
 5. No app/client change; no `?v=` bump needed.
 
+## Public-repo safety (confirmed)
+This repo is **public**, and that's fine for rules. Firestore security rules are designed to be public — they're
+the enforcement layer, not a secret; publishing them exposes no vulnerability. The admin emails in the rules are
+already public in `firebase-config.js` and are not credentials (access still requires authenticating as that
+account). `firebase.json`/`.firebaserc` contain only the project id (already visible in the live URL) and paths.
+**Hard line:** never commit a service-account / Admin SDK private key. Cloud Functions (BRIEF-004) run on the
+runtime service account and need no key in the repo.
+
 ## Guardrails (do NOT touch)
 - Don't change any rule behaviour in this brief — it's a **lift into the repo of exactly what's live**. Rule
   *changes* belong in their own briefs (011, 004).

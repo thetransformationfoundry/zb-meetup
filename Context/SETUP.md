@@ -52,3 +52,9 @@ GitHub org, hosted on **GitHub Pages**; Firebase project **`zb-meetup`**.
 You can start **A** and **B** now (10–15 min). The moment you paste me the **Firebase config**, I'll build
 the app skeleton and hand you a ready-to-push repo. No colleague data or the employee spreadsheet goes into
 the repo (see `DATA-MODEL.md` — self-registration + private invite list).
+
+## Firestore rules
+The ruleset lives in **`firestore.rules`** at the repo root — it is the source of truth, not the console.
+Edit it on a branch, then publish (console paste or `firebase deploy --only firestore:rules`) and verify in the
+Rules Playground. Full flow and the standing simulator checks: **`Context/RULES.md`**.
+Remember: **rules only protect once published.**

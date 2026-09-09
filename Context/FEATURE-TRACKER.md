@@ -25,7 +25,8 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Restrict sign-up to allowed domains (zimmerbiomet.com / thetransformationfoundry.nl) | ✅ | BRIEF-009 — merged + live v=12 (2026-09-09, SHA 2cde987); rules published + tested. Auth blocking function deferred to BRIEF-004 (needs Identity Platform) |
 | Lock wall-post update rule (author/admin edit content; others heart/comment only) | ✅ | BRIEF-010 — rules published + simulator-verified DENIED for non-author overwrite (2026-09-09). Branch `10b8470` to merge as bookkeeping |
 | Wall integrity: comment identity (byUid) + interaction value validation | 📋 | BRIEF-011 — Part A (comment spoofing) before wider launch; Part B backlog unless hearts feed prizes |
-| In-app bell: requests/accepts/messages + deep-links; message composer layout | 🔨 | BRIEF-003 built (v=14) on `feat/notifications-inapp` — root cause was the **notifications rule**, not client code; **needs the rules published** |
+| Firestore rules versioned in the repo (`firestore.rules`) | 🔨 | BRIEF-012 built on `chore/firestore-rules-in-repo` — lift-and-shift of live v13, no behaviour change |
+| In-app bell: requests/accepts/messages + deep-links; message composer layout | ✅ | BRIEF-003 — client live v=14 (SHA eac9602); notifications rule published + all 4 simulator checks verified (2026-09-09). Final two-account bell test with Donnae = last human confirmation |
 | Real push notifications (FCM + SW + Cloud Functions) + 3-day reminder | 📋 | BRIEF-004 — Blaze approved |
 | Per-user completion + correct points + completed-meetups view | ✅ | BRIEF-005 — merged + live v=8 (2026-09-08, SHA cc0ddc3) |
 | Meetup photo quality (crisp) + card fit (no gutters) | 📋 | BRIEF-006 |

@@ -68,104 +68,39 @@ app/config            tournamentName, launchFlags, prizes, closed:bool   // sing
 > Reminders: a scheduled Cloud Function nudges both users if a match is `active` but not `completed`
 > 3 days after `acceptedAt` (sets `remindedAt`). See ROADMAP.
 
-## Security rules (Firestore, v2 — starting point)
+## Security rules (Firestore)
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
+> **The executable truth is [`firestore.rules`](../firestore.rules) at the repo root.** It is not duplicated
+> here any more — this document used to carry its own copy and it **drifted** (it was missing the
+> `bugReports` block, so pasting it over live would have silently disabled bug reporting). One file, diffable
+> in git. See [`RULES.md`](RULES.md) for the edit → publish flow.
+>
+> **Rules only protect once published.** A change committed to `firestore.rules` does nothing until it is
+> deployed to the project.
 
-    function signedIn() { return request.auth != null; }
-    function isAdmin() {
-      return signedIn() && request.auth.token.email in [
-        'donnae.abbood@zimmerbiomet.com',
-        'sean.abbood@thetransformationfoundry.nl'
-      ];
-    }
-    function isMe(uid) { return signedIn() && request.auth.uid == uid; }
-    // ZB MeetUP is closed to the world: a profile may only be created by someone whose
-    // token email is on an allowed domain. Keep this list in step with ALLOWED_DOMAINS
-    // in js/firebase-config.js — [.] is a literal dot, and ^...$ anchors the whole address
-    // so "zimmerbiomet.com.evil.tld" and "notzimmerbiomet.com" are both rejected.
-    function allowedDomain() {
-      return signedIn() && request.auth.token.email is string
-        && request.auth.token.email.lower()
-             .matches('^[^@]+@(zimmerbiomet[.]com|thetransformationfoundry[.]nl)$');
-    }
+What the rules enforce, in prose (the *why*; `firestore.rules` is the *what*):
 
-    // Profiles: anyone signed in can read (needed for spin pool + leaderboard);
-    // you may only write your own doc (admins may write any, e.g. to fix points).
-    match /users/{uid} {
-      allow read: if signedIn();
-      allow create: if isMe(uid) && allowedDomain();   // the hard gate: no profile => no app
-      allow update, delete: if isMe(uid) || isAdmin();
-    }
+| Collection | Read | Write |
+|---|---|---|
+| `users/{uid}` | any signed-in colleague (needed for the spin pool + leaderboard) | create **only** with an allowed-domain token email (BRIEF-009 — the hard gate: no profile means no app); update/delete yourself, or an admin |
+| `matches/{id}` | the two participants, or an admin | same — so a match's private `answers` are never readable by anyone else |
+| `posts/{id}` | any signed-in colleague | author or admin may change the post's content (photo included); everyone else is limited to `hearts` / `heartedBy` / `comments` (BRIEF-010) |
+| `questionBank/{id}` | any signed-in colleague | admins only |
+| `notifications/{uid}/items/{id}` | **only you** | you may mark read / clear your own; any colleague may *deliver* one to you, stamped with their own `fromUid`, unread, and only in the documented shape (BRIEF-003) |
+| `bugReports/{id}` | admins only | any signed-in colleague may file one |
+| `app/{doc}` | any signed-in colleague | admins only |
 
-    // Matches: only the two participants (or an admin) can read/write.
-    match /matches/{id} {
-      allow read, update, delete: if isAdmin()
-        || (signedIn() && (request.auth.uid == resource.data.a || request.auth.uid == resource.data.b));
-      allow create: if signedIn() && request.auth.uid == request.resource.data.a;
-    }
+Admin gating is by email (`isAdmin()`), matching `ADMIN_EMAILS` in `js/firebase-config.js`. The allowed
+sign-up domains in `allowedDomain()` must stay in step with `ALLOWED_DOMAINS` in the same file — they are two
+expressions of one decision, and changing one means changing the other.
 
-    // Wall posts: any signed-in user can read; author creates; anyone signed-in may
-    // update ONLY hearts/comments (append) — not the photo/author.
-    match /posts/{id} {
-      allow read: if signedIn();
-      allow create: if signedIn() && request.auth.uid == request.resource.data.authorUid;
-      // The author (and admins) may edit the post's own content, photo included.
-      // Everyone else gets the wall's social actions only — heart and comment — and
-      // cannot touch authorUid, names, scene or photo. The app only ever writes those
-      // three fields from heartPost()/commentPost(), so this is exactly what it needs.
-      allow update: if signedIn() && (
-           request.auth.uid == resource.data.authorUid
-        || isAdmin()
-        || request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['hearts','heartedBy','comments'])
-      );
-      allow delete: if isAdmin();
-    }
-
-    match /questionBank/{id} {
-      allow read: if signedIn();
-      allow write: if isAdmin();
-    }
-
-    match /notifications/{uid}/items/{id} {
-      // Your own list is yours to read, mark read and clear.
-      allow read, update, delete: if isMe(uid);
-      // A colleague must be able to DELIVER a notification into someone else's list —
-      // that is how requests, accepts and messages reach the bell. `allow write: isMe(uid)`
-      // denied exactly that, so no cross-user notification had ever been written. Delivery
-      // is constrained: the sender stamps their own uid, cannot pre-mark it read, and
-      // cannot add fields outside this shape. They still cannot read or edit the list.
-      allow create: if signedIn()
-        && request.resource.data.fromUid == request.auth.uid
-        && request.resource.data.read == false
-        && request.resource.data.keys()
-             .hasOnly(['type','icon','text','target','fromUid','read','createdAt']);
-    }
-
-    // Bug reports: anyone signed in can file one; only admins can read them.
-    // (Was missing from this document while present in the published rules — added
-    //  2026-09-09 so the documented ruleset is safe to paste over live.)
-    match /bugReports/{id} {
-      allow read: if isAdmin();
-      allow create: if signedIn();
-    }
-
-    match /app/{doc} {
-      allow read: if signedIn();
-      allow write: if isAdmin();
-    }
-  }
-}
-```
-
-**Notes / hardening (later):** like ZB Cup, points are written client-side for launch simplicity
-(trust-based, internal audience). If we want to harden, move point awards + match scoring into a Cloud
-Function and lock down `users.points` / `matches.pointsAwarded` writes to admin/functions only. Answers
-are protected because they live on `matches`, which only participants can read.
+### Known residual gaps
+- **Comment attribution** is client-supplied: the code writes `{ by: <display name>, text, at }` with no uid,
+  so a direct write could post under another colleague's name. BRIEF-011 Part A.
+- **Interaction values** aren't validated: a non-author is limited to the three interaction *fields*, but
+  could still set `hearts` to an arbitrary number. BRIEF-011 Part B.
+- **Off-domain auth accounts** can still be created (they get no profile, so no app access) until the
+  `beforeCreate` blocking function lands with BRIEF-004.
 
 ## GDPR / end-of-life
 
