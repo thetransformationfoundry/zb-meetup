@@ -1,0 +1,79 @@
+name: CI
+
+# `version.json` is ignored here so the stamp commit this workflow makes cannot retrigger it
+# (that would loop). Doc-only pushes skip CI too — they cannot affect the app.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'version.json'
+      - 'Context/**'
+      - '**/*.md'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    name: Demo-path harness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # Nothing to install: the app has no build step and the harness is plain Node.
+      - name: node tools/test-demo.js
+        run: node tools/test-demo.js
+
+  stamp:
+    name: Stamp the build
+    needs: harness                      # never stamp a deploy whose harness is red
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write                   # to commit version.json
+      pages: write                      # to request the Pages rebuild (see below)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write version.json
+        run: |
+          set -euo pipefail
+          SHA="$(git rev-parse --short HEAD)"
+          DATE="$(date -u +%Y-%m-%d)"
+          # the cache-bust version the app loads itself with, so the stamp can never disagree
+          V="$(grep -o 'app\.js?v=[0-9]\+' index.html | head -1 | grep -o '[0-9]\+')"
+          if [ -z "$V" ]; then echo "could not read ?v= from index.html" >&2; exit 1; fi
+          printf '{\n  "version": "%s",\n  "sha": "%s",\n  "date": "%s"\n}\n' "$V" "$SHA" "$DATE" > version.json
+          cat version.json
+
+      - name: Commit it if it changed
+        id: commit
+        run: |
+          set -euo pipefail
+          CODE_SHA="$(git rev-parse --short HEAD)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add version.json
+          if git diff --staged --quiet; then
+            echo "version.json already current — nothing to commit"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore(ci): stamp build ${CODE_SHA}"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A push made with GITHUB_TOKEN deliberately does NOT trigger other workflows, and
+      # "pages build and deployment" is one — so the stamp commit would sit in the repo
+      # undeployed until the next human push. Ask Pages to build explicitly.
+      - name: Request a Pages build so the stamp actually deploys
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/${{ github.repository }}/pages/builds" \
+            || echo "::warning::Could not request a Pages build; the stamp will deploy with the next push"
