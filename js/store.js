@@ -15,6 +15,10 @@
     ["Mira","Halvorsen","Warehouse Clerk","Distribution","on-site",true],
     ["Tobias","Halvorsen","Warehouse Clerk","Distribution","on-site",true],
     ["Elin","Koster","Quality Specialist","Quality & Reg Affairs","on-site",false],
+    // DEMO ONLY — every one of these colleagues is FICTIONAL. They exist in this in-browser
+    // store, are never written to Firestore, and are never seen by a live user. The roles are
+    // real entries from ROLES so the demo exercises real matching; the people are invented.
+    // Do NOT put a real colleague's name, role or work location here: this repo is public.
     ["Noor","Baaijens","GSCC Sls Sr Representative","Sales NL North","remote",false],
     ["Wessel","Duifhuis","GSCC Warehouse Clerk","Distribution","on-site",true],
     ["Ilse","Verkerk","GSCC Cust Experience Specialist","Customer Experience","partial",false],

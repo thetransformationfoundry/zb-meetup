@@ -23,9 +23,9 @@
   no longer catches "Litigation", and four departments were added (Finance & Procurement, HR/Legal/Compliance,
   Marketing & Med Ed, Supply Chain). Distribution across all 108: Distribution 17, Sales 13, IT 13, Finance 11,
   Supply Chain 11, Marketing 9, HR/Legal 7, Pricing 7, CX 4, QARA 3, generic fallback 13.
-- **Demo seeds** now include `GSCC - QARA` (Donnae), `EMEA - QARA Commercial` (a remote EMEA colleague) and a
-  user still on the legacy `QARA Manager`, alongside the existing floor and remote users — so the harness
-  exercises every branch.
+- **Demo seeds** now include `GSCC - QARA`, `EMEA - QARA Commercial` (a remote EMEA colleague) and a user
+  still on the legacy `QARA Manager`, alongside the existing floor and remote users — so the harness exercises
+  every branch. **All seed colleagues are fictional** (see below).
 - `?v=` 16 → 17.
 
 ## Two judgement calls
@@ -52,3 +52,27 @@ so migration is exercised end to end.
 now that "EMEA" names a specific role and site, an IT colleague showing `IT - EMEA` next to
 `EMEA - QARA Commercial` reads confusingly. Renaming it is a one-word change but it is a **product/labelling
 decision** (it appears on profiles, spin cards and the shared space), so it is Sean's or Donnae's call, not mine.
+
+
+## Privacy fix prompted by Sean's review (2026-09-09)
+Sean asked whether the seed colleagues shown on the spin card are hardcoded test data. They are — demo-store
+only, never written to Firestore, never seen by a live user — but his question exposed something worse that I
+had made a step toward: I had seeded `GSCC - QARA` as **"Donnae Abbood"**, a real person, with her role and
+work setup, in a **public repo**.
+
+Checking the file properly, the nine pre-existing seed colleagues (`Noor Baaijens`, `Wessel Duifhuis`,
+`Ilse Verkerk`, `Bram Roelofsen`, `Sanne Kolthoff`, `Timo Vermeulen`, `Joris Stevens`, `Maud Hendriks`,
+`Lars Wieringa`) read like real Dutch/EMEA colleagues, each paired with a specific role, department and work
+location. `Context/holding-photos.md` explicitly labels the *wall* pairs as dummy names; nothing said the same
+of the seed **users**. Name + role + site for a real colleague is personal data, and `CLAUDE.md` is
+unambiguous: *"Never commit secrets or personal data… no employee list in the repo."*
+
+**Action taken:** all twelve seed colleagues are now clearly **fictional**, with a comment in `js/store.js`
+saying so and warning against putting a real colleague's details there. Roles remain genuine `ROLES` entries,
+so the demo still exercises real matching — only the people are invented. Nothing in the app or harness keys
+off the names, so the change is inert beyond the demo UI.
+
+**Open question for Sean:** were those nine original names taken from the employee spreadsheet? If so they
+were in the public repo from the first commit and are in git history, which a rename does not erase. If any is
+a real colleague, say so and we can decide whether history needs rewriting before the wider invite — a public
+repo, a real name, and their role and work location together is the kind of thing worth being sure about.
