@@ -25,7 +25,7 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Restrict sign-up to allowed domains (zimmerbiomet.com / thetransformationfoundry.nl) | ✅ | BRIEF-009 — merged + live v=12 (2026-09-09, SHA 2cde987); rules published + tested. Auth blocking function deferred to BRIEF-004 (needs Identity Platform) |
 | Lock wall-post update rule (author/admin edit content; others heart/comment only) | ✅ | BRIEF-010 — rules published + simulator-verified DENIED for non-author overwrite (2026-09-09). Branch `10b8470` to merge as bookkeeping |
 | Wall integrity: comment identity (byUid) + interaction value validation | 📋 | BRIEF-011 — Part A (comment spoofing) before wider launch; Part B backlog unless hearts feed prizes |
-| Firestore rules versioned in the repo (`firestore.rules`) | 🔨 | BRIEF-012 built on `chore/firestore-rules-in-repo` — lift-and-shift of live v13, no behaviour change |
+| Firestore rules versioned in the repo (`firestore.rules`) | ✅ | BRIEF-012 — merged 2026-09-09; live/repo byte-identical (sha256 792f9b16…0eb6, confirmed by Sean). All rule changes now go via a branch diff |
 | In-app bell: requests/accepts/messages + deep-links; message composer layout | ✅ | BRIEF-003 — client live v=14 (SHA eac9602); notifications rule published + all 4 simulator checks verified (2026-09-09). Final two-account bell test with Donnae = last human confirmation |
 | Real push notifications (FCM + SW + Cloud Functions) + 3-day reminder | 📋 | BRIEF-004 — Blaze approved |
 | Per-user completion + correct points + completed-meetups view | ✅ | BRIEF-005 — merged + live v=8 (2026-09-08, SHA cc0ddc3) |
@@ -33,7 +33,7 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Admin: surface captured answers + real Excel export | 📋 | BRIEF-007 |
 | Admin: editable question bank with tiers | 📋 | BRIEF-008 |
 | Real ~50-question bank (Donnae) + tiering | 💡 | Feeds BRIEF-008 once list ready |
-| Firestore rules in repo (source of truth) + firebase.json | 📋 | BRIEF-012 — do soon; prevents DATA-MODEL/live rules drift (bugReports near-miss 2026-09-09) |
+| Firestore rules in repo (source of truth) + firebase.json | ✅ | BRIEF-012 (`cd697fa`) — firestore.rules byte-matches published set (sha 792f9b16…); firebase.json/.firebaserc, Context/RULES.md, DATA-MODEL duplicate removed. No behaviour change; safe to merge |
 | Tabbar Android flicker (transform + backdrop-filter) | 💡 | CC-flagged on BRIEF-003; pre-existing, design call — revisit only if flicker reported |
 | Version footer (semver + build id) + CI harness check | 💡 | Per operating model |
 | Styled invite email (real screenshots) | 💡 | For launch comms |

@@ -1,7 +1,7 @@
 # Session — 2026-09-09 · BRIEF-012 · Firestore rules into the repo
 
 **Branch:** `chore/firestore-rules-in-repo` (off `main` @ eac9602) · **Status:** built, harness 30/30 green,
-**awaiting Sean's diff-vs-console check + merge**. No client change, no `?v=` bump.
+**approved and merged** (live/repo hash match confirmed). No client change, no `?v=` bump.
 
 ## What we did
 - **`firestore.rules`** at the repo root, seeded byte-for-byte from the v13 set Sean published earlier today
@@ -26,9 +26,11 @@
   has no command to fetch rules — `firestore:*` covers delete/indexes/databases/operations only — and the REST
   Rules API needs an access token, which is out of bounds here (and no service-account key is going in this
   repo). So "matches live" rests on the published set being the file as handed over, unedited.
-- **How Sean closes that gap in one step:** in the console, select all → copy → paste into a file → compare
-  its sha256 to `792f9b16…0eb6`, or paste it back here and I'll diff it. Worth doing once, now, because from
-  this commit onward the file *is* the record.
+- **Gap closed (Sean, 2026-09-09).** Sean copied the live console ruleset and ran
+  `pbpaste | shasum -a 256`, getting
+  `792f9b162c59f20683ff3fb29733321efccef9fc7009cd8d174ab29245bc0eb6` — an **exact match** to
+  `firestore.rules`. Live and repo are therefore byte-identical, independently confirmed rather than assumed.
+  From this commit onward the file *is* the record.
 
 ## Secret check
 Scanned the three new files for `private_key` / `BEGIN … PRIVATE KEY` / `client_secret` / `serviceAccount` /

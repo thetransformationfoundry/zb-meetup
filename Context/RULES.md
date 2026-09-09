@@ -9,6 +9,9 @@ carried its own copy and **drifted**: it was missing the `bugReports` block, so 
 over live would have silently disabled bug reporting (default deny). One diffable file removes that class of
 mistake.
 
+> **Standing agreement (Sean, 2026-09-09):** every rule change from here goes through `firestore.rules` on a
+> branch, so Sean can diff it *before* publishing. No more rules pasted straight into the console.
+
 ## The flow
 
 1. **Edit** `firestore.rules` on a branch, like any other change. The diff *is* the review.
