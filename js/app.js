@@ -85,8 +85,47 @@ function pickImage(cb,px){
   }catch(e){ toast("Photo picker unavailable"); }
 }
 
+/* ---------------- build stamp ---------------- */
+// The version we are RUNNING, taken from this script's own ?v= in index.html — so there is no
+// second constant to forget to bump. null when that can't be read (e.g. the Node harness).
+var ZB_APP_VERSION=(function(){try{var s=document.currentScript&&document.currentScript.src;var m=s&&s.match(/[?&]v=(\d+)/);return m?parseInt(m[1],10):null;}catch(e){return null;}})();
+// version.json is written by the deploy workflow and fetched with cache:no-store, so it always
+// reports what is DEPLOYED. Comparing it with ZB_APP_VERSION is how the app notices it is stale:
+// on iOS a home-screen app can keep serving an old index.html (and so old app.js) indefinitely.
+async function loadBuild(){
+  if(typeof fetch!=='function')return;
+  try{
+    const r=await fetch('version.json?ts='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    const b=await r.json();
+    if(b&&b.version){C.build=b;if(view==='profile')render();}
+  }catch(e){/* offline or no stamp deployed yet — the running version still shows */}
+}
+const buildIsStale=()=>!!(C.build&&ZB_APP_VERSION&&Number(C.build.version)>ZB_APP_VERSION);
+function buildStampHTML(){
+  const running=ZB_APP_VERSION?('v'+ZB_APP_VERSION):'dev';
+  const b=C.build;
+  const line=b?[running,b.sha,b.date].filter(Boolean).join(' · '):running;
+  return `<div class="center" style="margin-top:18px">
+    ${buildIsStale()?`<div class="card" style="border-color:#cfe6f5;background:var(--zb-blue-soft);text-align:left">
+      <div class="row" style="gap:10px;align-items:flex-start"><div class="nicon" style="flex:none">${icon('refresh',18)}</div>
+      <div class="small" style="line-height:1.5"><b>Update available</b> — this device is running ${running} but ${'v'+C.build.version} is live.
+      Tap Check for update. If it keeps showing the old version and you opened this from a home-screen icon,
+      remove the icon and add it again.</div></div></div>`:''}
+    <div class="muted small" style="letter-spacing:.02em">${line}</div>
+    <button class="btn ghost sm" style="margin-top:6px" onclick="checkUpdate()">${icon('refresh',16)} Check for update</button>
+  </div>`;
+}
+// Reload past the cache. A page can only do so much: this re-requests index.html with a fresh query,
+// which fixes a normal browser tab. An iOS home-screen app caches index.html itself, so if this
+// doesn't shift it, the reliable reset is remove + re-add the icon (see Context/CACHING.md).
+window.checkUpdate=function(){
+  try{ if('caches' in window && caches.keys) caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))); }catch(e){}
+  location.replace(location.pathname+'?r='+Date.now());
+};
+
 /* ---------------- state ---------------- */
-let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],respins:2,admin:false,leaderboard:[],bugs:[]};
+let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],respins:2,admin:false,leaderboard:[],bugs:[],build:null};
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
 let OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
 const ROLES=["Warehouse Clerk","NonEE Warehouse Clerk","Rotating Kit Handling Assistant","Distribution Coordinator","Distribution Team Lead","Cust Experience Specialist","Clinical Sales Specialist","Sls Sr Representative","Quality Specialist","QARA Manager","IT Sr Analyst","Pricing Analyst","Field Svc Engineer","MedEd & Events Specialist","Inventory Optimization Principal","Facility Coordinator","Payroll Specialist","Other"];
@@ -115,6 +154,7 @@ async function refresh(){
     S.getMe(),S.listUsers(),S.myMatches(),S.listPosts(),S.listNotifs(),S.questionBank(),S.respinsLeft(),S.isAdmin(),S.leaderboard(),S.listBugs()
   ]);
   C.me=me;C.users=users;C.matches=matches;C.posts=posts;C.notifs=notifs;C.questions=questions;C.respins=respins;C.admin=admin;C.leaderboard=lb;C.bugs=bugs;
+  if(!C.build)loadBuild();          // fire-and-forget; re-renders the You screen when it lands
   // A shared photo is worth +5 to both, but each side may only write its own points, so claim mine here.
   const unclaimed=C.matches.filter(m=>m.photo&&!m.photoAwarded);
   if(unclaimed.length&&S.claimPhotoAward){
@@ -473,6 +513,7 @@ function viewProfile(){
    <button class="btn secondary" onclick="go('editprofile')">${icon('pencil',18)} Edit profile &amp; avatar</button>
    <button class="btn secondary" style="margin-top:10px" onclick="go('bug')">${icon('bug',18)} Report a bug</button>
    ${C.admin?`<button class="btn secondary" style="margin-top:10px" onclick="go('admin')">${icon('chart',18)} Admin dashboard</button>`:''}
+   ${buildStampHTML()}
    <div class="hr"></div><button class="btn ghost" onclick="signOut()">${icon('signout',18)} Sign out</button><button class="btn danger" style="margin-top:10px" onclick="askDelete()">${icon('trash',18)} Delete my account</button><p class="muted small center" style="margin-top:8px">Deleting removes your profile, photos and answers (GDPR).</p>`;
 }
 function viewEditProfile(){

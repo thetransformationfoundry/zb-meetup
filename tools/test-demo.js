@@ -15,7 +15,14 @@ function El(){return new Proxy({_html:"",_txt:"",value:"",checked:true,disabled:
     return true;}});}
 const store = {};
 const document = { querySelector:s=>store[s]||(store[s]=El()), getElementById:id=>store["#"+id]||(store["#"+id]=El()),
-  createElement:()=>El(), body:{appendChild(){}} };
+  createElement:()=>El(), body:{appendChild(){}},
+  // app.js derives the version it is RUNNING from its own script src
+  currentScript:{ src:"js/app.js?v=15" } };
+// version.json over fetch = what is DEPLOYED. Off until a test turns it on.
+global.__buildOk = false;
+global.__buildJson = null;
+global.fetch = async () => ({ ok: global.__buildOk, json: async () => global.__buildJson });
+const tick = async n => { for (let i = 0; i < (n||4); i++) await Promise.resolve(); };
 const window = new Proxy({}, { set(t,k,v){t[k]=v;global[k]=v;return true;}, get(t,k){return t[k];} });
 global.document = document; global.window = window;
 // pickImage(): FileReader -> Image -> canvas.toDataURL. Synchronous stubs.
@@ -39,6 +46,10 @@ const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
 let ok = true;
 const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!cond) ok=false; };
+
+// refresh() isn't exposed, and it fires loadBuild() without awaiting it — so drive a refresh
+// through a real action and let the microtasks settle.
+const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6); };
 
 (async () => {
   window.ZB_BOOT(); await new Promise(r=>setTimeout(r,0));
@@ -144,8 +155,23 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
   window.go("meetups"); chk("shows under Completed", /Completed/.test(scr()) && /\+10 pts/.test(scr()));
   window.go("recap:"+id); chk("recap shows my answers, not theirs", /Your answers/.test(scr()) && /Not answered/.test(scr()) === false);
   window.go("ranks"); chk("leaderboard + prizes", /CB management judges/.test(scr()));
-  window.go("profile"); chk("profile", /Manage your profile/.test(scr()));
+  window.go("profile");
+  const prof = scr();
+  chk("profile", /Manage your profile/.test(prof));
+  // the build stamp must render (and degrade gracefully) with no fetch and no version.json
+  chk("build stamp falls back with no version.json", /Check for update/.test(prof) && /dev|v\d+/.test(prof));
+  chk("no false 'update available' without a stamp", !/Update available/.test(prof));
+  chk("stamp shows the running version from its own ?v=", /v15/.test(prof));
+
+  // now a newer version is deployed while this device still runs v15
+  global.__buildOk = true;
+  global.__buildJson = { version:"16", sha:"abc1234", date:"2026-09-09" };
+  await refreshAndSettle();
+  window.go("profile");
+  chk("a newer deployed version is reported as stale",
+      /Update available/.test(scr()) && /abc1234/.test(scr()) && /remove the icon/.test(scr()));
   window.go("admin"); chk("admin dashboard", /Admin dashboard/.test(scr()));
+
   console.log(ok ? "\nDEMO PATH GREEN ✅" : "\nDEMO PATH FAILED ❌");
   process.exit(ok ? 0 : 1);
 })().catch(e => { console.log("ERROR:", e.message); process.exit(1); });

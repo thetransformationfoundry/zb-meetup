@@ -29,13 +29,13 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | In-app bell: requests/accepts/messages + deep-links; message composer layout | ✅ | BRIEF-003 — client live v=14 (SHA eac9602); notifications rule published + all 4 simulator checks verified (2026-09-09). Final two-account bell test with Donnae = last human confirmation |
 | Real push notifications (FCM + SW + Cloud Functions) + 3-day reminder | 📋 | BRIEF-004 — Blaze approved |
 | Per-user completion + correct points + completed-meetups view | ✅ | BRIEF-005 — merged + live v=8 (2026-09-08, SHA cc0ddc3) |
-| Meetup photo quality (crisp) + card fit (no gutters) | 🔨 | BRIEF-006 built (v=15) on `feat/photo-quality-fit` — 960px capture, full-width card, late-photo wall post |
+| Meetup photo quality (crisp) + card fit (no gutters) | ✅ | BRIEF-006 — merged + live v=15 (2026-09-09, SHA bc43212); 960px capture + never-upscale guard, full-width card. Confirmed on a real phone (fresh capture crisp; card fills edge-to-edge) after clearing the iOS home-screen cache |
+| Either participant updates shared photo on wall post | 📋 | BRIEF-013 — low priority; BRIEF-006/010/001 collision (non-author photo replace skips wall post). Pairs with BRIEF-011 posts-rule work |
 | Admin: surface captured answers + real Excel export | 📋 | BRIEF-007 |
 | Admin: editable question bank with tiers | 📋 | BRIEF-008 |
 | Real ~50-question bank (Donnae) + tiering | 💡 | Feeds BRIEF-008 once list ready |
-| Firestore rules in repo (source of truth) + firebase.json | ✅ | BRIEF-012 (`cd697fa`) — firestore.rules byte-matches published set (sha 792f9b16…); firebase.json/.firebaserc, Context/RULES.md, DATA-MODEL duplicate removed. No behaviour change; safe to merge |
 | Tabbar Android flicker (transform + backdrop-filter) | 💡 | CC-flagged on BRIEF-003; pre-existing, design call — revisit only if flicker reported |
-| Version footer (semver + build id) + CI harness check | 💡 | Per operating model |
+| Version / build stamp in-app + Check-for-update | 🔨 | BRIEF-014 built (v=16) on `feat/version-stamp` — auto-stamped by a GitHub Action, which also runs the harness on every push/PR. Staleness is now *detected*, not just displayed |
 | Styled invite email (real screenshots) | 💡 | For launch comms |
 
 ## Live-feedback → brief map (2026-09-08)
