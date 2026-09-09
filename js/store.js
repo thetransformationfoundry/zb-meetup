@@ -177,7 +177,7 @@
 
     // ---- notifications ----
     listNotifs() { return P(NOTIFS.map(n => ({ ...n }))); },
-    _notify(o) { NOTIFS.unshift(Object.assign({ id:"n"+(nid++), read:false, at:now() }, o)); },
+    _notify(o) { NOTIFS.unshift(Object.assign({ id:"n"+(nid++), read:false, fromUid:null, at:now() }, o)); },
     markNotifsRead() { NOTIFS.forEach(n => n.read = true); return P(true); },
     markNotifRead(id) { const n = NOTIFS.find(x=>String(x.id)===String(id)); if (n) n.read = true; return P(true); },
     welcome() { this._notify({ type:"welcome", icon:"users", text:"Welcome to ZB MeetUP! Tap Spin to find your first match.", target:"spin" }); return P(true); },

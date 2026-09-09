@@ -86,6 +86,18 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
   await window.sendReq(); await new Promise(r=>setTimeout(r,0));
   const id = (await window.ZB_STORE.myMatches())[0].id;
   window.go("meet:"+id);
+
+  // messaging + the bell: a message must produce a notif that deep-links to the thread
+  window.go("thread:"+id);
+  document.getElementById("msgIn").value = "Coffee at 10:30?";
+  await window.sendMsg(id);
+  const msgN = (await window.ZB_STORE.listNotifs()).find(n => n.type === "msg");
+  chk("a message produces a bell notification", !!msgN && msgN.target === "thread:" + id);
+  window.go("notifs");
+  chk("bell list renders notifications", /Notifications/.test(scr()) && /replied to your message/.test(scr()));
+  await window.openNotif(msgN.id);
+  chk("notification deep-links to the chat thread", /Back to meetup/.test(scr()));
+  window.go("meet:"+id);
   const other = (await window.ZB_STORE.myMatches()).find(x => x.id === id).person;
   const ptsOf = async name => { const r = (await window.ZB_STORE.leaderboard()).find(x => x.name === name); return r ? r.points : null; };
   const mePts0 = await ptsOf("Test User"), otherPts0 = await ptsOf(other.name);
