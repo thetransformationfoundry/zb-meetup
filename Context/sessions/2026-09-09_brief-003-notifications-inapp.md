@@ -1,4 +1,4 @@
-# Session — 2026-09-09 · BRIEF-003 · in-app notifications + composer layout (v=13)
+# Session — 2026-09-09 · BRIEF-003 · in-app notifications + composer layout (v=14)
 
 **Branch:** `feat/notifications-inapp` (off `main` @ 10b8470) · **Status:** built, harness 30/30 green,
 **awaiting Sean's test + a rules publish + merge**.
@@ -36,12 +36,19 @@ the "it didn't seem to do anything" observations from the live test.
 - **`addNotif` is now non-fatal** (`store-firebase.js`): wrapped in try/catch, logs a warning, returns null. A
   notification that can't be delivered must never abort the match request, accept or message that triggered
   it. It also now stamps `fromUid`, which the rule requires (and which `DATA-MODEL.md` already specified).
-- **Composer overlap (#4):** `.threadcard` was `height:calc(100vh - 220px)`. On mobile Safari `100vh` counts
-  the browser chrome as usable space, so the card ran past the visible viewport and the input slid under the
-  fixed nav. Now `100dvh` (with the `100vh` line kept first as the fallback for older Safari), minus the nav
-  and `env(safe-area-inset-bottom)`. Also added the home-bar inset to `.screen`'s bottom padding and to
-  `.tabbar`, so nothing on any screen can sit under the nav.
-- `?v=` 12 → 13. Harness: 3 new checks (a message produces a `msg` notif targeting the thread; the bell list
+- **Composer overlap (#4) — took two goes, and the second one is the right shape.**
+  `.threadcard` was `height:calc(100vh - 220px)`. First attempt swapped in `100dvh` and subtracted the nav
+  and safe-area inset. **Sean's screenshot showed it still clipped**, because that approach keeps the flaw:
+  sizing the *card* off the viewport means any error in my estimate of the chrome above it puts its bottom
+  edge past the nav. Guessing a better constant would only move the bug.
+  The fix: the **card returns to normal flow** (no viewport height) and only the scrolling message list is
+  sized. `.screen`'s bottom padding (nav + home-bar inset) is then a hard floor the card cannot cross.
+  Clearance is now viewport-independent: card bottom = `172 + (dvh - 380) + 88` = `dvh - 120`, nav top =
+  `dvh - 64`, so a constant **56px gap at any height**. Below ~580px tall, `min-height:200px` on the thread
+  makes the page scroll rather than overlap. Also added the home-bar inset to `.screen` and `.tabbar`.
+  *Lesson worth keeping: for anything above a fixed bottom bar, let flow + reserved padding do the work —
+  don't compute the container's height from the viewport.*
+- `?v=` 12 → 14 (13 was the first composer attempt, superseded). Harness: 3 new checks (a message produces a `msg` notif targeting the thread; the bell list
   renders; `openNotif` deep-links into the chat thread).
 
 ## Also fixed: another doc/live rules drift
