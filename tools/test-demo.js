@@ -10,7 +10,9 @@ function El(){return new Proxy({_html:"",_txt:"",value:"",checked:true,disabled:
   click(){ if(this.onchange){ this.files=[{name:"meetup.jpg",type:"image/jpeg"}]; this.onchange(); } },
   getContext(){return {drawImage(){}};},toDataURL(){return "data:image/jpeg;base64,X";}},{
   get(t,k){if(k==="innerHTML")return t._html;if(k==="textContent")return t._txt;if(k in t)return t[k];return function(){};},
-  set(t,k,v){if(k==="innerHTML")t._html=v;else if(k==="textContent")t._txt=v;else t[k]=v;return true;}});}
+  set(t,k,v){if(k==="innerHTML")t._html=v;else if(k==="textContent")t._txt=v;else t[k]=v;
+    if(k==="width")global.__canvasPx=v;   // pickImage() sizes its canvas to the capture edge
+    return true;}});}
 const store = {};
 const document = { querySelector:s=>store[s]||(store[s]=El()), getElementById:id=>store["#"+id]||(store["#"+id]=El()),
   createElement:()=>El(), body:{appendChild(){}} };
@@ -18,7 +20,10 @@ const window = new Proxy({}, { set(t,k,v){t[k]=v;global[k]=v;return true;}, get(
 global.document = document; global.window = window;
 // pickImage(): FileReader -> Image -> canvas.toDataURL. Synchronous stubs.
 global.FileReader = function(){ this.readAsDataURL = () => { this.result = "data:image/jpeg;base64,SRC"; this.onload && this.onload(); }; };
-global.Image = function(){ const self = this; this.width = 800; this.height = 600;
+// A realistic phone photo by default; __imgPx lets a test shrink the source to exercise
+// pickImage()'s never-upscale guard.
+global.__imgPx = 1500;
+global.Image = function(){ const self = this; this.width = global.__imgPx + 500; this.height = global.__imgPx;
   Object.defineProperty(this, "src", { set(){ self.onload && self.onload(); } }); };
 let depth = 0;
 global.setTimeout = fn => { if (depth++ > 9000) return 0; fn(); return 0; };
@@ -79,6 +84,8 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
   document.getElementById("ob-pass").value = "demo1234"; window.obCreate();
   document.getElementById("ob-name").value = "Test User"; window.obName();
   document.getElementById("ob-wc").value = "partial"; window.obWork();
+  window.obPickPhoto();
+  chk("avatar captures at 256px", global.__canvasPx === 256);
   window.obStep(4); document.getElementById("ob-consent").checked = true;
   await window.finishOnboard();
   chk("enters app on Spin", /TODAY.S MATCH/.test(scr()));
@@ -105,6 +112,12 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
   await window.addPhoto(id);
   const withPhoto = (await window.ZB_STORE.myMatches()).find(x => x.id === id);
   chk("meetup photo stored as a base64 string", typeof withPhoto.photo === "string" && /^data:image\//.test(withPhoto.photo));
+  chk("meetup photo captures at 960px, not 256", global.__canvasPx === 960);
+  global.__imgPx = 300;                       // a low-res source must not be upscaled
+  await window.addPhoto(id);
+  chk("a small original is not upscaled", global.__canvasPx === 300);
+  global.__imgPx = 1500;
+  await window.addPhoto(id);
   chk("shared photo awards +5 to BOTH", (await ptsOf("Test User")) === mePts0 + 5 && (await ptsOf(other.name)) === otherPts0 + 5);
 
   await window.addPhoto(id);   // replacing the photo must not re-award
@@ -121,6 +134,13 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
   window.go("wall");  chk("wall renders + real post", /Community wall/.test(scr()) && /Test User & /.test(scr()));
   const real = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
   chk("one wall post, carrying the real photo", real.length === 1 && /^data:image\//.test(real[0].photo || ""));
+  // a photo arriving after completion must still reach the one wall post
+  const before = (await window.ZB_STORE.listPosts()).filter(p => !p.seed).length;
+  await window.ZB_STORE.setMatchPhoto(id, "data:image/jpeg;base64,LATE", {names:"Test User & X",scene:"coffee"});
+  const after = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
+  chk("late photo updates the existing post, no duplicate",
+      after.length === before && after[0].photo === "data:image/jpeg;base64,LATE");
+
   window.go("meetups"); chk("shows under Completed", /Completed/.test(scr()) && /\+10 pts/.test(scr()));
   window.go("recap:"+id); chk("recap shows my answers, not theirs", /Your answers/.test(scr()) && /Not answered/.test(scr()) === false);
   window.go("ranks"); chk("leaderboard + prizes", /CB management judges/.test(scr()));

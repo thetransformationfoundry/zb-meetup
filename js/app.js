@@ -52,8 +52,12 @@ function av(p,cls=''){const bg=p.color||'#cfd8e3';const label=p.photo?'':inits(p
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2000);}
 function wcLabel(w){return w==='on-site'?'On-site':w==='remote'?'Fully remote':'Partially remote';}
 function mention(txt){return (txt||'').replace(/@([A-Za-z]+)/g,'<span class="ment">@$1</span>');}
-// Pick an image (camera or library on mobile), crop-to-square + downscale to a small base64 JPEG.
-function pickImage(cb){
+// Capture sizes: avatars only ever render small, but a meetup photo fills a wall card
+// (~400px+ CSS, so 2x on a phone), and 256px upscaled is what made it look soft.
+var AVATAR_PX=256, MEETUP_PX=960;   // 960 square @ q0.82 ~= 120-250KB base64, well under the 1MB doc limit
+// Pick an image (camera or library on mobile), crop-to-square + downscale to a base64 JPEG.
+// `px` is the target edge; we never upscale past the source, so a small original stays small.
+function pickImage(cb,px){
   try{
     var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
     inp.style.position='fixed'; inp.style.left='-9999px';
@@ -64,8 +68,9 @@ function pickImage(cb){
       fr.onload=function(){
         var img=new Image();
         img.onload=function(){
-          var s=256, c=document.createElement('canvas'); c.width=s; c.height=s; var ctx=c.getContext('2d');
           var min=Math.min(img.width,img.height), sx=(img.width-min)/2, sy=(img.height-min)/2;
+          var s=Math.min(px||AVATAR_PX, min);              // never upscale a small original
+          var c=document.createElement('canvas'); c.width=s; c.height=s; var ctx=c.getContext('2d');
           ctx.drawImage(img, sx,sy,min,min, 0,0,s,s);
           var data; try{ data=c.toDataURL('image/jpeg',0.82); }catch(e){ data=null; }
           cleanup(); if(data) cb(data); else toast("Couldn't process that image");
@@ -398,7 +403,7 @@ function viewMeet(id){
   const mp=typeof m.photo==='string'?m.photo:null;   // the shared meetup photo (base64), if set
   return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Meetup with ${m.person.first}</h2><p class="sub">A shared space you both fill in</p>
    <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">You both accepted — suggested: <b>${m.type}</b>. Plan a time and place together.</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} Plan your meetup${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Last message: ${(last.by==='me'?'You: ':'')+last.text}</div>`:''}</div>
-   <div class="card"><div class="row between"><b>1 · Share a photo</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">A quick pic of the two of you — or a Teams screenshot. One photo per meetup: either of you can add it, and you both see it.</p>${m.photo?`${mp?`<img src="${mp}" alt="Your meetup photo" style="display:block;width:100%;max-width:220px;margin:0 auto;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} Add meetup photo</button>`}</div>
+   <div class="card"><div class="row between"><b>1 · Share a photo</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">A quick pic of the two of you — or a Teams screenshot. One photo per meetup: either of you can add it, and you both see it.</p>${m.photo?`${mp?`<img src="${mp}" alt="Your meetup photo" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} Add meetup photo</button>`}</div>
    <div class="card"><div class="row between"><b>2 · Discussion questions</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${q.t}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="Your answer…">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">Your answers stay private (admins only). The photo goes to the community wall.</p></div>
    <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} Complete my part</button>
    <p class="muted small center" style="margin-top:8px">${canComplete(m)?"That's your +5 for the questions — the photo earns its own +5.":'Answer all 3 questions to complete your part.'}</p>
@@ -434,7 +439,9 @@ function viewThread(id){
 window.sendMsg=async function(id){const inp=$("#msgIn");const v=(inp.value||'').trim();if(!v)return;await S.sendMessage(id,v);await refresh();};
 function refreshCompleteBtn(m){const b=document.getElementById('completeBtn');if(b)b.disabled=!canComplete(m);}
 window.addPhoto=function(id){const had=!!(C.matches.find(x=>x.id===id)||{}).photo;
-  return new Promise(function(res){pickImage(async function(d){await S.setMatchPhoto(id,d);toast(had?"Photo updated":"Photo added +5 pts");await refresh();res(true);});});};
+  const m=C.matches.find(x=>x.id===id);
+  const post=m?{names:(C.me.name||'You')+' & '+m.person.first,scene:typeToScene(m.type)}:null;
+  return new Promise(function(res){pickImage(async function(d){await S.setMatchPhoto(id,d,post);toast(had?"Photo updated":"Photo added +5 pts");await refresh();res(true);},MEETUP_PX);});};
 window.ans=async function(id,i,v){const m=C.matches.find(x=>x.id===id);if(!m)return;m.answers[i]=v;await S.setMatchAnswers(id,m.answers);refreshCompleteBtn(m);};
 window.complete=async function(id){const m=C.matches.find(x=>x.id===id);if(!m||!canComplete(m))return;
   await S.completeMatch(id,{names:(C.me.name||'You')+' & '+m.person.first,scene:typeToScene(m.type),photo:typeof m.photo==='string'?m.photo:null});
