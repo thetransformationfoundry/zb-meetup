@@ -44,8 +44,19 @@ function ttl(key, ms, loader) {
 const uidNow = () => auth.currentUser && auth.currentUser.uid;
 const profileToPublic = d => ({ uid:d.uid, name:d.name, first:d.first || (d.name||"").split(" ")[0], role:d.role, dept:d.dept, workClass:d.workClass, floor:!!d.floor, color:d.color, photo:d.photo||null, points:d.points||0 });
 
+// Writes into ANOTHER user's notifications/{uid}/items subtree, so it depends on the
+// published rule allowing a signed-in colleague to create (not read/edit) a notification
+// for someone else. Never let a failed notification break the action that triggered it:
+// before this was non-fatal, a denied write made createMatch/acceptMatch/sendMessage throw
+// *after* their real write had already succeeded, so the UI never confirmed or refreshed.
 async function addNotif(uid, o) {
-  return db.collection("notifications").doc(uid).collection("items").add(Object.assign({ read:false, createdAt:nowTs() }, o));
+  try {
+    return await db.collection("notifications").doc(uid).collection("items")
+      .add(Object.assign({ read:false, fromUid:uidNow() || null, createdAt:nowTs() }, o));
+  } catch (e) {
+    if (window.console) console.warn("[zb] notification not delivered to", uid, e && e.code);
+    return null;
+  }
 }
 
 function attachListeners() {

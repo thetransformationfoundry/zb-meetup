@@ -132,7 +132,26 @@ service cloud.firestore {
     }
 
     match /notifications/{uid}/items/{id} {
-      allow read, write: if isMe(uid);
+      // Your own list is yours to read, mark read and clear.
+      allow read, update, delete: if isMe(uid);
+      // A colleague must be able to DELIVER a notification into someone else's list —
+      // that is how requests, accepts and messages reach the bell. `allow write: isMe(uid)`
+      // denied exactly that, so no cross-user notification had ever been written. Delivery
+      // is constrained: the sender stamps their own uid, cannot pre-mark it read, and
+      // cannot add fields outside this shape. They still cannot read or edit the list.
+      allow create: if signedIn()
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.read == false
+        && request.resource.data.keys()
+             .hasOnly(['type','icon','text','target','fromUid','read','createdAt']);
+    }
+
+    // Bug reports: anyone signed in can file one; only admins can read them.
+    // (Was missing from this document while present in the published rules — added
+    //  2026-09-09 so the documented ruleset is safe to paste over live.)
+    match /bugReports/{id} {
+      allow read: if isAdmin();
+      allow create: if signedIn();
     }
 
     match /app/{doc} {
