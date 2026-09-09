@@ -15,15 +15,20 @@
     ["Mira","Halvorsen","Warehouse Clerk","Distribution","on-site",true],
     ["Tobias","Halvorsen","Warehouse Clerk","Distribution","on-site",true],
     ["Elin","Koster","Quality Specialist","Quality & Reg Affairs","on-site",false],
-    ["Noor","Baaijens","Sls Sr Representative","Sales NL North","remote",false],
-    ["Wessel","Duifhuis","Warehouse Clerk","Distribution","on-site",true],
-    ["Ilse","Verkerk","Cust Experience Specialist","Customer Experience","partial",false],
-    ["Bram","Roelofsen","Distribution Team Lead","Distribution","on-site",false],
-    ["Sanne","Kolthoff","IT Sr Analyst","IT - EMEA","partial",false],
-    ["Timo","Vermeulen","Pricing Analyst","Pricing & Tenders","remote",false],
-    ["Joris","Stevens","Rotating Kit Handling Assistant","Distribution","on-site",true],
-    ["Maud","Hendriks","MedEd & Events Specialist","Med Ed & Events","partial",false],
-    ["Lars","Wieringa","Field Svc Engineer","Sales NL South","remote",false],
+    ["Noor","Baaijens","GSCC Sls Sr Representative","Sales NL North","remote",false],
+    ["Wessel","Duifhuis","GSCC Warehouse Clerk","Distribution","on-site",true],
+    ["Ilse","Verkerk","GSCC Cust Experience Specialist","Customer Experience","partial",false],
+    ["Bram","Roelofsen","GSCC Distribution Team Lead","Distribution","on-site",false],
+    ["Sanne","Kolthoff","GSCC IT Sr Analyst","IT - EMEA","partial",false],
+    ["Timo","Vermeulen","GSCC Pricing Sr Analyst","Pricing & Tenders","remote",false],
+    ["Joris","Stevens","GSCC Rotating Kit Handling Assistant","Distribution","on-site",true],
+    ["Maud","Hendriks","GSCC MedEd & Events Specialist","Marketing & Med Ed","partial",false],
+    ["Lars","Wieringa","GSCC Field Svc Engineer","Sales NL South","remote",false],
+    // the QARA pair the EMEA rule turns on: GSCC - QARA meets everyone, EMEA meets only these two
+    ["Fenna","Bergsma","GSCC - QARA","Quality & Reg Affairs","partial",false],
+    ["Margot","Lefevre","EMEA - QARA Commercial","Quality & Reg Affairs","remote",false],
+    // a legacy role, to prove normalizeRole() migrates an existing user rather than stranding them
+    ["Ruben","Vos","QARA Manager","Quality & Reg Affairs","partial",false],
   ].map(p => ({ uid:p[0]+p[1], name:p[0]+" "+p[1], first:p[0], role:p[2], dept:p[3], workClass:p[4], floor:p[5], color:col(), photo:null, points:20+Math.floor(Math.random()*70) }));
 
   const QUESTIONS = [
