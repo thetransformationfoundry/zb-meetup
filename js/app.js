@@ -13,6 +13,7 @@ const P = {
   trophy:'<path d="M7 4.5h10V9a5 5 0 0 1-10 0V4.5Z"/><path d="M7 6.5H4.5v.8A3 3 0 0 0 7.4 10M17 6.5h2.5v.8A3 3 0 0 1 16.6 10"/><path d="M12 14v2.5M9 20h6M10.2 20l.5-3.5h2.6l.5 3.5"/>',
   user:'<circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/>',
   bell:'<path d="M6 9.5a6 6 0 0 1 12 0c0 4.5 1.8 5.8 1.8 5.8H4.2S6 14 6 9.5Z"/><path d="M10 19a2 2 0 0 0 4 0"/>',
+  mail:'<rect x="2.6" y="4.8" width="18.8" height="14.4" rx="2.6"/><path d="M3.4 7.2 12 13.2l8.6-6"/>',
   heart:'<path d="M12 20s-7-4.4-9.2-9A4.8 4.8 0 0 1 12 6.2 4.8 4.8 0 0 1 21.2 11C19 15.6 12 20 12 20Z"/>',
   chat:'<path d="M20.5 12a7.8 7.8 0 0 1-11.3 7L4 20.5l1.5-5.1A7.8 7.8 0 1 1 20.5 12Z"/>',
   camera:'<path d="M4 8.5h3L8.4 6.4h7.2L17 8.5h3v10.5H4V8.5Z"/><circle cx="12" cy="13.2" r="3.1"/>',
@@ -242,6 +243,28 @@ function renderOnboard(){
   const sc=$("#screen"),ab=$("#appbar"),tb=$("#tabbar");
   if(onboardStep==='welcome'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=welcomeHTML();startTagline();return; }
   if(onboardStep==='how'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=howItWorksHTML();return; }
+  if(onboardStep==='resetsent'){
+    ab.style.display='';tb.style.display='';sc.style.padding='';
+    ab.innerHTML=`<div class="brand" style="margin:0 auto">ZB <span>MeetUP</span></div>`;tb.innerHTML="";
+    sc.innerHTML=`<div class="ob"><div>
+      <div class="center" style="padding-top:14px">
+        <div class="avatar lg" style="margin:0 auto 18px;background:var(--zb-blue)">${icon('mail',54)}</div>
+        <h2>Check your email</h2>
+        <p class="sub">If we know that address, a password-reset link is on its way${OB.email?` to <b>${OB.email}</b>`:''}.</p>
+      </div>
+      <div class="card"><div class="row" style="gap:10px;align-items:flex-start">
+        <div class="nicon" style="background:var(--zb-blue-soft);flex:none">${icon('mail',20)}</div>
+        <div class="small" style="line-height:1.5"><b>Can't see it?</b> Check your <b>junk</b> or <b>spam</b> folder — the
+        message comes from <i>noreply@zb-meetup.firebaseapp.com</i>, which Outlook often files there the first time.
+        Marking it "not junk" means the next one arrives properly.</div>
+      </div></div>
+      <p class="muted small center" style="margin-top:12px">Open the link, set a new password, then come back here and sign in.</p>
+      </div><div class="ob-cta">
+      <button class="btn" onclick="obGoSignIn()">${icon('check',18)} Sign in</button>
+      <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot('resend')">Send the email again</button>
+    </div></div>`;
+    return;
+  }
   if(onboardStep==='signin'){
     ab.style.display='';tb.style.display='';sc.style.padding='';
     ab.innerHTML=`<div class="brand" style="margin:0 auto">ZB <span>MeetUP</span></div>`;tb.innerHTML="";
@@ -292,7 +315,16 @@ window.obColor=c=>{OB.color=c;OB.hasPhoto=false;OB.photo=null;renderOnboard();};
 window.obPickPhoto=function(){pickImage(function(d){OB.photo=d;OB.hasPhoto=true;renderOnboard();});};
 window.obCreate=function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e){toast("Please enter your email");return;}if((p||'').length<6){toast("Password must be at least 6 characters");return;}OB.email=e;OB.pass=p;onboardStep=1;renderOnboard();};
 window.obSignIn=async function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e||!p){toast("Enter your email and password");return;}try{await S.signIn(e,p);}catch(err){toast("Sign-in failed — check your details or tap Create account.");}};
-window.obForgot=async function(){const e=$("#ob-email").value.trim();if(!e){toast("Enter your email first");return;}try{await S.resetPassword(e);toast("If an account exists, we've sent a reset link.");}catch(err){toast("Couldn't send reset — check the email.");}};
+window.obForgot=async function(resend){
+  const e=resend?(OB.email||''):(($("#ob-email")||{}).value||'').trim();
+  if(!e){toast("Enter your email first");return;}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){toast("That doesn't look like an email address");return;}
+  OB.email=e;
+  try{ await S.resetPassword(e); }
+  catch(err){ /* never reveal whether the address is registered — show the same screen either way */ }
+  if(resend)toast("Sent again — check your junk folder too");
+  onboardStep='resetsent';renderOnboard();
+};
 window.obName=function(){const n=$("#ob-name").value.trim();if(!n){toast("Please enter your name");return;}OB.name=n;onboardStep=2;renderOnboard();};
 window.obWork=function(){const wc=$("#ob-wc").value,role=$("#ob-role").value;OB.role=role;if(wc==='warehouse'){OB.workClass='on-site';OB.floor=true;OB.dept='Distribution';}else{OB.workClass=wc;OB.floor=false;OB.dept=deptForRole(role);}onboardStep=3;renderOnboard();};
 function deptForRole(r){if(/warehouse|kit|distribution/i.test(r))return 'Distribution';if(/sales|clinical/i.test(r))return 'Sales';if(/quality|qara/i.test(r))return 'Quality & Reg Affairs';if(/IT/i.test(r))return 'IT - EMEA';if(/experience/i.test(r))return 'Customer Experience';if(/pricing/i.test(r))return 'Pricing & Tenders';return 'Zimmer Biomet';}

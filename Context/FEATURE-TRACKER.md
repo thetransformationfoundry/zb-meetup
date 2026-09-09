@@ -19,7 +19,9 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Admin dashboard (stats, question bank add, bug reports) | ✅ | |
 | Real photo capture on **meetup completion** (→ wall) | ✅ | BRIEF-001 — merged + live v=7 (2026-09-08, SHA b557fe3) |
 | **First live deploy** (v=7 on main) | ✅ | 2026-09-08 — tested live by Sean + Donnae |
-| Sign-in screen for returning users (+ forgot password) | 🔨 | BRIEF-002 + amendment built (v=10) on `feat/signin-screen` |
+| Sign-in screen for returning users (+ forgot password) | ✅ | BRIEF-002 + amendment — merged + live v=10 (2026-09-09, SHA f413950) |
+| Password-reset confirmation screen (check email + junk) | 🔨 | From live feedback 2026-09-09 (reset email landed in Outlook Junk) — built (v=11) on `feat/reset-email-sent-screen`, awaiting Sean's test |
+| Restrict sign-up to allowed domains (zimmerbiomet.com / thetransformationfoundry.nl) | 📋 | BRIEF-009 — launch-gating; run next after BRIEF-002 |
 | In-app bell: requests/accepts/messages + deep-links; message composer layout | 📋 | BRIEF-003 |
 | Real push notifications (FCM + SW + Cloud Functions) + 3-day reminder | 📋 | BRIEF-004 — Blaze approved |
 | Per-user completion + correct points + completed-meetups view | ✅ | BRIEF-005 — merged + live v=8 (2026-09-08, SHA cc0ddc3) |

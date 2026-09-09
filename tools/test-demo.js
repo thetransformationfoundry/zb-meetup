@@ -45,6 +45,15 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
   chk("sign-in screen renders", /Welcome back/.test(si) && /ob-email/.test(si) && /ob-pass/.test(si)
       && /Sign in<\/button>|>Sign in</.test(si) && /Forgot password\?/.test(si) && /Create an account instead/.test(si));
   chk("sign-in is not the create step", !/Create account<\/button>/.test(si));
+  // forgot password -> the "check your email (and junk)" confirmation screen
+  document.getElementById("ob-email").value = "test@zimmerbiomet.com";
+  await window.obForgot();
+  const rs = scr();
+  chk("forgot password lands on the check-your-email screen",
+      /Check your email/.test(rs) && /junk/i.test(rs) && /test@zimmerbiomet\.com/.test(rs)
+      && /obGoSignIn\(\)/.test(rs) && /Send the email again/.test(rs));
+  window.obGoSignIn(); chk("sign-in reachable from that screen", /Welcome back/.test(scr()));
+
   window.obBackWelcome(); chk("back to welcome from sign-in", /Matched for a coffee/.test(scr()));
 
   window.obGoCreate();
