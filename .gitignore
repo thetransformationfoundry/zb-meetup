@@ -4,3 +4,8 @@
 # Editor / OS scraps
 *.swp
 Thumbs.db
+
+# Firebase CLI local output (never commit)
+.firebase/
+firebase-debug.log
+firestore-debug.log
