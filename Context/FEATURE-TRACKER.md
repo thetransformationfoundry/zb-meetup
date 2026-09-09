@@ -19,7 +19,7 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Admin dashboard (stats, question bank add, bug reports) | ✅ | |
 | Real photo capture on **meetup completion** (→ wall) | ✅ | BRIEF-001 — merged + live v=7 (2026-09-08, SHA b557fe3) |
 | **First live deploy** (v=7 on main) | ✅ | 2026-09-08 — tested live by Sean + Donnae |
-| Sign-in screen for returning users (+ forgot password) | 🔨 | BRIEF-002 built (v=9) on `feat/signin-screen` — awaiting Sean's test |
+| Sign-in screen for returning users (+ forgot password) | 🔨 | BRIEF-002 + amendment built (v=10) on `feat/signin-screen` |
 | In-app bell: requests/accepts/messages + deep-links; message composer layout | 📋 | BRIEF-003 |
 | Real push notifications (FCM + SW + Cloud Functions) + 3-day reminder | 📋 | BRIEF-004 — Blaze approved |
 | Per-user completion + correct points + completed-meetups view | ✅ | BRIEF-005 — merged + live v=8 (2026-09-08, SHA cc0ddc3) |

@@ -32,3 +32,11 @@
 
 ## Definition of done
 Returning users get a real sign-in screen with forgot-password + a create-account escape hatch; demo harness green; both stores in lockstep; `?v=` bumped; tracker ticked; session log written.
+
+## Amendment (2026-09-09) — route the create-screen sign-in link to the new screen
+On the same `feat/signin-screen` branch. The create-account step (step 0) still has its own "I already have an
+account — sign in" link that calls `obSignIn()` directly against whatever's typed in the create form. Now that a
+real sign-in screen exists, point that link at **`obGoSignIn()`** instead, so it navigates to the "Welcome back"
+screen (consistent single sign-in path). One-line change; don't otherwise touch the create flow.
+- Test: welcome → Create account → tap "I already have an account — sign in" → lands on **Welcome back** (not an
+  inline sign-in attempt). Harness stays green. Bump `?v=`.

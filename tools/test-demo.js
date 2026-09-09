@@ -48,6 +48,7 @@ const chk = (label, cond) => { console.log((cond?"✓":"✗")+" "+label); if(!co
   window.obBackWelcome(); chk("back to welcome from sign-in", /Matched for a coffee/.test(scr()));
 
   window.obGoCreate();
+  chk("create step's sign-in link goes to the sign-in screen", /obGoSignIn\(\)/.test(scr()) && !/onclick="obSignIn\(\)"/.test(scr()));
   document.getElementById("ob-email").value = "test@zimmerbiomet.com";
   document.getElementById("ob-pass").value = "demo1234"; window.obCreate();
   document.getElementById("ob-name").value = "Test User"; window.obName();

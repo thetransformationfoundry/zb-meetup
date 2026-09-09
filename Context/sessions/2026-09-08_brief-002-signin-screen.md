@@ -1,7 +1,6 @@
-# Session — 2026-09-08 · BRIEF-002 · real sign-in screen (v=9)
+# Session — 2026-09-08/09 · BRIEF-002 · real sign-in screen (v=9 → v=10)
 
-**Branch:** `feat/signin-screen` (off `main` @ cc0ddc3) · **Status:** built, harness 21/21 green,
-**awaiting Sean's local test + merge**.
+**Branch:** `feat/signin-screen` (off `main` @ cc0ddc3) · **Status:** built + amended, harness 22/22 green.
 
 ## Before this
 `obGoSignIn()` (app.js) was a copy of `obGoCreate()` — `onboardStep=0` — so "I already have an account"
@@ -24,10 +23,13 @@ create screen.
   demo-mode toast the brief asks for comes from `obForgot()` in `app.js`, which already toasts a
   non-committal "If an account exists, we've sent a reset link." — deliberately doesn't leak whether the
   address is registered. Left as-is.
-- **Left alone per the guardrail:** the create step (0) still carries its own "I already have an account —
-  sign in" link, which calls `obSignIn()` directly against whatever is typed there. It works, but now that a
-  real sign-in screen exists, pointing that link at `obGoSignIn()` would be more consistent. Not in scope —
-  flagging for Cowork rather than changing the create flow.
+- **Amendment (2026-09-09, v=10):** Sean took the flag below and put it in the brief, so the create step's
+  "I already have an account — sign in" link now calls **`obGoSignIn()`** and navigates to the Welcome back
+  screen instead of attempting an inline sign-in against the create form. One line; the rest of the create
+  flow untouched. The only remaining `onclick="obSignIn()"` is the sign-in screen's own primary button —
+  there is now a single sign-in path. Harness check added.
+  <br>*(Originally flagged as: the create step carries its own sign-in link that calls `obSignIn()` directly;
+  pointing it at `obGoSignIn()` would be more consistent — not in scope at the time.)*
 - Live check that Node can't cover: the **Forgot password?** email actually arriving from Firebase Auth.
 
 ## Left intact
