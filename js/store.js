@@ -132,9 +132,21 @@
     },
     // One shared photo per meetup — either participant may set or replace it.
     // First photo = +5 to BOTH participants, once. Replacing it never re-awards.
-    setMatchPhoto(id, photo) {
+    setMatchPhoto(id, photo, post) {
       const m = MATCHES.find(x=>x.id===id); if (!m) return P(true);
       m.photo = photo || null;
+      // A photo can now arrive AFTER completion (questions-only completion is legal since
+      // BRIEF-005), so the single wall post has to catch up: refresh it if it exists, or
+      // create it if this meetup was completed without one. Still one post per meetup.
+      if (photo && Object.keys(m.completedBy||{}).length) {
+        const existing = m.postId ? POSTS.find(x=>x.id===m.postId) : null;
+        if (existing) existing.photo = photo;
+        else if (post) {
+          const pid = "p"+(wid++);
+          POSTS.unshift({ id:pid, seed:false, matchId:id, names:post.names, scene:post.scene, photo, hearts:0, liked:false, comments:[] });
+          m.postId = pid;
+        }
+      }
       if (photo && !m.photoAwarded["me"]) { m.photoAwarded["me"] = true; if (ME) ME.points += 5; }
       // the demo simulates the other participant's client claiming their own +5
       if (photo && !m.photoAwarded[m.person.uid]) {

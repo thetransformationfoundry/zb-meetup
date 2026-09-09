@@ -196,17 +196,43 @@ const ZB_STORE = {
   // (users/{uid}: isMe(uid) || isAdmin()), so each side claims its own +5: I claim mine here,
   // the other participant claims theirs via claimPhotoAward() on their next load. Replacing
   // the photo never re-awards, because the photoAwarded flag is already set.
-  async setMatchPhoto(id, photo) {
+  async setMatchPhoto(id, photo, post) {
     const uid = uidNow(); const ref = db.collection("matches").doc(id);
     await db.runTransaction(async tx => {
+      // all reads first — Firestore transactions require it
       const s = await tx.get(ref); const d = s.data(); if (!d) return;
+      const completed = !!(d.completedBy && Object.keys(d.completedBy).length);
+      let existing = null, existingRef = null;
+      if (photo && completed && d.postId) {
+        existingRef = db.collection("posts").doc(d.postId);
+        const ps = await tx.get(existingRef); existing = ps.exists ? ps.data() : null;
+      }
+
       const upd = { photo: photo || null };
       const claim = !!photo && !(d.photoAwarded && d.photoAwarded[uid]);
       if (claim) upd["photoAwarded."+uid] = true;
+
+      // A photo can arrive AFTER completion (questions-only completion is legal since
+      // BRIEF-005), so the single wall post has to catch up.
+      if (photo && completed) {
+        if (existing) {
+          // Only the post's author may change its content (BRIEF-010). Attempting it as the
+          // other participant would be denied, so don't try — the photo still shows in the
+          // shared space and the recap. Letting either participant refresh a posted photo
+          // needs a rules change; see the session log.
+          if (existing.authorUid === uid) tx.update(existingRef, { photo });
+        } else if (post) {
+          const pref = db.collection("posts").doc();
+          tx.set(pref, { authorUid:uid, matchId:id, names:post.names, scene:post.scene, photo,
+                         hearts:0, heartedBy:[], comments:[], createdAt:nowTs() });
+          upd.postId = pref.id;
+        }
+      }
+
       tx.update(ref, upd);
       if (claim) tx.update(db.collection("users").doc(uid), { points: FV.increment(5) });
     });
-    cache["users"] = null;
+    cache["users"] = null; cache["posts"] = null;
     return true;
   },
   // Claim MY +5 for a shared photo (whoever added it). One-time, self-only, idempotent.

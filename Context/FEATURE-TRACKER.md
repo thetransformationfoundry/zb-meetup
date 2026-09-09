@@ -29,7 +29,7 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | In-app bell: requests/accepts/messages + deep-links; message composer layout | ✅ | BRIEF-003 — client live v=14 (SHA eac9602); notifications rule published + all 4 simulator checks verified (2026-09-09). Final two-account bell test with Donnae = last human confirmation |
 | Real push notifications (FCM + SW + Cloud Functions) + 3-day reminder | 📋 | BRIEF-004 — Blaze approved |
 | Per-user completion + correct points + completed-meetups view | ✅ | BRIEF-005 — merged + live v=8 (2026-09-08, SHA cc0ddc3) |
-| Meetup photo quality (crisp) + card fit (no gutters) | 📋 | BRIEF-006 |
+| Meetup photo quality (crisp) + card fit (no gutters) | 🔨 | BRIEF-006 built (v=15) on `feat/photo-quality-fit` — 960px capture, full-width card, late-photo wall post |
 | Admin: surface captured answers + real Excel export | 📋 | BRIEF-007 |
 | Admin: editable question bank with tiers | 📋 | BRIEF-008 |
 | Real ~50-question bank (Donnae) + tiering | 💡 | Feeds BRIEF-008 once list ready |
