@@ -99,7 +99,12 @@ const ZB_STORE = {
     });
   },
   currentUser() { return auth.currentUser ? { uid:auth.currentUser.uid, email:auth.currentUser.email } : null; },
-  signUp(email, pass) { return auth.createUserWithEmailAndPassword(email, pass); },
+  // Off-domain sign-ups never reach Firebase. The hard gate is the published Firestore
+  // rule on users/{uid} create (no profile => no app), see Context/DATA-MODEL.md.
+  signUp(email, pass) {
+    if (!window.ZB_DOMAIN_OK(email)) return Promise.reject({ code:"zb/domain-not-allowed" });
+    return auth.createUserWithEmailAndPassword(email, pass);
+  },
   signIn(email, pass) { return auth.signInWithEmailAndPassword(email, pass); },
   resetPassword(email) { return auth.sendPasswordResetEmail(email); },
   signOut() { detachListeners(); return auth.signOut(); },

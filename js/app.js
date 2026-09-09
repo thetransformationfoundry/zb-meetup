@@ -313,7 +313,12 @@ function renderOnboard(){
 window.obStep=n=>{onboardStep=n;renderOnboard();};
 window.obColor=c=>{OB.color=c;OB.hasPhoto=false;OB.photo=null;renderOnboard();};
 window.obPickPhoto=function(){pickImage(function(d){OB.photo=d;OB.hasPhoto=true;renderOnboard();});};
-window.obCreate=function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e){toast("Please enter your email");return;}if((p||'').length<6){toast("Password must be at least 6 characters");return;}OB.email=e;OB.pass=p;onboardStep=1;renderOnboard();};
+window.obCreate=function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;
+  if(!e){toast("Please enter your email");return;}
+  // ZB MeetUP is only for the two org domains — stop here rather than at the end of onboarding.
+  if(!window.ZB_DOMAIN_OK(e)){toast("ZB MeetUP is for Zimmer Biomet colleagues — please use your "+window.ZB_DOMAIN_HINT()+" email");return;}
+  if((p||'').length<6){toast("Password must be at least 6 characters");return;}
+  OB.email=e;OB.pass=p;onboardStep=1;renderOnboard();};
 window.obSignIn=async function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e||!p){toast("Enter your email and password");return;}try{await S.signIn(e,p);}catch(err){toast("Sign-in failed — check your details or tap Create account.");}};
 window.obForgot=async function(resend){
   const e=resend?(OB.email||''):(($("#ob-email")||{}).value||'').trim();
@@ -332,7 +337,9 @@ window.finishOnboard=async function(){
   if(!$("#ob-consent").checked){toast("Please tick consent to continue");return;}
   authBusy=true;
   try{ if(!S.currentUser()) await S.signUp(OB.email,OB.pass); }
-  catch(err){ authBusy=false; toast(err&&/in-use/.test(err.code||'')?"That email already has an account — tap sign in.":"Couldn't create the account."); return; }
+  catch(err){ authBusy=false; const code=(err&&err.code)||'';
+    toast(/domain-not-allowed/.test(code)?"ZB MeetUP is for Zimmer Biomet colleagues — please use your "+window.ZB_DOMAIN_HINT()+" email"
+      :/in-use/.test(code)?"That email already has an account — tap sign in.":"Couldn't create the account."); return; }
   await S.saveMe({name:OB.name,email:OB.email,color:OB.color,photo:OB.photo||null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now()});
   await S.welcome();
   authBusy=false; mode="app"; view="spin"; await refresh();

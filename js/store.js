@@ -63,7 +63,10 @@
     // ---- auth (demo: any credentials work; profile is null until onboarded) ----
     onAuth(cb) { this._authcb = cb; setTimeout(() => cb(this._email ? { uid:"me", email:this._email } : null), 0); },
     currentUser() { return this._email ? { uid:"me", email:this._email } : null; },
-    signUp(email) { this._email = email; if (this._authcb) this._authcb({ uid:"me", email }); return P(true); },
+    signUp(email) {
+      if (!window.ZB_DOMAIN_OK(email)) return Promise.reject({ code:"zb/domain-not-allowed" });
+      this._email = email; if (this._authcb) this._authcb({ uid:"me", email }); return P(true);
+    },
     signIn(email) { this._email = email; if (this._authcb) this._authcb({ uid:"me", email }); return P(true); },
     resetPassword() { return P(true); },
     signOut() { this._email = null; ME = null; MATCHES = []; NOTIFS = []; if (this._authcb) this._authcb(null); return P(true); },
