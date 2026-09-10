@@ -283,6 +283,15 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("the real spin screen is behind it, blurred", /class="behind"/.test(cd) && /TODAY.S MATCH/.test(cd));
   chk("no invented colleagues in the pills", !/Priya Raman|Anna Kessler|Mandy Hill|Jonas Ott/.test(cd));
   chk("the decorative layer is inert, so it can't be tabbed into", /class="behind"[^>]*inert/.test(cd));
+  // full-screen holding screen: no app chrome, nothing else reachable
+  const chrome = () => [document.querySelector("#appbar").style.display,
+                        document.querySelector("#tabbar").style.display];
+  chk("app chrome is hidden while locked", chrome().join() === "none,none");
+  window.go("wall");
+  chk("other tabs are not reachable while locked",
+      /COUNTDOWN TO LAUNCH/.test(scr()) && !/Community wall/.test(scr()));
+  window.go("meetups");
+  chk("meetups is not reachable either", /COUNTDOWN TO LAUNCH/.test(scr()));
   // the gate is on the ACTION too, not just the view
   const ptsBefore = (await window.ZB_STORE.getMe()).points;
   await window.doSpin();
@@ -291,6 +300,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   // How it works is reachable and comes back to Spin
   window.go("howitworks");
   chk("How it works opens in-app and returns to Spin", /go\('spin'\)/.test(scr()));
+  chk("How it works also runs chrome-free while locked", chrome().join() === "none,none");
 
   // admins bypass so they can seed and test
   window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
@@ -302,6 +312,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   global.localStorage.setItem("zbPreviewCountdown", "1");
   chk("preview forces the countdown for an admin", window.__spinLocked() === true);
   window.go("spin"); chk("preview shows the countdown", /COUNTDOWN TO LAUNCH/.test(scr()));
+  chk("preview matches what colleagues see — chrome hidden too", chrome().join() === "none,none");
   global.localStorage.removeItem("zbPreviewCountdown");
 
   // at and after the unlock instant the gate lifts with no redeploy
@@ -312,6 +323,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   setNow(UNLOCK + 60000);
   chk("still open after the unlock", window.__spinLocked() === false);
   window.go("spin"); chk("spin works after unlock", /TODAY.S MATCH/.test(scr()));
+  chk("chrome and the full app come back at unlock", chrome().join() === ",");
+  window.go("wall"); chk("other tabs reachable again after unlock", /Community wall/.test(scr()));
   realNow();
   window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
   await refreshAndSettle();

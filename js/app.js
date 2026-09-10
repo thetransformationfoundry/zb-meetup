@@ -352,6 +352,19 @@ try{document.addEventListener&&document.addEventListener('visibilitychange',func
 function render(){
   if(mode==="onboarding"){renderOnboard();return;}
   stopTagline();
+  // Before unlock the countdown is a full-screen HOLDING screen: no appbar, no tab bar, and
+  // nothing else reachable — there is nothing in the app worth showing yet. The chrome and the
+  // rest of the app come back on their own the moment the lock lifts, because this re-evaluates
+  // on every render and every countdown tick.
+  if(spinLocked()){
+    if(view!=="spin"&&view!=="howitworks")view="spin";
+    $("#appbar").style.display='none';$("#tabbar").style.display='none';$("#screen").style.padding='0';
+    S.setViewing && S.setViewing(view);
+    const held=$("#screen");
+    if(view==="howitworks"){held.innerHTML=howItWorksHTML(true);cdStop();}
+    else {held.innerHTML=viewCountdown();cdStart();}
+    return;
+  }
   $("#appbar").style.display='';$("#tabbar").style.display='';$("#screen").style.padding='';
   S.setViewing && S.setViewing(view);
   renderAppbar();renderTabs();
@@ -372,7 +385,13 @@ function render(){
   else if(view==="notifs")s.innerHTML=viewNotifs();
   s.scrollTop=0;
 }
-window.go=v=>{if(v!=="spin")cdStop();view=v;render();};
+window.go=v=>{
+  // While locked the only routes are the countdown and How It Works — a deep-linked
+  // notification must not drop a held user into an empty app.
+  if(spinLocked()&&v!=="spin"&&v!=="howitworks")v="spin";
+  if(v!=="spin")cdStop();
+  view=v;render();
+};
 function renderAppbar(){$("#appbar").innerHTML=`<div class="brand">ZB <span>MeetUP</span></div><div class="spacer"></div><div class="pts">${C.me?C.me.points:0} pts</div><button class="bell" onclick="go('notifs')">${icon('bell',24)}${unread()?`<span class="badge">${unread()}</span>`:''}</button>`;}
 function renderTabs(){
   const reqB=activeMatches().filter(m=>(m.status==='active'&&!myAnswersDone(m))||(m.status==='requested'&&m.incoming)).length;
