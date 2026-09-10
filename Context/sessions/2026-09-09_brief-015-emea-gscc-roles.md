@@ -1,6 +1,6 @@
 # Session — 2026-09-09 · BRIEF-015 · GSCC/EMEA roles + QARA matching + onboarding reorder (v=17)
 
-**Branch:** `feat/emea-gscc-roles` (off `main` @ d696b6e) · **Status:** built, harness 47/47 green,
+**Branch:** `feat/emea-gscc-roles` (off `main` @ 26122d0) · **Status:** built, harness 47/47 green,
 **awaiting Sean's test + merge**.
 
 ## What we did

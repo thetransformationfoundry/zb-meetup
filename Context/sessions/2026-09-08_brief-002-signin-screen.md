@@ -1,6 +1,6 @@
 # Session — 2026-09-08/09 · BRIEF-002 · real sign-in screen (v=9 → v=10)
 
-**Branch:** `feat/signin-screen` (off `main` @ cc0ddc3) · **Status:** built + amended, harness 22/22 green.
+**Branch:** `feat/signin-screen` (off `main` @ a2d7c5c) · **Status:** built + amended, harness 22/22 green.
 
 ## Before this
 `obGoSignIn()` (app.js) was a copy of `obGoCreate()` — `onboardStep=0` — so "I already have an account"

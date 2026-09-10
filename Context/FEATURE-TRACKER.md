@@ -17,29 +17,30 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Notifications (bell + deep-links) | ✅ | |
 | Profile / edit / **real photo** / sign out / delete account | ✅ | |
 | Admin dashboard (stats, question bank add, bug reports) | ✅ | |
-| Real photo capture on **meetup completion** (→ wall) | ✅ | BRIEF-001 — merged + live v=7 (2026-09-08, SHA b557fe3) |
+| Real photo capture on **meetup completion** (→ wall) | ✅ | BRIEF-001 — merged + live v=7 (2026-09-08, SHA 13668bd) |
 | **First live deploy** (v=7 on main) | ✅ | 2026-09-08 — tested live by Sean + Donnae |
-| Sign-in screen for returning users (+ forgot password) | ✅ | BRIEF-002 + amendment — merged + live v=10 (2026-09-09, SHA f413950) |
-| Password-reset confirmation screen (check email + junk) | ✅ | Live feedback 2026-09-09 (reset email hit Outlook Junk) — merged + live v=11 (SHA 948a1cf) |
+| Sign-in screen for returning users (+ forgot password) | ✅ | BRIEF-002 + amendment — merged + live v=10 (2026-09-09, SHA 2857ba4) |
+| Password-reset confirmation screen (check email + junk) | ✅ | Live feedback 2026-09-09 (reset email hit Outlook Junk) — merged + live v=11 (SHA 57e1f31) |
 | Reset email deliverability (SPF/DKIM / IT allow-list) | 💡 | firebaseapp.com sender flagged by Outlook — decision open (see 2026-09-09 session log): recommend ZB IT allow-list noreply@zb-meetup.firebaseapp.com + custom sender domain for the proper fix |
-| Restrict sign-up to allowed domains (zimmerbiomet.com / thetransformationfoundry.nl) | ✅ | BRIEF-009 — merged + live v=12 (2026-09-09, SHA 2cde987); rules published + tested. Auth blocking function deferred to BRIEF-004 (needs Identity Platform) |
-| Lock wall-post update rule (author/admin edit content; others heart/comment only) | ✅ | BRIEF-010 — rules published + simulator-verified DENIED for non-author overwrite (2026-09-09). Branch `10b8470` to merge as bookkeeping |
+| Restrict sign-up to allowed domains (zimmerbiomet.com / thetransformationfoundry.nl) | ✅ | BRIEF-009 — merged + live v=12 (2026-09-09, SHA 943499a); rules published + tested. Auth blocking function deferred to BRIEF-004 (needs Identity Platform) |
+| Lock wall-post update rule (author/admin edit content; others heart/comment only) | ✅ | BRIEF-010 — rules published + simulator-verified DENIED for non-author overwrite (2026-09-09). Branch `cc6d8d2` to merge as bookkeeping |
 | Wall integrity: comment identity (byUid) + interaction value validation | 📋 | BRIEF-011 — Part A (comment spoofing) before wider launch; Part B backlog unless hearts feed prizes |
 | Firestore rules versioned in the repo (`firestore.rules`) | ✅ | BRIEF-012 — merged 2026-09-09; live/repo byte-identical (sha256 792f9b16…0eb6, confirmed by Sean). All rule changes now go via a branch diff |
-| In-app bell: requests/accepts/messages + deep-links; message composer layout | ✅ | BRIEF-003 — client live v=14 (SHA eac9602); notifications rule published + all 4 simulator checks verified (2026-09-09). Final two-account bell test with Donnae = last human confirmation |
+| In-app bell: requests/accepts/messages + deep-links; message composer layout | ✅ | BRIEF-003 — client live v=14 (SHA e7ebed0); notifications rule published + all 4 simulator checks verified (2026-09-09). Final two-account bell test with Donnae = last human confirmation |
 | Real push notifications (FCM + SW + Cloud Functions) + 3-day reminder | 📋 | BRIEF-004 — Blaze approved |
-| Per-user completion + correct points + completed-meetups view | ✅ | BRIEF-005 — merged + live v=8 (2026-09-08, SHA cc0ddc3) |
-| Meetup photo quality (crisp) + card fit (no gutters) | ✅ | BRIEF-006 — merged + live v=15 (2026-09-09, SHA bc43212); 960px capture + never-upscale guard, full-width card. Confirmed on a real phone (fresh capture crisp; card fills edge-to-edge) after clearing the iOS home-screen cache |
+| Per-user completion + correct points + completed-meetups view | ✅ | BRIEF-005 — merged + live v=8 (2026-09-08, SHA a2d7c5c) |
+| Meetup photo quality (crisp) + card fit (no gutters) | ✅ | BRIEF-006 — merged + live v=15 (2026-09-09, SHA fdda24f); 960px capture + never-upscale guard, full-width card. Confirmed on a real phone (fresh capture crisp; card fills edge-to-edge) after clearing the iOS home-screen cache |
 | Either participant updates shared photo on wall post | 📋 | BRIEF-013 — low priority; BRIEF-006/010/001 collision (non-author photo replace skips wall post). Pairs with BRIEF-011 posts-rule work |
 | Admin: surface captured answers + real Excel export | 📋 | BRIEF-007 |
 | Admin: editable question bank with tiers | 📋 | BRIEF-008 |
-| Full GSCC/EMEA role list + QARA cross-site matching + onboarding reorder | 🔨 | BRIEF-015 built (v=17) on `feat/emea-gscc-roles` — 108 roles from `roles-source.txt`, EMEA restricted to the QARA set, legacy roles normalised on read |
+| Full GSCC/EMEA role list + QARA cross-site matching + onboarding reorder | ✅ | BRIEF-015 — merged 2026-09-10 (v=18); 108 roles, EMEA restricted to the QARA set, legacy roles normalised on read |
 | Real ~50-question bank (Donnae) + tiering | 💡 | Feeds BRIEF-008 once list ready |
 | Tabbar Android flicker (transform + backdrop-filter) | 💡 | CC-flagged on BRIEF-003; pre-existing, design call — revisit only if flicker reported |
-| Version / build stamp in-app + Check-for-update | ✅ | BRIEF-014 — merged + live v=16 (2026-09-09, code SHA d696b6e; stamp commit 572d40e). CI (harness + auto-stamp + Pages build) verified end-to-end on first run. Staleness *detected*, not just displayed |
+| Version / build stamp in-app + Check-for-update | ✅ | BRIEF-014 — merged + live v=16 (2026-09-09, code SHA 26122d0; stamp commit 2573047). CI (harness + auto-stamp + Pages build) verified end-to-end on first run. Staleness *detected*, not just displayed |
 | CI: harness on every push/PR (GitHub Action) | ✅ | Rode along with BRIEF-014 — roadmap item done |
 | Bump CI actions checkout/setup-node → @v5 | 💡 | Silence GitHub's Node 20 deprecation notice; cosmetic, when convenient |
 | Styled invite email (real screenshots) | 💡 | For launch comms |
+| **Purge real employee data from git history** | ✅ | BRIEF-016 — Option B: history rewritten + repo recreated 2026-09-10. CI guard `check-seed-names.js` prevents recurrence |
 
 ## Live-feedback → brief map (2026-09-08)
 1. Sign-in screen → BRIEF-002 · 2. Notifications in-app → BRIEF-003, push → BRIEF-004 ·

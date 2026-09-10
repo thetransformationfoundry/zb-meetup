@@ -1,6 +1,6 @@
 # Session — 2026-09-09 · BRIEF-003 · in-app notifications + composer layout (v=14)
 
-**Branch:** `feat/notifications-inapp` (off `main` @ 10b8470) · **Status:** built, harness 30/30 green,
+**Branch:** `feat/notifications-inapp` (off `main` @ cc6d8d2) · **Status:** built, harness 30/30 green,
 **awaiting Sean's test + a rules publish + merge**.
 
 ## Root cause — it was never the client

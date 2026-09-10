@@ -1,6 +1,6 @@
 # Session — 2026-09-08 · BRIEF-005 · per-user completion + correct points (v=8)
 
-**Branch:** `feat/per-user-completion` (off `main` @ b557fe3) · **Status:** built, harness 18/18 green,
+**Branch:** `feat/per-user-completion` (off `main` @ 13668bd) · **Status:** built, harness 18/18 green,
 **awaiting Sean's local test + merge**.
 
 ## The bug, fixed

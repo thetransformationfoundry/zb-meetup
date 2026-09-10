@@ -1,6 +1,6 @@
 # Session — 2026-09-09 · BRIEF-012 · Firestore rules into the repo
 
-**Branch:** `chore/firestore-rules-in-repo` (off `main` @ eac9602) · **Status:** built, harness 30/30 green,
+**Branch:** `chore/firestore-rules-in-repo` (off `main` @ e7ebed0) · **Status:** built, harness 30/30 green,
 **approved and merged** (live/repo hash match confirmed). No client change, no `?v=` bump.
 
 ## What we did

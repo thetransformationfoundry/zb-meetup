@@ -1,6 +1,6 @@
 # Session — 2026-09-09 · BRIEF-009 · restrict signup to allowed domains (v=12)
 
-**Branch:** `feat/allowed-domains` (off `main` @ 948a1cf) · **Status:** built, harness 27/27 green,
+**Branch:** `feat/allowed-domains` (off `main` @ 57e1f31) · **Status:** built, harness 27/27 green,
 **awaiting Sean's test + merge + a rules publish**. Launch-gating.
 
 ## What we did

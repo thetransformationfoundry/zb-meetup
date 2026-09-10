@@ -1,6 +1,6 @@
 # Session — 2026-09-09 · Password-reset confirmation screen (v=11)
 
-**Branch:** `feat/reset-email-sent-screen` (off `main` @ f413950) · **Status:** built, harness 24/24 green,
+**Branch:** `feat/reset-email-sent-screen` (off `main` @ 2857ba4) · **Status:** built, harness 24/24 green,
 **awaiting Sean's test + merge**. No brief — direct request from Sean off the back of his live check.
 
 ## Where this came from

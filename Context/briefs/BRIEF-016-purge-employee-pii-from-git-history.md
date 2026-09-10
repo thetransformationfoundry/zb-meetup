@@ -8,7 +8,7 @@ simply that no real names/roles appear in the public repo. Repo stays public.
 ## The problem
 The demo seed users in `js/store.js` contained **real Zimmer Biomet colleagues** — full names paired with role,
 department and work location — committed to a **public** repo since the first commit. CC replaced them with
-invented names at HEAD (`35b659b`, v=18), so the *current* files are clean, **but the real data is still in git
+invented names at HEAD (`0c7e5c3`, v=18), so the *current* files are clean, **but the real data is still in git
 history** and is publicly readable by checking out old commits. Sean confirmed the names are real and must not be
 public ("that should stay in the database… set by themselves at onboarding"). `CLAUDE.md` already forbids this:
 "Never commit … personal data … no employee list in the repo."
@@ -27,7 +27,7 @@ are CC's fictional replacements. CC/Sean work from the in-session list, not from
    history minus the PII, or a reset to a single clean commit. Force-push `main`.
 3. **Coordinate the rewrite** with Sean (his force-push / re-clone; CC can't force-push without it going through
    the account with write access). Note it invalidates old SHAs — the BRIEF-014 version stamps reference commit
-   SHAs, so the historical `d696b6e` stamp won't resolve after; going forward is fine.
+   SHAs, so the historical `26122d0` stamp won't resolve after; going forward is fine.
 4. **Re-verify after:** CI green, Pages redeploys, live app + version stamp still correct, matching unaffected.
 5. **Confirm the scrub:** old commit URLs no longer show the names (spot-check on GitHub). Document honest
    residual caveats: GitHub may cache commit objects/PR views and any forks persist — for names (not credentials)

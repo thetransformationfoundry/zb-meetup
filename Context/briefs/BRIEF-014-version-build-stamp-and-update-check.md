@@ -10,7 +10,7 @@ date) in the app so 'what's live' is unambiguous."* This implements it. Then a s
 running?" instantly and stale-cache confusion stops being a class of bug.
 
 ## Goal
-The app shows its **version + build id + date** (e.g. `v15 · bc43212 · 2026-09-09`), and offers a **Check for
+The app shows its **version + build id + date** (e.g. `v15 · fdda24f · 2026-09-09`), and offers a **Check for
 update** action that reloads past the cache — including the stubborn iOS home-screen case.
 
 ## Scope (do)

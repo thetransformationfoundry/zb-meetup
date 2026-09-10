@@ -7,7 +7,7 @@
   `chore/sync-and-tooling`. Both merged to `main` as clean fast-forwards; harness 10/10 green.
 - Push blocked: active `gh` account was `zanmanna` (no write access). CC correctly refused to work around the
   sandbox token classifier. Sean ran `gh auth switch --user thetransformationfoundry && git push origin main`
-  himself. `origin/main` → **b557fe3 (v=7)**; GitHub Pages rebuilt. **First version live.**
+  himself. `origin/main` → **13668bd (v=7)**; GitHub Pages rebuilt. **First version live.**
 - Sean + Donnae tested live end-to-end: onboarding, spin, request/accept, shared photo (showed for both,
   Change photo worked), questions, complete, wall post with real photo, admin renders. Architecture proven.
 

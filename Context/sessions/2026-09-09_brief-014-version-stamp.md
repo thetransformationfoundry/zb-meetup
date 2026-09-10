@@ -1,6 +1,6 @@
 # Session — 2026-09-09 · BRIEF-014 · version/build stamp + update check (v=16)
 
-**Branch:** `feat/version-stamp` (off `main` @ bc43212) · **Status:** built, harness 38/38 green,
+**Branch:** `feat/version-stamp` (off `main` @ fdda24f) · **Status:** built, harness 38/38 green,
 **awaiting Sean's test + merge**.
 
 ## What we did

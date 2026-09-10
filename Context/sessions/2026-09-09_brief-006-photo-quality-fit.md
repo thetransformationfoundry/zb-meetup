@@ -1,6 +1,6 @@
 # Session — 2026-09-09 · BRIEF-006 · meetup photo quality + card fit (v=15)
 
-**Branch:** `feat/photo-quality-fit` (off `main` @ e6e60dc) · **Status:** built, harness 34/34 green,
+**Branch:** `feat/photo-quality-fit` (off `main` @ 09df56c) · **Status:** built, harness 34/34 green,
 **awaiting Sean's test + merge**.
 
 ## What we did

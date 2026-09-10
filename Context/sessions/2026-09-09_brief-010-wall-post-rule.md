@@ -1,6 +1,6 @@
 # Session — 2026-09-09 · BRIEF-010 · lock the wall-post update rule
 
-**Branch:** `fix/wall-post-update-rule` (off `main` @ 2cde987) · **Status:** built, harness 27/27 green,
+**Branch:** `fix/wall-post-update-rule` (off `main` @ 943499a) · **Status:** built, harness 27/27 green,
 **awaiting Sean's rules publish + merge**.
 
 ## The hole
