@@ -610,8 +610,9 @@ function viewAdmin(){
        <p class="muted small" style="margin:8px 0 10px">Across ${d.totalMatches} meetup${d.totalMatches===1?'':'s'}. Tap a question to read the answers. These are private — admins only.</p>
        ${qs.length?qs.map(q=>`<div style="border-top:1px solid var(--line);padding:10px 0 4px">
            <div class="row between" style="cursor:pointer;gap:10px" onclick="adminToggleQ('${String(q.id).replace(/'/g,"\\'")}')">
-             <span class="small" style="flex:1">${q.text}${q.tier===1?'<span class="tierpill">key idea</span>':''}</span>
-             <span class="chip ${q.count?'':'grey'}">${q.count}</span>
+             <span class="small" style="flex:1;min-width:0">${q.text}</span>
+             ${q.tier===1?`<span class="tierpill" style="flex:none;margin-left:0">key idea</span>`:''}
+             <span class="chip ${q.count?'':'grey'}" style="flex:none">${q.count}</span>
            </div>
            ${adminOpenQ===q.id?`<div style="margin-top:8px">${q.answers.map(a=>`<div class="q" style="margin:8px 0"><div class="small" style="white-space:pre-wrap">${a.text}</div><div class="muted small" style="margin-top:4px">${adminAnon?'anonymised':a.by}${a.type?' · '+a.type:''}${a.date?' · '+a.date:''}</div></div>`).join('')||'<div class="muted small">No answers yet.</div>'}</div>`:''}
          </div>`).join(''):`<div class="muted small">No answers captured yet — they appear here as colleagues complete meetups.</div>`}
