@@ -233,6 +233,14 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && /costs 1 point/.test(hiw));
   chk("How It Works states the real prizes",
       /€250/.test(hiw) && /€150/.test(hiw) && /end of October 2026/.test(hiw));
+  // Part C: the ranks card links to the explainer, and Back returns to Ranks (not Spin)
+  window.go("ranks");                      // be on Ranks before opening the explainer
+  chk("ranks says best idea, singular", /best <b>idea<\/b>/.test(ranks) && !/best <b>ideas<\/b>/.test(ranks));
+  chk("ranks offers a How it works link", /onclick="go\('howitworks'\)"/.test(ranks));
+  window.go("howitworks");
+  chk("explainer opened from Ranks returns to Ranks", /go\('ranks'\)/.test(scr()));
+  window.go("spin"); window.go("howitworks");
+  chk("explainer opened from Spin still returns to Spin", /go\('spin'\)/.test(scr()));
   window.go("ranks");
   window.go("profile");
   const prof = scr();

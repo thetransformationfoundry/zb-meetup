@@ -16,6 +16,13 @@ The 5-step explainer predates the points economy. Update the copy (keep the 5-st
 - Sanity-check steps 2–4 still read true (they do: accept → shared space/chat → meet → photo + 3 questions).
 - Sean may tweak the exact wording — treat the above as the intent, keep it warm and concise.
 
+## Part C — two small additions (Sean, 2026-09-10; same branch, before merge)
+- **Singular "best idea":** the ranks card says "a panel of CB management judges will pick the best **ideas**" —
+  change to **"best idea"** (one idea prize). One word.
+- **"How it works" link on the Ranks/leaderboard screen:** add a link/button on the ranks screen that opens the
+  existing How It Works explainer (`go('howitworks')`), so colleagues can reach the rules again after launch (today
+  it's only reachable from onboarding + the countdown). Reuse the existing screen; no new content.
+
 ## Part A — Prizes card
 
 ## The prizes (confirmed by Donnae)

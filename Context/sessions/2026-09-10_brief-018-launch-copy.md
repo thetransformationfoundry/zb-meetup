@@ -1,6 +1,6 @@
 # Session — 2026-09-10 · BRIEF-018 · launch copy pass (v=27)
 
-**Branch:** `feat/launch-copy` (off `main` @ a5d65b6) · **Status:** built, harness 104/104 green,
+**Branch:** `feat/launch-copy` (off `main` @ a5d65b6) · **Status:** built, harness 108/108 green,
 **awaiting Sean's test + merge**. Copy and one icon only — no logic touched.
 
 ## Part A — prize card (ranks screen)
@@ -21,10 +21,19 @@
 - Steps 2–4 re-read against the current app and are still accurate (accept → shared space + chat → meet →
   photo + three questions), so they are untouched.
 
-## Harness (4 new checks, 104 total)
+## Harness (8 new checks, 108 total)
 The prize card shows both €250s, the €150 and the end-of-October line; the chip uses the money icon **and**
 contains no emoji (the guardrail, asserted rather than assumed); How It Works mentions the 30-point bonus, the
 free daily spin and the 1-point respin cost; and it states the real prize amounts and the announcement date.
+
+## Part C — added 2026-09-10
+- **"best ideas" → "best idea"** on the ranks card: there is one prize for one idea, so the plural was wrong.
+- **A "How it works" button on the ranks card**, so colleagues can reach the rules after launch — before this
+  the explainer was only reachable from the welcome screen and the countdown, i.e. not at all once someone was
+  onboarded and spinning.
+- While wiring it I added a small thing the brief didn't ask for: the in-app explainer now **returns to where
+  it was opened from**. Opening it from Ranks and being dropped on Spin is disorienting, and the countdown
+  still returns to the countdown. One variable, asserted both ways.
 
 ## Note
 The explainer is now the one place a colleague can read the points rules, and it is reachable from the
