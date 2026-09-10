@@ -242,7 +242,23 @@ function eligible(){
 }
 function meetupType(p){const list=(p.workClass==='remote'||C.me.workClass==='remote')?REMOTE:IN_PERSON;return list[Math.floor(Math.random()*list.length)];}
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
-function pickQuestions(){const first=history().length===0&&activeMatches().length===0;let ch;if(first)ch=C.questions.filter(q=>q.tier===1).slice(0,3);else{const t1=shuffle(C.questions.filter(q=>q.tier===1)),t2=shuffle(C.questions.filter(q=>q.tier===2));ch=[t1[0],t2[0],t2[1]].filter(Boolean);}return ch.map(q=>({id:q.id,t:q.text,tier:q.tier}));}
+// Three questions per meetup: a first meetup leads with tier 1 ("key idea"), later ones take
+// one tier-1 plus two tier-2. Since an admin can now delete and re-tier freely (BRIEF-008), a
+// tier can be empty — so the picks are topped up from the whole shuffled bank rather than
+// leaving holes. Returns fewer than 3 only if the bank itself holds fewer.
+function pickQuestions(){
+  const bank=C.questions||[];
+  if(!bank.length)return [];
+  const first=history().length===0&&activeMatches().length===0;
+  const t1=shuffle(bank.filter(q=>q.tier===1)),t2=shuffle(bank.filter(q=>q.tier!==1));
+  let ch=first?t1.slice(0,3):[t1[0],t2[0],t2[1]];
+  ch=ch.filter(Boolean);
+  if(ch.length<3){                                     // top up from whatever is left
+    const rest=shuffle(bank).filter(q=>!ch.some(c=>c.id===q.id));
+    ch=ch.concat(rest.slice(0,3-ch.length));
+  }
+  return ch.slice(0,3).map(q=>({id:q.id,t:q.text,tier:q.tier}));
+}
 const myAnswersDone=m=>m.answers.every(a=>(a||'').trim());
 const canComplete=m=>myAnswersDone(m)&&!m.completed;   // my 3 answers = my +5; the photo earns its own +5
 function unread(){return C.notifs.filter(n=>!n.read).length;}
@@ -276,6 +292,8 @@ async function refresh(){
 // only when the admin screen is opened — rather than on every refresh.
 async function loadAdminData(force){
   if(!C.admin||(C.adminData&&!force))return;
+  // Turn the hardcoded default questions into editable records the first time an admin looks.
+  try{ if(S.seedQuestionBank&&await S.seedQuestionBank()){C.questions=await S.questionBank();} }catch(e){}
   try{ C.adminData=await S.adminAnswers(); }
   catch(e){ C.adminData={error:(e&&e.code)==='zb/not-admin'?'Admins only.':'Could not load answers.',questions:[],totalAnswers:0,totalMatches:0}; }
   if(view==='admin')render();
@@ -598,8 +616,11 @@ window.doSpin=async function(){
 };
 // skip() is gone with BRIEF-017: it returned to idle, which made the next spin look like a
 // first-of-day free spin. The only actions on a candidate are now Send request and Spin again.
-window.sendReq=async function(){const p=current;current=null;
-  await S.createMatch(p,p._type,pickQuestions());
+window.sendReq=async function(){const p=current;
+  const qs=pickQuestions();
+  if(!qs.length){toast("No questions in the bank yet — an admin needs to add some");return;}
+  current=null;
+  await S.createMatch(p,p._type,qs);
   await S.grantFreeSpin();                      // chaining real meetups costs nothing
   toast("Request sent to "+p.first+" — your next spin is free");await refresh();};
 window.acceptReq=async function(id){await S.acceptMatch(id);toast("Matched! Plan your meetup");await refresh();};
@@ -742,7 +763,20 @@ function viewAdmin(){
          <button class="btn ghost sm" onclick="reloadAdmin()">${icon('refresh',16)}</button>
        </div></div>`;
    })()}
-   <div class="card"><div class="row between" style="margin-bottom:6px"><b>Question bank</b><span class="chip grey">${C.questions.length}</span></div>${C.questions.map(q=>`<div class="small" style="padding:6px 0;border-top:1px solid var(--line)">${q.tier===1?'<span class="tierpill">T1</span> ':''}${q.text}</div>`).join('')}<div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newq" placeholder="Add a question…"><button class="btn sm" onclick="addQ()">${icon('plus',16)}</button></div></div>
+   <div class="card"><div class="row between" style="margin-bottom:6px"><b>Question bank</b><span class="chip grey">${C.questions.length}</span></div>
+     <p class="muted small" style="margin:0 0 10px">Tier 1 leads a colleague's first meetup; tier 2 fills the rest. Editing a question doesn't change answers already given.</p>
+     ${C.questions.map(q=>qEditId===q.id
+       ? `<div class="q" style="margin:10px 0"><textarea class="input" rows="2" id="qedit-${q.id}">${q.text}</textarea>
+            <div class="row" style="gap:8px;margin-top:8px"><button class="btn sm" onclick="qSave('${q.id}')">${icon('check',15)} Save</button>
+            <button class="btn ghost sm" onclick="qEdit(null)">Cancel</button></div></div>`
+       : `<div class="row between" style="gap:10px;border-top:1px solid var(--line);padding:9px 0">
+            <span class="small" style="flex:1;min-width:0">${q.text}</span>
+            <button class="iconbtn" title="Tier" onclick="qTier('${q.id}',${q.tier===1?2:1})"><span class="tierpill" style="margin-left:0;cursor:pointer;${q.tier===1?'':'opacity:.45'}">T${q.tier===1?1:2}</span></button>
+            <button class="iconbtn" title="Edit" onclick="qEdit('${q.id}')">${icon('pencil',16)}</button>
+            <button class="iconbtn" title="Delete" onclick="qDel('${q.id}')">${icon('trash',16)}</button>
+          </div>`).join('')}
+     <div class="row" style="gap:8px;margin-top:12px"><input class="input" id="newq" placeholder="Add a question…"><button class="btn sm" onclick="addQ()">${icon('plus',16)}</button></div>
+     <div class="row" style="gap:8px;margin-top:8px"><span class="muted small">New questions start at tier 2 — tap T2 to promote.</span></div></div>
    <div class="card"><div class="row between"><b>Bug reports</b><span class="chip ${C.bugs.length?'':'grey'}">${C.bugs.length}</span></div>${C.bugs.length?C.bugs.map(b=>`<div class="small" style="padding:8px 0;border-top:1px solid var(--line)"><b>${b.by}</b> · ${b.at}<br>${b.text}</div>`).join(''):`<p class="muted small" style="margin-top:8px">No bug reports yet.</p>`}</div>`;
 }
 // CSV rather than .xlsx: a real xlsx is a zip archive, which would mean pulling in a library
@@ -771,7 +805,20 @@ window.exportData=function(){
     toast((rows.length-1)+" answers exported");
   }catch(e){ toast("Couldn't start the download"); }
 };
-window.addQ=async function(){const v=($("#newq").value||'').trim();if(!v)return;await S.addQuestion(v);toast("Question added");await refresh();};
+let qEditId=null;   // which question is open for inline editing
+window.qEdit=function(id){qEditId=id;render();};
+window.qSave=async function(id){
+  const el=document.getElementById('qedit-'+id); const v=((el&&el.value)||'').trim();
+  if(!v){toast("A question can't be empty");return;}
+  await S.updateQuestion(id,{text:v}); qEditId=null; toast("Question updated"); await refresh();
+};
+window.qTier=async function(id,tier){await S.updateQuestion(id,{tier:tier});await refresh();};
+window.qDel=async function(id){
+  const q=C.questions.find(x=>x.id===id);
+  if(!confirm('Delete this question?\n\n"'+((q&&q.text)||'')+'"\n\nAnswers already given keep the wording colleagues were asked.'))return;
+  await S.deleteQuestion(id); toast("Question deleted"); await refresh();
+};
+window.addQ=async function(){const v=($("#newq").value||'').trim();if(!v)return;await S.addQuestion(v,2);toast("Question added");await refresh();};
 
 /* ---------------- NOTIFICATIONS ---------------- */
 function viewNotifs(){

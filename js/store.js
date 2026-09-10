@@ -126,7 +126,8 @@
       ME.signupBonusGranted = true; ME.points = (ME.points||0) + SIGNUP_BONUS; return P(true);
     },
     createMatch(other, type, questions) {
-      const m = { id:"m"+(mid++), a:"me", b:other.uid, person:other, status:"requested", type, questionIds:questions.map(q=>q.id||q.t), questions, answers:["","",""], photo:null, completedBy:{}, photoAwarded:{}, postId:null, messages:[], createdAt:now() };
+      // answers is sized to the questions actually asked (an admin can leave the bank <3)
+      const m = { id:"m"+(mid++), a:"me", b:other.uid, person:other, status:"requested", type, questionIds:questions.map(q=>q.id||q.t), questions, answers:questions.map(()=>""), photo:null, completedBy:{}, photoAwarded:{}, postId:null, messages:[], createdAt:now() };
       MATCHES.push(m);
       // DEMO: simulate the other person accepting shortly after
       setTimeout(() => {
@@ -216,7 +217,27 @@
 
     // ---- questions / admin ----
     questionBank() { return P(QUESTIONS.map(q => ({ ...q }))); },
-    addQuestion(text) { QUESTIONS.push({ id:"q"+(QUESTIONS.length+1), text, tier:2, count:0 }); return P(true); },
+    // ---- question bank: real editable records (BRIEF-008), mirroring the live store ----
+    seedQuestionBank() {
+      const e = (this._email||"").toLowerCase();
+      if (!(window.ZB_CONFIG.ADMIN_EMAILS||[]).map(x=>x.toLowerCase()).includes(e))
+        return Promise.reject({ code:"zb/not-admin", message:"Admins only" });
+      return P(false);        // the demo list is already editable in place
+    },
+    addQuestion(text, tier) {
+      QUESTIONS.push({ id:"q"+(Date.now().toString(36)), text, tier:(tier===1?1:2), count:0 });
+      return P(true);
+    },
+    updateQuestion(id, patch) {
+      const q = QUESTIONS.find(x => x.id === id); if (!q) return P(false);
+      if (typeof patch.text === "string") q.text = patch.text;
+      if (patch.tier === 1 || patch.tier === 2) q.tier = patch.tier;
+      return P(true);
+    },
+    deleteQuestion(id) {
+      const i = QUESTIONS.findIndex(x => x.id === id); if (i < 0) return P(false);
+      QUESTIONS.splice(i,1); return P(true);
+    },
     // ---- admin: the idea bank (same shape as the live store) ----
     adminAnswers() {
       const e = (this._email||"").toLowerCase();
@@ -234,8 +255,10 @@
             date:new Date(m.completedAt || m.createdAt || Date.now()).toISOString().slice(0,10), matchId:m.id });
         });
       });
-      const questions = [...byQ.values()].map(q => Object.assign({}, q, { count:q.answers.length }))
-        .sort((a,b) => b.count - a.count);
+      // same as live: group by id, label with the question's current wording
+      const current = {}; QUESTIONS.forEach(q => current[q.id] = q.text);
+      const questions = [...byQ.values()].map(q => Object.assign({}, q, {
+        count:q.answers.length, text:current[q.id] || q.text })).sort((a,b) => b.count - a.count);
       return P({ questions, totalAnswers:questions.reduce((n,q)=>n+q.count,0), totalMatches:MATCHES.length });
     },
     listBugs() { return P((this._bugs||[]).slice()); },
