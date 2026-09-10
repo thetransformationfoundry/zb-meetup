@@ -121,7 +121,9 @@ select.input{appearance:none;-webkit-appearance:none;background:#fff url("data:i
 .ncard.unread{background:var(--zb-blue-soft);border-color:#cfe6f5}
 .muted{color:var(--muted)} .center{text-align:center} .small{font-size:12px}
 .q{margin:12px 0}.q .t{font-size:15px;font-weight:600;margin-bottom:6px}
-.tierpill{font-size:10px;font-weight:800;color:var(--zb-blue);background:var(--zb-blue-soft);padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:middle}
+/* inline-block + nowrap so the pill can wrap to the next line as a unit but never split
+   "key" / "idea" across two lines mid-pill */
+.tierpill{display:inline-block;white-space:nowrap;font-size:10px;font-weight:800;color:var(--zb-blue);background:var(--zb-blue-soft);padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:middle}
 .wall-photo{aspect-ratio:1;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;text-align:center;padding:8px;line-height:1.25;border-radius:12px}
 .msg{max-width:80%;padding:9px 12px;border-radius:14px;font-size:14px;margin-bottom:7px;line-height:1.35}
 .msg.them{background:#F1F3F6;border-bottom-left-radius:4px;align-self:flex-start}
