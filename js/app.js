@@ -386,10 +386,12 @@ function render(){
   else if(view==="notifs")s.innerHTML=viewNotifs();
   s.scrollTop=0;
 }
+let hiwFrom="spin";   // where the in-app How It Works was opened from, so Back returns there
 window.go=v=>{
   // While locked the only routes are the countdown and How It Works — a deep-linked
   // notification must not drop a held user into an empty app.
   if(spinLocked()&&v!=="spin"&&v!=="howitworks")v="spin";
+  if(v==="howitworks")hiwFrom=(view==="ranks"&&!spinLocked())?"ranks":"spin";
   if(v!=="spin")cdStop();
   view=v;render();
 };
@@ -473,12 +475,12 @@ function howItWorksHTML(inApp){
     </div>
   </div>`).join('');
   return `<div style="min-height:100vh;background:var(--bg);display:flex;flex-direction:column;">
-    <div style="position:sticky;top:0;z-index:20;display:flex;align-items:center;padding:16px 14px;background:rgba(245,247,250,.9);backdrop-filter:blur(12px);"><button type="button" onclick="${inApp?`go('spin')`:`obBackWelcome()`}" style="display:flex;align-items:center;gap:6px;padding:8px 12px 8px 8px;border:0;border-radius:999px;background:transparent;cursor:pointer;color:var(--ink);font-family:inherit;font-size:15px;font-weight:600;">${icon('back',18)}<span>Back</span></button></div>
+    <div style="position:sticky;top:0;z-index:20;display:flex;align-items:center;padding:16px 14px;background:rgba(245,247,250,.9);backdrop-filter:blur(12px);"><button type="button" onclick="${inApp?`go('${hiwFrom}')`:`obBackWelcome()`}" style="display:flex;align-items:center;gap:6px;padding:8px 12px 8px 8px;border:0;border-radius:999px;background:transparent;cursor:pointer;color:var(--ink);font-family:inherit;font-size:15px;font-weight:600;">${icon('back',18)}<span>Back</span></button></div>
     <div style="padding:2px 16px 0;animation:riseIn .5s ease-out both;"><div style="position:relative;overflow:hidden;border-radius:20px;padding:30px 26px 28px;background:linear-gradient(170deg,#3E6EA8 0%,#2F5F9E 42%,#20416F 100%);box-shadow:var(--shadow-lg);color:#fff;"><div style="position:absolute;right:-52px;top:-52px;width:172px;height:172px;border-radius:999px;border:2px dashed rgba(255,255,255,.22);"></div><div style="position:relative;font-size:11.5px;font-weight:700;letter-spacing:1.6px;color:rgba(255,255,255,.72);">FIVE SIMPLE STEPS</div><div style="position:relative;margin-top:10px;font-size:27px;line-height:1.18;font-weight:700;letter-spacing:-.5px;">How ZB MeetUP works</div><div style="position:relative;margin-top:10px;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.82);max-width:300px;">Meet colleagues, have great chats, earn points — in five simple steps.</div></div></div>
     <div style="padding:22px 16px 0;">${rows}</div>
     <div style="flex:1;min-height:8px;"></div>
     <div style="position:sticky;bottom:0;padding:14px 16px 22px;background:linear-gradient(to top,#F5F7FA 55%,rgba(245,247,250,0));">
-      <button type="button" onclick="${inApp?`go('spin')`:`obGoCreate()`}" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">${inApp?'Back':'Got it — create my account'}</span></button>
+      <button type="button" onclick="${inApp?`go('${hiwFrom}')`:`obGoCreate()`}" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">${inApp?'Back':'Got it — create my account'}</span></button>
       <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:12px;">For Zimmer Biomet colleagues only</div>
     </div>
   </div>`;
@@ -841,7 +843,7 @@ window.addComment=async function(id){const inp=$("#cin"+id);const v=(inp.value||
 
 /* ---------------- RANKS ---------------- */
 function viewRanks(){
-  let h=`<h2>Leaderboard</h2><p class="sub">Getting to know colleagues, one meetup at a time.</p><div class="card prize"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${icon('money',14)} Prizes · winners announced end of October 2026</span><p class="small" style="margin:11px 0 0;line-height:1.5;opacity:.96">Every meetup earns you points — but there's more. A panel of <b>CB management judges</b> will pick the best <b>ideas</b> shared in the discussions. Win <b>€250 for the best idea</b>, <b>€250</b> for topping the leaderboard, or <b>€150</b> as runner-up. Get to know your colleagues, brainstorm some fun ideas — and help make an impact on people's lives.</p><div class="prizerow"><div class="prizecard"><div class="pk">BEST IDEA</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">TOP OF BOARD</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">RUNNER-UP</div><div class="pv">€150</div></div></div></div><div class="card">`;
+  let h=`<h2>Leaderboard</h2><p class="sub">Getting to know colleagues, one meetup at a time.</p><div class="card prize"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${icon('money',14)} Prizes · winners announced end of October 2026</span><p class="small" style="margin:11px 0 0;line-height:1.5;opacity:.96">Every meetup earns you points — but there's more. A panel of <b>CB management judges</b> will pick the best <b>idea</b> shared in the discussions. Win <b>€250 for the best idea</b>, <b>€250</b> for topping the leaderboard, or <b>€150</b> as runner-up. Get to know your colleagues, brainstorm some fun ideas — and help make an impact on people's lives.</p><div class="prizerow"><div class="prizecard"><div class="pk">BEST IDEA</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">TOP OF BOARD</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">RUNNER-UP</div><div class="pv">€150</div></div></div><button type="button" class="btn white sm" style="width:100%;justify-content:center;margin-top:12px" onclick="go('howitworks')">${icon('help',16)} How it works</button></div><div class="card">`;
   C.leaderboard.slice(0,15).forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${r.photo?`<img src="${r.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(r.name)}</span><div class="nm">${r.name}</div><div class="p">${r.points}</div></div>`;});
   return h+`</div>`;
 }
