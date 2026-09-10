@@ -277,7 +277,8 @@
     // ---- wall ----
     listPosts() { return P(POSTS.map(p => ({ ...p }))); },
     heartPost(id) { const w = POSTS.find(x=>x.id===id); if (w) { w.liked = !w.liked; w.hearts += w.liked ? 1 : -1; } return P(true); },
-    commentPost(id, text) { const w = POSTS.find(x=>x.id===id); if (w) w.comments.push({ by:ME ? ME.name : "You", text }); return P(true); },
+    // byUid, not a display name — see the live store. "me" is the demo store's own uid.
+    commentPost(id, text) { const w = POSTS.find(x=>x.id===id); if (w) w.comments.push({ byUid:"me", text, at:now() }); return P(true); },
 
     // ---- notifications ----
     listNotifs() { return P(NOTIFS.map(n => ({ ...n }))); },

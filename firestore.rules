@@ -26,15 +26,34 @@ service cloud.firestore {
         || (signedIn() && (request.auth.uid == resource.data.a || request.auth.uid == resource.data.b));
       allow create: if signedIn() && request.auth.uid == request.resource.data.a;
     }
+    // A comment may only be appended by its own author: exactly one new element, whose byUid
+    // is the caller's uid. Before this, comments carried a client-supplied display name and no
+    // uid, so a direct write could post under another colleague's name (BRIEF-011A).
+    function commentAppendOk() {
+      let newC = request.resource.data.comments;
+      let oldC = resource.data.comments;
+      return newC.size() == oldC.size() + 1
+        && newC[newC.size() - 1].byUid == request.auth.uid;
+    }
+    function touchesComments() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(['comments']);
+    }
+
     match /posts/{id} {
       allow read: if signedIn();
       allow create: if signedIn() && request.auth.uid == request.resource.data.authorUid;
-      allow update: if signedIn() && (
-           request.auth.uid == resource.data.authorUid
-        || isAdmin()
-        || request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['hearts','heartedBy','comments'])
-      );
+      // Who may write at all: the author and admins may edit the post's content; everyone else
+      // is limited to the interaction fields (BRIEF-010).
+      allow update: if signedIn()
+        && (
+             request.auth.uid == resource.data.authorUid
+          || isAdmin()
+          || request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['hearts','heartedBy','comments'])
+        )
+        // And separately: if the write touches comments at all, it must be a single append
+        // stamped with the caller's own uid. Admins are exempt so they can moderate.
+        && (isAdmin() || !touchesComments() || commentAppendOk());
       allow delete: if isAdmin();
     }
     match /questionBank/{id} { allow read: if signedIn(); allow write: if isAdmin(); }

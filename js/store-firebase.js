@@ -399,8 +399,12 @@ const ZB_STORE = {
     await db.runTransaction(async tx => { const s = await tx.get(ref); const d = s.data(); if (!d) return; const has = (d.heartedBy||[]).includes(uid); tx.update(ref, { heartedBy: has ? FV.arrayRemove(uid) : FV.arrayUnion(uid), hearts: FV.increment(has ? -1 : 1) }); });
     cache["posts"] = null; return true;
   },
+  // BRIEF-011A: the author is byUid = the caller's own uid, which the published rule enforces.
+  // The display name is NOT stored — it is rendered from users/{byUid} — so a direct write can
+  // no longer post a comment under another colleague's name.
   async commentPost(id, text) {
-    const c = { by:(cachedMe&&cachedMe.name)||"You", text, at:Date.now() };
+    const uid = uidNow();
+    const c = { byUid:uid, text, at:Date.now() };
     if (String(id).startsWith("s")) { const w = SEEDS.find(x => x.id === id); if (w) w.comments.push(c); return true; }
     await db.collection("posts").doc(id).update({ comments: FV.arrayUnion(c) }); cache["posts"] = null; return true;
   },
