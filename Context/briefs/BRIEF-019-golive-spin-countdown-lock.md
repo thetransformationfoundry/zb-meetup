@@ -17,10 +17,15 @@ Other tabs (You, Wall, Meetups) stay usable.
 
 ## Scope (do)
 1. **Unlock constant** in `js/firebase-config.js` (one source): `SPIN_UNLOCK = new Date('2026-09-16T09:00:00+02:00')`.
-2. **Gate `viewSpin`** (`js/app.js`): if `now < SPIN_UNLOCK` and the user isn't bypassed → render the **countdown
-   screen** (Claude Design, see #4) instead of the spin controls; a live timer counts down (days/hours/mins/secs,
-   updating each second) to the unlock, with a line like "Spinning opens Wed 16 Sep at 09:00." At/after unlock →
-   normal spin. Don't block other tabs.
+2. **Full-screen countdown takeover for locked users** (`js/app.js`): if `now < SPIN_UNLOCK` and the user isn't
+   bypassed → show the **countdown screen as a full-screen holding screen with the app chrome hidden** (hide the
+   top appbar + bottom tab nav, the same way the welcome/onboarding/How-It-Works screens already suppress chrome).
+   The ONLY things reachable are the countdown and its **How It Works** link — the rest of the app (Meetups, Wall,
+   Ranks, You) is **not** accessible until unlock, because there's nothing there yet (no matches, no real posts).
+   Keep the **action gate** on `doSpin()`/`sendReq()` too (belt-and-braces — the lock lives on the action, not just
+   the view). At/after `SPIN_UNLOCK`, the chrome returns and the full app appears automatically (re-computed each
+   render/tick, no redeploy). *(If Sean later wants locked users to still edit their profile/photo pre-launch, that's
+   a small opt-in — for now it's countdown + How It Works only, per his call 2026-09-10.)*
 3. **Bypass (so Sean & Donnae can test):**
    - **Admins bypass automatically** (reuse `ADMIN_EMAILS` / `isAdmin`) — Sean + Donnae can spin any time to
      test/seed. This is the main mechanism; no separate list needed.

@@ -8,6 +8,13 @@
   `window.ZB_SPIN_UNLOCK`. Verified it resolves to exactly **2026-09-16T07:00:00.000Z**, so everyone unlocks
   together regardless of device timezone — the harness asserts that ISO instant so a future edit can't
   silently shift it.
+- **Full-screen holding screen** (scope item 2, revised 2026-09-10). A locked user gets **only** the countdown
+  and How It Works: the appbar and tab bar are hidden the same way the welcome/onboarding screens hide them,
+  and `go()` redirects any other route back to the countdown — so a deep-linked notification can't drop a held
+  colleague into an empty Meetups or Wall. `?preview=1` gets the identical treatment, so the preview is what
+  colleagues actually see. At unlock the chrome and the whole app return on their own, because `render()`
+  re-evaluates the lock every render and every tick. The `doSpin()` / `sendReq()` action gate stays as
+  belt-and-braces.
 - **Gate**: `viewSpin()` now returns the countdown when locked, else the real screen (the old body became
   `spinScreenHTML()`). Locked = `now < SPIN_UNLOCK && (!admin || preview)`. It re-compares on every render and
   every tick, so the lock **auto-lifts with no redeploy**.
@@ -30,7 +37,7 @@
   names are never shipped — the harness asserts they don't appear.
 - **How It Works reused, not duplicated**: `howItWorksHTML(inApp)` swaps the onboarding chrome (Back →
   `go('spin')`, CTA → "Back") for the in-app route.
-- `?v=` 24 → 25.
+- `?v=` 24 → 26.
 
 ## A real hole the checks surfaced
 The blurred layer is decorative and had `pointer-events:none` — which stops the mouse but **not the keyboard**.
@@ -52,9 +59,11 @@ animated card, kept on static elements. Noted in the CSS at the point of the cha
 - The handoff's `role="timer"` / `aria-live="off"` and `aria-hidden` bands are in place, and "How it works" is
   a real focusable button. What I have **not** verified is a screen-reader pass on a device.
 
-## Harness (17 new checks, 93 total)
+## Harness (24 new checks, 100 total)
 The unlock instant; a non-admin is locked; the countdown renders with its tiles and shows the right day count;
 the real spin screen sits behind it; the prototype's invented names never appear; the layer is inert;
 `doSpin()` is refused while locked; How It Works opens in-app and returns; an admin bypasses; preview forces
 the countdown for an admin; the lock lifts exactly at the instant and stays open after; spinning works after
-unlock. Time is controlled by stubbing `Date.now`, so this is tested rather than reasoned about.
+unlock; the chrome is hidden while locked (including under preview and on How It Works), other tabs are not
+reachable, and both chrome and the rest of the app come back at unlock. Time is controlled by stubbing
+`Date.now`, so this is tested rather than reasoned about.
