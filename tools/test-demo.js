@@ -294,6 +294,26 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   window.go("profile");
   const prof = scr();
   chk("profile", /Manage your profile/.test(prof));
+  // BRIEF-021: one gradient primary per screen; secondaries keep the pale style
+  const gradPrimaries = t => (t.match(/class="btn"(?![^>]*\bsm\b)/g)||[]).length;
+  chk("the answered You screen shows no competing gradient primary", gradPrimaries(prof) === 0);
+  // clear the icebreakers to get the prompt state, and check IT is the screen's primary
+  await window.ZB_STORE.saveIcebreakers([]);
+  await refreshAndSettle(); window.go("profile");
+  const profEmpty = scr();
+  chk("the unanswered You screen's primary is the icebreaker CTA",
+      /class="btn" style="width:100%;justify-content:center" onclick="iceFromProfile\(\)"/.test(profEmpty)
+      && gradPrimaries(profEmpty) === 1);
+  chk("You-screen secondaries stay secondary",
+      /class="btn secondary"[^>]*go\('editprofile'\)/.test(prof)
+      && /class="btn secondary"[^>]*go\('bug'\)/.test(prof)
+      && /class="btn secondary"[^>]*go\('admin'\)/.test(prof));
+  // restore, so later checks see the answered state
+  await window.ZB_STORE.saveIcebreakers([
+    {id:"t2q23",question:"Beach, mountains or city?",answer:"Answer one"},
+    {id:"t2q11",question:"What's your most useless talent?",answer:"Answer two"},
+    {id:"t2q25",question:"What's a small thing that always makes your day better?",answer:"Answer three"}]);
+  await refreshAndSettle();
   chk("icebreaker card on You is spaced, not flush to the buttons",
       /class="card" style="margin-top:14px"><div class="row between"><b>(Your icebreakers|Break the ice)/.test(prof));
   // the build stamp must render (and degrade gracefully) with no fetch and no version.json
