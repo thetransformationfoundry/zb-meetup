@@ -544,7 +544,7 @@ function renderOnboard(){
       <p class="muted small" style="line-height:1.5">Keep it work-appropriate — these are shown to colleagues you'll be meeting. You can change them later on the You screen.</p>
       </div><div class="ob-cta">
       <button class="btn" onclick="iceSave()">${icon('check',18)} ${done===3?'Save — earn 10 points':'Save'}</button>
-      <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="iceSkip()">Skip for now</button>
+      <button class="btn alt" style="margin-top:8px" onclick="iceSkip()">Skip for now</button>
     </div></div>`;
     return;
   }
@@ -590,7 +590,7 @@ function renderOnboard(){
       <p class="muted small center" style="margin-top:12px">Open the link, set a new password, then come back here and sign in.</p>
       </div><div class="ob-cta">
       <button class="btn" onclick="obGoSignIn()">${icon('check',18)} Sign in</button>
-      <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot('resend')">Send the email again</button>
+      <button class="btn alt" style="margin-top:8px" onclick="obForgot('resend')">Send the email again</button>
     </div></div>`;
     return;
   }
@@ -609,7 +609,7 @@ function renderOnboard(){
       <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">Forgot password?</button>
       <div class="hr"></div>
       <p class="muted small center" style="margin:0 0 8px">New to ZB MeetUP?</p>
-      <button class="btn secondary" onclick="obGoCreate()">Create an account instead</button>
+      <button class="btn alt" onclick="obGoCreate()">Create an account instead</button>
     </div></div>`;
     return;
   }
@@ -620,7 +620,7 @@ function renderOnboard(){
   if(onboardStep===0){
     body=`<div class="center" style="padding-top:10px"><div class="avatar lg" style="margin:0 auto 16px;background:var(--zb-blue)">${icon('users',54)}</div><h2>Welcome to ZB MeetUP</h2><p class="sub">Meet a new colleague each day — coffee, a walk, or a quick call. Let's get you set up.</p></div>
       <div class="card"><label class="small" style="font-weight:700">Work email</label><input class="input" id="ob-email" placeholder="you@zimmerbiomet.com" style="margin:6px 0 12px" value="${OB.email}"><label class="small" style="font-weight:700">Password</label><input class="input" id="ob-pass" type="password" placeholder="At least 6 characters" style="margin-top:6px"></div>`;
-    cta=`<button class="btn" onclick="obCreate()">Create account</button><button class="btn ghost" style="margin-top:8px" onclick="obGoSignIn()">I already have an account — sign in</button><button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">Forgot password?</button>`;
+    cta=`<button class="btn" onclick="obCreate()">Create account</button><button class="btn alt" style="margin-top:8px" onclick="obGoSignIn()">I already have an account — sign in</button><button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">Forgot password?</button>`;
   } else if(onboardStep===1){
     body=`<h2>What's your name?</h2><p class="sub">This is how colleagues will see you.</p><div class="card"><input class="input" id="ob-name" placeholder="First and last name" value="${OB.name||''}"></div>`;
     cta=`<button class="btn" onclick="obName()">Continue</button>`;

@@ -304,6 +304,12 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("the unanswered You screen's primary is the icebreaker CTA",
       /class="btn" style="width:100%;justify-content:center" onclick="iceFromProfile\(\)"/.test(profEmpty)
       && gradPrimaries(profEmpty) === 1);
+  // Revision: the secondary action under a primary CTA is white + blue; the You-screen stacked
+  // options stay pale secondary.
+  chk("sign-in screen's create-account alternative is the white button",
+      (function(){ window.obGoSignIn(); const t=scr();
+        return /class="btn alt"[^>]*obGoCreate\(\)/.test(t) && !/class="btn secondary"[^>]*obGoCreate\(\)/.test(t); })());
+  window.go("profile");
   chk("You-screen secondaries stay secondary",
       /class="btn secondary"[^>]*go\('editprofile'\)/.test(prof)
       && /class="btn secondary"[^>]*go\('bug'\)/.test(prof)

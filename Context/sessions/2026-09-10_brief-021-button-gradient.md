@@ -1,6 +1,6 @@
 # Session — 2026-09-10 · BRIEF-021 · primary-button gradient consistency (v=32)
 
-**Branch:** `feat/button-gradient` (off `main` @ d753eff) · **Status:** built, harness 130/130 green,
+**Branch:** `feat/button-gradient` (off `main` @ d753eff) · **Status:** built, harness 131/131 green,
 **awaiting Sean's test + merge**. Visual only — no handler touched.
 
 ## One source, verified
@@ -37,6 +37,25 @@ instead of the prompt. Rather than weaken the assertion I **drove the real state
 re-render, assert the prompt is the single gradient primary, then restore. The check now exercises both
 branches instead of whichever one happened to be showing.
 
-## Harness (3 new checks, 130 total)
+## Harness (4 new checks, 131 total)
 The answered You screen has no competing gradient primary; the unanswered one has exactly one and it is the
 icebreaker CTA; and the three secondaries stay secondary.
+
+## Revision (2026-09-10) — sizing and the white secondary
+1. **Full-width primaries now match the Welcome CTA**: 19px vertical padding, 17px/600 with the same −.2px
+   tracking, 10px icon gap, full-width pill. They were rendering visibly thinner than "Create account"
+   because the base `.btn` was still 13px/16px/700 from before the gradient change. `.btn.sm` pins its own
+   14px/700 so the thread send, admin Save/+ and accept-request buttons stay compact.
+2. **`.btn.alt` — white with ZB-blue text and a subtle border**, for the secondary action sitting under a
+   primary CTA: "I already have an account — sign in", "Skip for now", "Send the email again", "Create an
+   account instead". They were ghosts, which read as text links rather than buttons.
+
+**Why a new class rather than restyling `.btn.ghost`:** ghost is also used by Sign out, Back, Cancel, Change
+photo, Edit answers, Check for update and the admin utilities. Sweeping those into white-with-a-border would
+have restyled a dozen quiet controls — and Sign out sits on the You screen, which the brief explicitly says to
+leave alone. `.btn.alt` is applied to the four buttons that are actually "the alternative to the CTA", and
+`.btn.secondary` (the You-screen stacked options) is untouched.
+
+**Left as-is, flagged:** the award screen's "Celebrate again" is `.zb-ghost-btn` — also a secondary under a
+primary, but it sits on the dark navy ground where the handoff specifies translucent white text. A white
+button there would fight the design. Worth a look on screen; a one-line change if Sean wants it matched.

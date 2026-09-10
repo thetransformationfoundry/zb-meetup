@@ -29,6 +29,19 @@ flat mid-blue (e.g. onboarding "Continue", the icebreaker "Save — earn 10 poin
 - Walk the app: onboarding, icebreakers, You, Spin, award, meetup — every primary CTA shows the gradient; secondary
   buttons unchanged; no screen has two competing gradient primaries.
 
+## Revision — Sean's live test (2026-09-10, same `feat/button-gradient` branch, before merge)
+Gradient + hierarchy all good. Two sizing/style fixes:
+1. **Match the welcome button's size.** The full-width primary CTAs now render thinner than the Welcome
+   "Create account" button — make the standard primary `.btn` match it (same vertical padding ~19px, font-size
+   ~17px/600, full-width pill). The Welcome/award buttons are the reference height; every full-width primary should
+   be that chunky. **`.btn.sm`** (thread send, admin Save/+, accept-request) **stays compact** — don't upsize those.
+2. **Secondary buttons = white with blue text.** The secondary/ghost actions that sit **beneath a primary CTA**
+   — e.g. "I already have an account — sign in", "Skip for now" — should be a proper **white background + ZB-blue
+   (`#0079BD`) text** button with a subtle border, so they read as real secondary buttons, not faint text links.
+   Keep the primary/secondary hierarchy obvious (one gradient primary, white-blue secondary beneath it). Leave the
+   **You-screen stacked option buttons** (Edit profile & avatar / Report a bug / Admin dashboard) as they are —
+   don't restyle those. Do this via the shared button classes so it stays single-source.
+
 ## Definition of done
 Primary CTAs share one gradient button style app-wide; secondary buttons untouched; hierarchy stays clear; demo
 harness green; `?v=` bumped; tracker updated.
