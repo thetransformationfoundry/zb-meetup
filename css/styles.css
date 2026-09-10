@@ -28,6 +28,19 @@ body{font-family:var(--font);background:#e9edf2;color:var(--ink);-webkit-font-sm
 @keyframes reelDrift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
 @keyframes sheen{0%{transform:translateX(-140%) skewX(-16deg);opacity:0}8%{opacity:1}26%{transform:translateX(240%) skewX(-16deg);opacity:1}34%{opacity:0}100%{transform:translateX(240%) skewX(-16deg);opacity:0}}
 @keyframes btnGlow{0%,100%{box-shadow:0 6px 20px rgba(3,8,18,.45),0 0 0 rgba(56,160,235,0)}50%{box-shadow:0 8px 28px rgba(3,8,18,.5),0 0 30px rgba(56,160,235,.4)}}
+/* Talking points (a meetup partner's icebreakers) — given more presence than a plain card,
+   since it is the thing that gets a conversation started. Static, so the tinted background is
+   safe (no backdrop-filter on anything animated). */
+.card.talk{background:linear-gradient(160deg,#F2F8FC 0%,#E9F3FA 100%);border-color:#CFE4F1}
+.card.talk .q{margin:10px 0 0}
+.card.talk .q .t{color:var(--zb-blue);font-weight:650}
+.card.talk .ans{margin-top:5px;white-space:pre-wrap;color:var(--ink)}
+.card.talk .lead{display:flex;align-items:center;gap:10px}
+.card.talk .lead .nicon{flex:none}
+/* the +10 icebreaker chip on the award screen sits under the 30-point chip */
+.zb-chip-bonus{margin-top:10px;animation:zbAwardPop .6s .52s cubic-bezier(.2,1.3,.4,1) both}
+.zb-chip-bonus .n{font-size:19px}
+.zb-chip-bonus .t{font-size:15px}
 /* ---- Go-live countdown (BRIEF-019, ported from the Claude Design handoff) ----
    NOTE on backdrop-filter: the handoff puts it on the frosted card, which also has a riseIn
    entry animation — exactly the combination CLAUDE.md forbids (Android Chrome flicker, already

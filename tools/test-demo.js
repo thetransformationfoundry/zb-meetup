@@ -130,7 +130,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("onboarding asks 3 icebreakers", /A little about you/.test(iceScr)
       && (iceScr.match(/oninput="iceAns\(/g)||[]).length === 3
       && /only with the people you match with/.test(iceScr)
-      && /work-appropriate/.test(iceScr));
+      && /work-appropriate/.test(iceScr)
+      && /earn 10 points/.test(iceScr));          // the header, not just the button
   const bank68 = await window.ZB_STORE.questionBank();
   chk("question bank is the 68 from the source file",
       bank68.length === 68 && bank68.filter(q=>q.tier===1).length === 34
@@ -161,6 +162,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && /30 points/.test(award) && /awarded to you!/.test(award)
       && /Balance: 40 points/.test(award)          // 30 signup + 10 icebreakers
       && /Take me to Spin/.test(award) && /Celebrate again/.test(award));
+  chk("award screen shows the +10 icebreaker chip under the 30",
+      /zb-chip-bonus/.test(award) && /\+10 points/.test(award) && /for your icebreakers/.test(award));
   chk("award screen renders without a real canvas", /<canvas id="cfCanvas">/.test(award));
   window.zbCelebrate();                                     // must be a no-op, not a throw
   await window.awardToSpin();
@@ -200,6 +203,10 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("meetup shows the partner's icebreakers as talking points",
       partnerIce.length === 3 && /Talking points/.test(meetScr)
       && partnerIce.every(x => meetScr.indexOf(x.answer) > -1));
+  chk("talking points card has the accent treatment", /class="card talk"/.test(meetScr));
+  chk("order is hero, talking points, photo, questions",
+      meetScr.indexOf("Talking points") < meetScr.indexOf("1 · Share a photo")
+      && meetScr.indexOf("1 · Share a photo") < meetScr.indexOf("2 · Discussion questions"));
 
   // messaging + the bell: a message must produce a notif that deep-links to the thread
   window.go("thread:"+id);
@@ -249,7 +256,12 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       after.length === before && after[0].photo === "data:image/jpeg;base64,LATE");
 
   window.go("meetups"); chk("shows under Completed", /Completed/.test(scr()) && /\+10 pts/.test(scr()));
-  window.go("recap:"+id); chk("recap shows my answers, not theirs", /Your answers/.test(scr()) && /Not answered/.test(scr()) === false);
+  window.go("recap:"+id);
+  const recap = scr();
+  chk("recap shows my answers, not theirs", /Your answers/.test(recap) && /Not answered/.test(recap) === false);
+  chk("recap also shows the partner's talking points",
+      /Talking points/.test(recap) && partnerIce.every(x => recap.indexOf(x.answer) > -1));
+  chk("recap still labels my answers private", /Only you \(and admins\) can see these/.test(recap));
   window.go("ranks");
   const ranks = scr();
   chk("leaderboard + prizes", /CB management judges/.test(ranks));
@@ -278,6 +290,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   window.go("profile");
   const prof = scr();
   chk("profile", /Manage your profile/.test(prof));
+  chk("icebreaker card on You is spaced, not flush to the buttons",
+      /class="card" style="margin-top:14px"><div class="row between"><b>(Your icebreakers|Break the ice)/.test(prof));
   // the build stamp must render (and degrade gracefully) with no fetch and no version.json
   chk("build stamp falls back with no version.json", /Check for update/.test(prof) && /dev|v\d+/.test(prof));
   chk("no false 'update available' without a stamp", !/Update available/.test(prof));
