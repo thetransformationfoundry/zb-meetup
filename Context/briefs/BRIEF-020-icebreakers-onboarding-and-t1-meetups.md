@@ -99,6 +99,12 @@ Functionality + privacy boundary all verified (export is idea-only, no T2 leak).
    **Talking points** card (partner's 3 icebreaker Q&A) to the recap, so it's consistent with the active shared
    space. Keep "Your answers" clearly labelled private (you + admins only); icebreakers remain the partner-visible set.
 
+6. **Instruction line above the meetup log (Sean, 2026-09-10).** In the meetup **shared space**, add a short helper
+   above the "Share a photo" / "Discussion questions" cards: *"Log your meetup below — add a photo and answer the
+   questions together, during or just after you meet, to earn your points."* (Shared space only; the recap already
+   says "your part is complete".) Confirmed: **Talking points stays partner-only** in both the shared space and the
+   recap — each participant sees the *other's* icebreakers; your own live on your You screen.
+
 (App-wide primary-button gradient consistency is a separate follow-up — BRIEF-021 — not this branch.)
 
 ## Timeline note

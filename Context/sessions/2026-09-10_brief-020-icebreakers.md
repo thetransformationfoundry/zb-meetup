@@ -1,6 +1,6 @@
 # Session — 2026-09-10 · BRIEF-020 · icebreakers + tier split by purpose (v=29)
 
-**Branch:** `feat/icebreakers` (off `main` @ d73cefc) · **Status:** built, harness 125/125 green,
+**Branch:** `feat/icebreakers` (off `main` @ d73cefc) · **Status:** built, harness 127/127 green,
 **awaiting Sean's test + merge**.
 
 ## The reframe
@@ -47,7 +47,7 @@ That is a privacy boundary as much as a UX one, so it is enforced in three place
    icebreakers and each answer appears on screen), which then failed for a genuine reason: it ran *after* the
    meetup was completed, where `viewMeet` correctly shows the recap. Moved to while the meetup is active.
 
-## Harness (17 new checks, 125 total)
+## Harness (19 new checks, 127 total)
 The bank is 68 with 34/34; onboarding asks three questions and they are all Tier 2; three answers are stored
 on the user with question text; +10 granted once and not twice; the signup bonus is asserted at 30 *before*
 the icebreaker bonus lands; meetup questions are Tier-1 only; with no Idea questions a meetup gets none; the
@@ -69,6 +69,14 @@ Five fixes from Sean's review, all UI:
    `talkingPointsHTML(m)` helper** used by both the active space and the recap, rather than copying the
    markup — two copies of the same card would have drifted the first time either changed. "Your answers"
    keeps its private label.
+
+### Revision item 6
+- **An instruction line above the logging cards** in the shared space: *"Log your meetup below — add a photo
+  and answer the questions together, during or just after you meet, to earn your points."* It names **when**
+  to do it, which nothing else in the app said — the cards showed *what* to do but never that it happens at
+  the meetup rather than afterwards from memory. Deliberately **not** repeated in the recap, which already
+  reads "your part is complete"; asserted both ways.
+- **Talking points stay partner-only** in both the shared space and the recap — confirmed, no change.
 
 ## Live note
 The reseed happens when an **admin opens the admin dashboard** — that is what runs `seedQuestionBank()`. Until

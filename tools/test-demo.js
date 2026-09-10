@@ -204,6 +204,9 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       partnerIce.length === 3 && /Talking points/.test(meetScr)
       && partnerIce.every(x => meetScr.indexOf(x.answer) > -1));
   chk("talking points card has the accent treatment", /class="card talk"/.test(meetScr));
+  chk("shared space explains how to log the meetup",
+      /Log your meetup below/.test(meetScr) && /during or just after you meet/.test(meetScr)
+      && meetScr.indexOf("Log your meetup below") < meetScr.indexOf("1 · Share a photo"));
   chk("order is hero, talking points, photo, questions",
       meetScr.indexOf("Talking points") < meetScr.indexOf("1 · Share a photo")
       && meetScr.indexOf("1 · Share a photo") < meetScr.indexOf("2 · Discussion questions"));
@@ -262,6 +265,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("recap also shows the partner's talking points",
       /Talking points/.test(recap) && partnerIce.every(x => recap.indexOf(x.answer) > -1));
   chk("recap still labels my answers private", /Only you \(and admins\) can see these/.test(recap));
+  chk("the log instruction is not repeated in the recap", !/Log your meetup below/.test(recap));
   window.go("ranks");
   const ranks = scr();
   chk("leaderboard + prizes", /CB management judges/.test(ranks));
