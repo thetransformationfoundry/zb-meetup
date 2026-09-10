@@ -36,7 +36,9 @@ jobs:
   stamp:
     name: Stamp the build
     needs: harness                      # never stamp a deploy whose harness is red
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # push to main normally; workflow_dispatch too, so a stamp can be forced (e.g. after the
+    # repo was recreated under BRIEF-016, where the branch-creation push ran no CI at all)
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write                   # to commit version.json
