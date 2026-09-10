@@ -1,5 +1,8 @@
 :root{
   --zb-blue:#0079BD; --zb-blue-dark:#005f95; --zb-blue-soft:#E6F2F9;
+  /* THE primary-button treatment (BRIEF-021). Single source: .btn below and app.js's DARKBTN
+     both resolve to this, so Spin, the award screen, onboarding and every CTA cannot drift. */
+  --btn-grad:linear-gradient(100deg,#04070D 0%,#0A1421 26%,#123156 55%,#1E63A8 82%,#2E86D6 100%);
   --bg:#F5F7FA; --card:#FFFFFF; --ink:#1A1A1A; --muted:#6B7280; --line:#ECEFF3;
   --good:#1E9E5A; --bad:#D64545; --gold:#E8B923;
   --radius:16px; --radius-sm:10px;
@@ -111,7 +114,7 @@ body{font-family:var(--font);background:#e9edf2;color:var(--ink);-webkit-font-sm
 .zb-chip-award .n{font-size:22px;font-weight:700;color:var(--zb-blue);letter-spacing:-.3px}
 .zb-chip-award .t{font-size:16px;font-weight:600;color:#1A1A1A;letter-spacing:-.3px}
 .zb-award .balance{margin-top:16px;font-size:12.5px;font-weight:600;color:#8A94A3;animation:zbAwardRise .5s .55s both}
-.zb-primary-btn{position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;padding:19px;border-radius:999px;color:#fff;font-family:inherit;font-size:17px;font-weight:600;letter-spacing:-.2px;background:linear-gradient(100deg,#04070D 0%,#0A1421 26%,#123156 55%,#1E63A8 82%,#2E86D6 100%);animation:btnGlow 4.6s ease-in-out infinite}
+.zb-primary-btn{position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;padding:19px;border-radius:999px;color:#fff;font-family:inherit;font-size:17px;font-weight:600;letter-spacing:-.2px;background:var(--btn-grad);animation:btnGlow 4.6s ease-in-out infinite}
 .zb-primary-btn:active{transform:scale(.985)}
 .zb-ghost-btn{width:100%;background:none;border:0;cursor:pointer;padding:14px;font-family:inherit;font-size:14.5px;font-weight:600;color:var(--muted)}
 .zb-ghost-btn:hover{color:var(--zb-blue)}
@@ -141,17 +144,20 @@ h2{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:4px 0 2px}
 .chip.grey{background:#F1F3F6;color:var(--muted)}
 .chip.good{background:#E7F6EE;color:var(--good)}
 .chip.gold{background:#FBF3D7;color:#9a7b10}
-.btn{appearance:none;border:none;cursor:pointer;font-family:inherit;font-size:16px;font-weight:700;padding:13px 18px;border-radius:12px;background:var(--zb-blue);color:#fff;width:100%;transition:transform .06s,background .15s,opacity .15s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn{appearance:none;border:none;cursor:pointer;font-family:inherit;font-size:16px;font-weight:700;padding:13px 18px;border-radius:999px;background:var(--btn-grad);color:#fff;width:100%;min-height:44px;transition:transform .06s,filter .15s,opacity .15s;display:inline-flex;align-items:center;justify-content:center;gap:8px;animation:btnGlow 4.6s ease-in-out infinite}
 .btn:active{transform:scale(.98)}
-.btn:hover{background:var(--zb-blue-dark)}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.btn.secondary{background:var(--zb-blue-soft);color:var(--zb-blue)}
-.btn.secondary:hover{background:#d6e9f4}
-.btn.ghost{background:transparent;color:var(--muted)}
-.btn.ghost:hover{background:#f1f3f6}
-.btn.danger{background:transparent;color:var(--bad);border:1px solid #f3d0d0}
-.btn.danger:hover{background:#fdecec}
-.btn.sm{width:auto;padding:9px 13px;font-size:14px;border-radius:10px}
+.btn:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.4;cursor:not-allowed;animation:none;box-shadow:none;filter:none}
+.btn.secondary{background:var(--zb-blue-soft);color:var(--zb-blue);animation:none;box-shadow:none;border-radius:12px}
+.btn.secondary:hover{background:#d6e9f4;filter:none}
+.btn.ghost{background:transparent;color:var(--muted);animation:none;box-shadow:none;border-radius:12px}
+.btn.ghost:hover{background:#f1f3f6;filter:none}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid #f3d0d0;animation:none;box-shadow:none;border-radius:12px}
+.btn.danger:hover{background:#fdecec;filter:none}
+/* Small primaries keep the shared gradient but not the pulsing glow: two compact buttons can
+   sit side by side (admin Save + Add), and pulsing both would compete. The glow stays for the
+   one full-width CTA per screen. */
+.btn.sm{width:auto;padding:9px 13px;font-size:14px;border-radius:10px;min-height:auto;animation:none;box-shadow:none}
 .avatar{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex:0 0 auto;width:44px;height:44px;font-size:15px;overflow:hidden}
 .avatar.lg{width:120px;height:120px;font-size:40px;box-shadow:var(--shadow-lg)}
 .avatar.sm{width:34px;height:34px;font-size:12px}
@@ -171,8 +177,8 @@ textarea.input{resize:vertical}
 .spin-ring2{width:172px;height:172px;border-radius:50%;border:3px dashed rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;margin:14px 0 4px}
 .match-pop{background:#fff;color:var(--ink);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow-lg);animation:pop .3s ease;min-width:210px;margin-top:8px}
 .spin-cta{margin-top:auto;width:100%;padding-top:18px}
-.btn.white{background:#fff;color:var(--zb-blue)} .btn.white:hover{background:#eef5fb}
-.btn.glass{background:rgba(255,255,255,.16);color:#fff} .btn.glass:hover{background:rgba(255,255,255,.26)}
+.btn.white{background:#fff;color:var(--zb-blue);animation:none;box-shadow:none;border-radius:12px} .btn.white:hover{background:#eef5fb;filter:none}
+.btn.glass{background:rgba(255,255,255,.16);color:#fff;animation:none;box-shadow:none;border-radius:12px} .btn.glass:hover{background:rgba(255,255,255,.26);filter:none}
 .prize{background:linear-gradient(135deg,#0079BD,#005f95);color:#fff;border:none}
 .prizerow{display:flex;gap:9px;margin-top:14px}
 .prizecard{flex:1;background:rgba(255,255,255,.14);border-radius:12px;padding:12px 6px;text-align:center}

@@ -704,7 +704,8 @@ window.finishOnboard=async function(){
 };
 
 /* ---------------- SPIN ---------------- */
-const DARKBTN="linear-gradient(100deg,#04070D 0%,#0A1421 26%,#123156 55%,#1E63A8 82%,#2E86D6 100%)";
+// Resolves to --btn-grad in css/styles.css — one definition for every primary button.
+const DARKBTN="var(--btn-grad)";
 const SHEEN=`<span style="position:absolute;top:-40%;bottom:-40%;left:0;width:46%;background:radial-gradient(closest-side,rgba(78,180,255,.34),rgba(78,180,255,0) 70%);filter:blur(6px);animation:sheen 5.2s ease-in-out infinite;pointer-events:none;"></span>`;
 function viewSpin(){ return spinLocked()?viewCountdown():spinScreenHTML(); }
 
@@ -932,7 +933,7 @@ function viewProfile(){
          <button class="btn ghost sm" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('pencil',15)} Edit answers</button></div>`;
      return `<div class="card" ${top}><div class="row between"><b>Break the ice</b><span class="chip">+10 pts</span></div>
        <p class="muted small" style="margin:8px 0 10px">Answer 3 quick questions about yourself and earn 10 points. They're shown only to colleagues you match with — a head start on the conversation.</p>
-       <button class="btn secondary" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('chat',17)} ${answered?'Finish your icebreakers':'Answer 3 questions'}</button></div>`;
+       <button class="btn" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('chat',17)} ${answered?'Finish your icebreakers':'Answer 3 questions'}</button></div>`;
    })()}
    ${buildStampHTML()}
    <div class="hr"></div><button class="btn ghost" onclick="signOut()">${icon('signout',18)} Sign out</button><button class="btn danger" style="margin-top:10px" onclick="askDelete()">${icon('trash',18)} Delete my account</button><p class="muted small center" style="margin-top:8px">Deleting removes your profile, photos and answers (GDPR).</p>`;
