@@ -51,12 +51,12 @@ posts/{postId}                          // community wall (photos only)
   scene: "walk"|"lunch"|"digital"|"coffee"|"litter"
   photo: base64                         // the real meetup photo
   hearts: number, heartedBy: [uid,...]
-  comments: [ { by: uid, byName, text, at } ]
-                                          // DRIFT (2026-09-09): the code writes only
-                                          // { by: <display name>, text, at } — no uid. So a
-                                          // comment's attribution is client-supplied. Harmless
-                                          // through the UI; a direct write could spoof a name.
-                                          // Fix = store byUid and render the name from it.
+  comments: [ { byUid, text, at } ]      // BRIEF-011A: author is byUid = request.auth.uid,
+                                        // enforced by the rule; the display name is rendered
+                                        // from users/{byUid}, never stored on the comment.
+                                        // Comments written before 2026-09-10 carry a
+                                        // client-supplied `by` name and no uid — rendered
+                                        // as-is, but not verifiable.
   seed: bool                            // seed/holding posts — excluded from analytics/exports
   createdAt
 
@@ -84,7 +84,7 @@ What the rules enforce, in prose (the *why*; `firestore.rules` is the *what*):
 |---|---|---|
 | `users/{uid}` | any signed-in colleague (needed for the spin pool + leaderboard) | create **only** with an allowed-domain token email (BRIEF-009 — the hard gate: no profile means no app); update/delete yourself, or an admin |
 | `matches/{id}` | the two participants, or an admin | same — so a match's private `answers` are never readable by anyone else |
-| `posts/{id}` | any signed-in colleague | author or admin may change the post's content (photo included); everyone else is limited to `hearts` / `heartedBy` / `comments` (BRIEF-010) |
+| `posts/{id}` | any signed-in colleague | author or admin may change the post's content (photo included); everyone else is limited to `hearts` / `heartedBy` / `comments` (BRIEF-010). Any write touching `comments` must be a **single append stamped with the caller's own uid** — admins exempt, so they can moderate (BRIEF-011A) |
 | `questionBank/{id}` | any signed-in colleague | admins only |
 | `notifications/{uid}/items/{id}` | **only you** | you may mark read / clear your own; any colleague may *deliver* one to you, stamped with their own `fromUid`, unread, and only in the documented shape (BRIEF-003) |
 | `bugReports/{id}` | admins only | any signed-in colleague may file one |
@@ -95,10 +95,10 @@ sign-up domains in `allowedDomain()` must stay in step with `ALLOWED_DOMAINS` in
 expressions of one decision, and changing one means changing the other.
 
 ### Known residual gaps
-- **Comment attribution** is client-supplied: the code writes `{ by: <display name>, text, at }` with no uid,
-  so a direct write could post under another colleague's name. BRIEF-011 Part A.
+- ~~Comment attribution is client-supplied~~ — **closed** by BRIEF-011A (2026-09-10): comments store
+  `byUid`, the rule requires it to be the caller's uid, and the name is rendered from the profile.
 - **Interaction values** aren't validated: a non-author is limited to the three interaction *fields*, but
-  could still set `hearts` to an arbitrary number. BRIEF-011 Part B.
+  could still set `hearts` to an arbitrary number. BRIEF-011 Part B — **won't do** (Sean, 2026-09-10).
 - **Off-domain auth accounts** can still be created (they get no profile, so no app access) until the
   `beforeCreate` blocking function lands with BRIEF-004.
 

@@ -249,6 +249,23 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("completing twice awards nothing more", (await window.ZB_STORE.completeMatch(id, {names:"x",scene:"coffee",photo:null})) === false
       && (await ptsOf("Test User")) === mePts0 + 10);
   window.go("wall");  chk("wall renders + real post", /Community wall/.test(scr()) && /Test User & /.test(scr()));
+
+  /* ---- BRIEF-011A: comment identity ---- */
+  const postsNow = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
+  await window.ZB_STORE.commentPost(postsNow[0].id, "My own comment");
+  const myComment = (await window.ZB_STORE.listPosts()).find(p => p.id === postsNow[0].id)
+                 .comments.filter(c => c.text === "My own comment")[0];
+  chk("a comment stores byUid and no display name",
+      !!myComment && myComment.byUid === "me" && myComment.by === undefined
+      && typeof myComment.at === "number");
+  window.go("wall");
+  chk("the comment renders the author's name from their profile",
+      new RegExp("<b>Test</b> My own comment").test(scr()));
+  // a legacy comment (client-supplied name, no uid) still renders rather than crashing
+  const seedWithComment = (await window.ZB_STORE.listPosts()).filter(p => p.seed && p.comments.length)[0];
+  chk("legacy comments still render", !!seedWithComment
+      && seedWithComment.comments[0].byUid === undefined
+      && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
   const real = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
   chk("one wall post, carrying the real photo", real.length === 1 && /^data:image\//.test(real[0].photo || ""));
   // a photo arriving after completion must still reach the one wall post

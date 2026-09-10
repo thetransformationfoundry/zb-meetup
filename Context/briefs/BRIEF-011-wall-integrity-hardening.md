@@ -19,7 +19,12 @@ trust problem for a colleague app; close it before the wider invite.
 4. Migrate/handle existing comments (old ones have no `byUid`) gracefully — render what's there, don't crash.
 5. Bump `?v=` (client code changes here).
 
-## Part B — Interaction value validation (backlog unless hearts feed prizes)
+## Part B — Interaction value validation — WON'T DO (Sean, 2026-09-10)
+Dropped. Hearts/comments do **not** feed points or the leaderboard (points come only from meetups: photo +5,
+questions +5, icebreakers +10), so there's no incentive to inflate them and no reason to build this. Only build
+Part A. (Original rationale kept below for the record.)
+
+### (Original) Part B — Interaction value validation
 **The gap:** the BRIEF-010 rule constrains *fields* (`hearts`,`heartedBy`,`comments`) but not *values* — a direct
 write could set `hearts` to any number or append many comments at once. Low impact while the wall is purely
 internal/social; **matters if hearts ever count toward prizes or rankings.**

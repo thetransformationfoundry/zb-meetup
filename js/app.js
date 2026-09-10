@@ -55,6 +55,19 @@ const inits=s=>{const p=(s||'').trim().split(/\s+/);return ((p[0]?.[0]||'?')+(p[
 function av(p,cls=''){const bg=p.color||'#cfd8e3';const label=p.photo?'':inits(p.name||p.first||'?');return `<span class="avatar ${cls}" style="background:${bg}">${p.photo?`<img src="${p.photo}" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:label}</span>`;}
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2000);}
 function wcLabel(w){return w==='on-site'?'On-site':w==='remote'?'Fully remote':'Partially remote';}
+// BRIEF-011A: a comment stores only byUid, so the display name is resolved from the author's
+// profile at render time. Comments written before this change carry a client-supplied `by`
+// string and no uid — those still render (from `by`), they are simply not verifiable.
+function commentAuthor(c){
+  if(c&&c.byUid){
+    const me=C.me||{};
+    if(c.byUid===me.uid||c.byUid==='me')return (me.first||(me.name||'You').split(' ')[0]);
+    const u=(C.users||[]).filter(x=>x&&x.uid===c.byUid)[0];
+    if(u)return (u.first||(u.name||'').split(' ')[0])||'A colleague';
+    return 'A colleague';                       // author left, or not in the pool
+  }
+  return ((c&&c.by)||'').split(' ')[0]||'A colleague';   // legacy comment
+}
 function mention(txt){return (txt||'').replace(/@([A-Za-z]+)/g,'<span class="ment">@$1</span>');}
 // Capture sizes: avatars only ever render small, but a meetup photo fills a wall card
 // (~400px+ CSS, so 2x on a phone), and 256px upscaled is what made it look soft.
@@ -902,7 +915,7 @@ function viewWall(){
   const posts=[...real,...seeds].slice(0,Math.max(6,real.length));
   const motd=posts[0]||C.posts[0];const ms=SCENES[motd.scene]||SCENES.coffee;
   let h=`<h2>Community wall</h2><p class="sub">Celebrating meetups across ZB.</p><div class="card" style="background:linear-gradient(135deg,var(--zb-blue),var(--zb-blue-dark));color:#fff;border:none"><span class="chip gold" style="background:rgba(255,255,255,.2);color:#fff">${icon('trophy',14)} Match of the day</span><div style="font-weight:800;font-size:17px;margin-top:10px">${motd.names}</div><div class="small" style="opacity:.85">${ms.chip}</div></div>`;
-  posts.forEach(w=>{const s=SCENES[w.scene]||SCENES.coffee;h+=`<div class="card"><div class="row" style="margin-bottom:10px"><span class="avatar sm" style="background:${s.c1}">${initialsPair(w.names)}</span><div class="small"><b>${w.names}</b>${w.seed?'':' · <span style="color:var(--good);font-weight:700">just now</span>'}</div></div>${sceneSquare(w.scene,s.chip,w.photo)}<div class="row" style="gap:16px;margin-top:10px"><button class="iconbtn ${w.liked?'liked':''}" onclick="like('${w.id}')">${icon('heart',19,w.liked)} ${w.hearts}</button><span class="iconbtn">${icon('chat',18)} ${w.comments.length}</span></div>${w.comments.map(c=>`<div class="comment"><b>${(c.by||'').split(' ')[0]}</b> ${mention(c.text)}</div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="cin${w.id}" placeholder="Add a comment… use @ to mention" onkeydown="if(event.key==='Enter')addComment('${w.id}')"><button class="btn sm secondary" onclick="addComment('${w.id}')">${icon('send',16)}</button></div></div>`;});
+  posts.forEach(w=>{const s=SCENES[w.scene]||SCENES.coffee;h+=`<div class="card"><div class="row" style="margin-bottom:10px"><span class="avatar sm" style="background:${s.c1}">${initialsPair(w.names)}</span><div class="small"><b>${w.names}</b>${w.seed?'':' · <span style="color:var(--good);font-weight:700">just now</span>'}</div></div>${sceneSquare(w.scene,s.chip,w.photo)}<div class="row" style="gap:16px;margin-top:10px"><button class="iconbtn ${w.liked?'liked':''}" onclick="like('${w.id}')">${icon('heart',19,w.liked)} ${w.hearts}</button><span class="iconbtn">${icon('chat',18)} ${w.comments.length}</span></div>${w.comments.map(c=>`<div class="comment"><b>${commentAuthor(c)}</b> ${mention(c.text)}</div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="cin${w.id}" placeholder="Add a comment… use @ to mention" onkeydown="if(event.key==='Enter')addComment('${w.id}')"><button class="btn sm secondary" onclick="addComment('${w.id}')">${icon('send',16)}</button></div></div>`;});
   return h;
 }
 window.like=async function(id){await S.heartPost(id);await refresh();};
