@@ -312,6 +312,36 @@ const ZB_STORE = {
     return DEFAULTS.concat(added);
   },
   async addQuestion(text) { await db.collection("questionBank").add({ text, tier:2, count:0, createdAt:nowTs() }); cache["qbank"] = null; return true; },
+  // ---- admin: the idea bank ----
+  // Reads answers across ALL matches, which the published rule already allows for an admin:
+  //   match /matches/{id} { allow read ...: if isAdmin() || <participant> ... }
+  // isAdmin() does not depend on resource.data, so a whole-collection get() is permitted for an
+  // admin and denied for everyone else. Gated here too, so a non-admin never even issues the read.
+  async adminAnswers() {
+    if (!ADMINS.includes((auth.currentUser && auth.currentUser.email || "").toLowerCase()))
+      throw { code:"zb/not-admin", message:"Admins only" };
+    const snap = await db.collection("matches").get();
+    const byQ = new Map();
+    snap.docs.forEach(doc => {
+      const d = doc.data(); const qs = d.questions || []; const ans = d.answers || {};
+      const nameOf = uid => uid === d.a ? ((d.aProfile && d.aProfile.name) || "A colleague")
+                                        : ((d.bProfile && d.bProfile.name) || "A colleague");
+      const when = d.completedAt || d.createdAt;
+      const date = when && when.toDate ? when.toDate().toISOString().slice(0,10) : "";
+      Object.keys(ans).forEach(uid => {
+        (ans[uid] || []).forEach((text, i) => {
+          text = (text || "").trim(); if (!text) return;
+          const q = qs[i] || {}; const key = q.id || q.t || ("q" + i);
+          if (!byQ.has(key)) byQ.set(key, { id:key, text:q.t || "(question not recorded)", tier:q.tier || null, answers:[] });
+          byQ.get(key).answers.push({ text, by:nameOf(uid), byUid:uid, type:d.type || "", date, matchId:doc.id });
+        });
+      });
+    });
+    const questions = [...byQ.values()].map(q => Object.assign({}, q, { count:q.answers.length }))
+      .sort((a,b) => b.count - a.count);
+    return { questions, totalAnswers:questions.reduce((n,q)=>n+q.count,0), totalMatches:snap.size };
+  },
+
   async listBugs() { const isAdmin = ADMINS.includes((auth.currentUser && auth.currentUser.email || "").toLowerCase()); if (!isAdmin) return []; const q = await db.collection("bugReports").orderBy("at","desc").limit(50).get(); return q.docs.map(d => d.data()); },
   async sendBug(text) { const uid = uidNow(); await db.collection("bugReports").add({ by:(cachedMe&&cachedMe.name)||"A user", byUid:uid, text, at:new Date().toLocaleDateString() }); return true; },
   async unreadMatches() { const ms = await this.myMatches(); return ms.reduce((s,m)=>s+(m.unread||0),0); },

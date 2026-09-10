@@ -206,6 +206,27 @@
     // ---- questions / admin ----
     questionBank() { return P(QUESTIONS.map(q => ({ ...q }))); },
     addQuestion(text) { QUESTIONS.push({ id:"q"+(QUESTIONS.length+1), text, tier:2, count:0 }); return P(true); },
+    // ---- admin: the idea bank (same shape as the live store) ----
+    adminAnswers() {
+      const e = (this._email||"").toLowerCase();
+      if (!(window.ZB_CONFIG.ADMIN_EMAILS||[]).map(x=>x.toLowerCase()).includes(e))
+        return Promise.reject({ code:"zb/not-admin", message:"Admins only" });
+      const byQ = new Map();
+      MATCHES.forEach(m => {
+        const qs = m.questions || [];
+        (m.answers || []).forEach((text, i) => {
+          text = (text || "").trim(); if (!text) return;
+          const q = qs[i] || {}; const key = q.id || q.t || ("q" + i);
+          if (!byQ.has(key)) byQ.set(key, { id:key, text:q.t || "(question not recorded)", tier:q.tier || null, answers:[] });
+          byQ.get(key).answers.push({
+            text, by:(ME && ME.name) || "You", byUid:"me", type:m.type || "",
+            date:new Date(m.completedAt || m.createdAt || Date.now()).toISOString().slice(0,10), matchId:m.id });
+        });
+      });
+      const questions = [...byQ.values()].map(q => Object.assign({}, q, { count:q.answers.length }))
+        .sort((a,b) => b.count - a.count);
+      return P({ questions, totalAnswers:questions.reduce((n,q)=>n+q.count,0), totalMatches:MATCHES.length });
+    },
     listBugs() { return P((this._bugs||[]).slice()); },
     sendBug(text) { this._bugs = this._bugs || []; this._bugs.unshift({ by:ME ? ME.name : "You", text, at:new Date().toLocaleDateString() }); return P(true); },
     unreadMatches() { return P(MATCHES.filter(m => m.unread).reduce((s,m)=>s+m.unread,0)); },
