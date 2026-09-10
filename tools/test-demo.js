@@ -118,6 +118,16 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("avatar captures at 256px", global.__canvasPx === 256);
   window.obStep(4); document.getElementById("ob-consent").checked = true;
   await window.finishOnboard();
+  // onboarding now ends on the Points Awarded screen (BRIEF-017 / Claude Design handoff)
+  const award = scr();
+  chk("lands on the Points Awarded screen", /YOU'RE ALL SET/.test(award)
+      && /Nice work, Test,/.test(award)                     // firstName injected
+      && /30 points/.test(award) && /awarded to you!/.test(award)
+      && /Balance: 30 points/.test(award)
+      && /Take me to Spin/.test(award) && /Celebrate again/.test(award));
+  chk("award screen renders without a real canvas", /<canvas id="cfCanvas">/.test(award));
+  window.zbCelebrate();                                     // must be a no-op, not a throw
+  await window.awardToSpin();
   chk("enters app on Spin", /TODAY.S MATCH/.test(scr()));
   /* ---- BRIEF-017: spin points economy ---- */
   chk("signup grants the 30-point bonus", (await window.ZB_STORE.getMe()).points === 30);
