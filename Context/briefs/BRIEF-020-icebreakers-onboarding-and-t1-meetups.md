@@ -23,7 +23,16 @@ Seed the bank from this file; keep the exact wording.
    and ask the user; store on their profile as e.g. `user.icebreakers = [{qid, q, a}, …]` (3 entries). Copy:
    *"Answer a few quick questions so the colleagues you meet know a bit about you — these are shared only with people
    you're matched with."* Plus a short **professionalism disclaimer** (*"Keep it friendly and professional."*).
-   If fewer than 3 T2 exist, ask what's available. (Answers optional-but-encouraged — don't hard-block onboarding on them; Sean's call, default: required-ish but skippable.)
+   If fewer than 3 T2 exist, ask what's available.
+   - **Skippable, with a +10 incentive (Sean, 2026-09-10):** the step is skippable so no one is blocked from
+     finishing signup. **Completing all 3 icebreakers grants a one-time +10 points** to the leaderboard — guard with
+     a `icebreakerBonusGranted` flag (same one-time self-claim pattern as the 30-pt signup bonus), so it can't be
+     farmed by editing. Small toast on earning (reserve confetti for signup). Award whether they complete it at
+     onboarding **or later** (see #2b).
+2b. **Finish-it-later entry on the You screen:** if a user hasn't completed their icebreakers, show a card/prompt on
+   **You** — *"Answer 3 quick questions to help colleagues get to know you — earn 10 points."* — that opens the same
+   icebreaker step; on completion it stores the answers, grants the one-time +10, and the prompt disappears. (This is
+   the "skip now, do it later for the points" path Sean asked for.)
 3. **Meetup shows icebreakers** (`viewMeet`): a **"Get to know {firstName}"** section showing the **other
    participant's** 3 icebreaker Q&A (read from their `user.icebreakers`) as talking points; optionally show your own
    too. Visible to the two participants in the shared space.
@@ -56,9 +65,12 @@ Seed the bank from this file; keep the exact wording.
 ## Test steps
 - `node tools/test-demo.js` green, new assertions: onboarding stores 3 T2 answers on the profile; meetup shows the
   partner's icebreakers; `pickQuestions()` returns only T1; the admin export contains only T1 answers, never T2.
-- Manual: onboard → answer 3 icebreakers (+ see the professionalism line) → match + accept a meetup → see the
-  partner's icebreaker talking points in the shared space, and only **T1** idea questions to answer together →
-  complete → admin idea-bank/export shows the T1 answer, and **no** icebreaker text.
+- Manual: onboard → answer 3 icebreakers (+ see the professionalism line) → **+10 awarded once** (re-answering
+  doesn't re-award) → match + accept a meetup → see the partner's icebreaker talking points in the shared space,
+  and only **T1** idea questions to answer together → complete → admin idea-bank/export shows the T1 answer, and
+  **no** icebreaker text.
+- **Skip path:** skip icebreakers at onboarding → finish signup → the **You** screen shows the "earn 10 points"
+  prompt → complete it there → +10 granted once, prompt disappears.
 
 ## Definition of done
 68 questions loaded (34 T1 + 34 T2 from source); onboarding captures 3 random icebreakers to the profile with a

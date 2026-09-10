@@ -34,8 +34,8 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Admin: surface captured answers + real export | ✅ | BRIEF-007 — merged + live v=21 (2026-09-10, SHA 17c713c); idea bank (real counts + answers, anonymise toggle), CSV export (formula-injection guarded). No rules change needed |
 | Admin: editable question bank with tiers | ✅ | BRIEF-008 — merged + live v=24 (2026-09-10, SHA 2a23184); add/edit/delete/tier on real records, defaults seeded once into `questionBank` on first admin visit, no rules change. Also fixed 3 latent bugs (answers sized to Qs, empty-bank completion loophole, tier top-up). **Sean to open Admin once live to seed q1–q7; deletions permanent after** |
 | **Go-live spin countdown lock** (unlock Wed 16 Sep 09:00) | 🔨 | BRIEF-019 built (v=26) on `feat/spin-countdown` — full-screen holding screen (chrome hidden) over the blurred real Spin screen; admins bypass, `?preview=1` for QA; auto-lifts, no redeploy |
-| Launch copy: prize amounts + How It Works points economy | 🔨 | BRIEF-018 built (v=28) on `feat/launch-copy`, tested green — €250/€250/€150 + money icon; explainer covers 30-pt bonus, free daily spin, −1 respins. Two tweaks pending before merge: "best idea" (singular) + How-It-Works link on Ranks |
-| Questions split: T2 icebreakers → onboarding, T1 → meetups (+ load 68 Qs) | 📋 | BRIEF-020 — launch-shaped (changes onboarding; aim before Mon 14). T1 idea answers exported; T2 icebreakers on profile, shown to partners, NOT exported (GDPR). Source `Context/questions-source.md` (34+34) |
+| Launch copy: prize amounts + How It Works points economy | ✅ | BRIEF-018 — merged + live v=28 (2026-09-10, SHA cc48f14); €250/€250/€150 + money icon, "best idea" singular, How-It-Works link on Ranks, explainer covers the economy + returns to wherever it was opened from |
+| **Icebreakers + tier split by purpose** (68-question bank) | 🔨 | BRIEF-020 built (v=29) on `feat/icebreakers` — 34 Idea (meetups, exported) + 34 Icebreaker (onboarding, partner-only, never exported); +10 bonus; consent copy updated |
 | Go-live schedule | ℹ️ | Signups open **Mon 14 Sep** (via Donnae's invite link — no in-app gate); spinning unlocks **Wed 16 Sep 09:00 Europe/Amsterdam** (BRIEF-019) |
 | **Spin points economy** + Points Awarded screen | ✅ | BRIEF-017 — merged + live v=23 (2026-09-10, SHA b3740a3). 30-pt bonus, free first/post-request spins, −1 respins, Skip + 2/day cap removed; award screen ported from the Claude Design handoff. Live-tested with a non-admin Test User (30→28 respins→33 after a meetup) |
 | Full GSCC/EMEA role list + QARA cross-site matching + onboarding reorder | ✅ | BRIEF-015 — merged 2026-09-10 (v=18); 108 roles, EMEA restricted to the QARA set, legacy roles normalised on read |
@@ -59,4 +59,6 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
   (30→28), sent a request and completed their part (+5 → 33) — all on the live rules. The non-admin points path
   (the exact rules gap the +10-to-both bug hid) works end-to-end.
 - [ ] **Donnae's total corrected** as expected after the BRIEF-005 fix.
+- [x] **Locked non-admin countdown experience** confirmed 2026-09-10 (throwaway account → full-screen countdown, locked out).
+- [ ] **Clean up test accounts before Monday 14 Sep** — delete the throwaway + `+testuser` accounts (You → Delete my account, or Firebase console) so they don't appear in the signup pills / leaderboard to colleagues. Keep Sean + Donnae admin accounts.
 - [ ] Two-account live check of each merged feature as the backlog lands.
