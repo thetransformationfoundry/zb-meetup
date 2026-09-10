@@ -13,6 +13,7 @@ const P = {
   trophy:'<path d="M7 4.5h10V9a5 5 0 0 1-10 0V4.5Z"/><path d="M7 6.5H4.5v.8A3 3 0 0 0 7.4 10M17 6.5h2.5v.8A3 3 0 0 1 16.6 10"/><path d="M12 14v2.5M9 20h6M10.2 20l.5-3.5h2.6l.5 3.5"/>',
   user:'<circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/>',
   bell:'<path d="M6 9.5a6 6 0 0 1 12 0c0 4.5 1.8 5.8 1.8 5.8H4.2S6 14 6 9.5Z"/><path d="M10 19a2 2 0 0 0 4 0"/>',
+  money:'<rect x="2.6" y="6.4" width="18.8" height="11.2" rx="2.4"/><circle cx="12" cy="12" r="2.7"/><path d="M6 10.1v3.8M18 10.1v3.8"/>',
   clock:'<circle cx="12" cy="12.6" r="8.4"/><path d="M12 8.2v4.4l2.9 1.9"/><path d="M9 2.6h6"/><path d="M12 2.6v1.6"/>',
   help:'<circle cx="12" cy="12" r="9"/><path d="M9.9 9.4a2.2 2.2 0 1 1 2.7 2.5v1.5"/><path d="M12.6 16.6h-.01"/>',
   star:'<path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 16.9l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85Z"/>',
@@ -456,11 +457,11 @@ function welcomeHTML(){
 }
 function howItWorksHTML(inApp){
   const STEPS=[
-    {n:1,ic:spinnerIcon(19),title:"Get matched",body:"Each day, tap Spin to be paired with a colleague from a different part of the business. Matches are made so they work for on-site and remote people alike.",note:""},
+    {n:1,ic:spinnerIcon(19),title:"Get matched",body:"Each day, tap Spin to be paired with a colleague from a different part of the business. Matches are made so they work for on-site and remote people alike. You start with a 30-point welcome bonus, and your first spin each day is free — spinning again to swap colleague costs 1 point, so give whoever comes up a chance.",note:"First spin each day is free"},
     {n:2,ic:icon('chat',19),title:"Say hi & plan",body:"When you both accept, a shared space opens with a chat. Agree a time and place together.",note:""},
     {n:3,ic:icon('users',19),title:"Meet up",body:"A coffee, a walk, a shared break — or a quick Teams call if one of you is remote.",note:""},
     {n:4,ic:icon('camera',19),title:"Log it for points",body:"Share a photo of your meetup and answer three quick discussion questions together to earn points. Photos go to the community wall; your answers stay private.",note:"Answers stay private"},
-    {n:5,ic:icon('trophy',19),title:"Climb & win",body:"Points climb the leaderboard, and a panel picks the best ideas shared — with prizes for top contributors and top of the board.",note:"Prizes for the best ideas"},
+    {n:5,ic:icon('trophy',19),title:"Climb & win",body:"Points climb the leaderboard. A panel of CB management judges picks the best idea shared in the discussions — €250 for that, €250 for topping the leaderboard and €150 for the runner-up. Winners announced end of October 2026.",note:"€250 best idea · €250 top of board · €150 runner-up"},
   ];
   const rows=STEPS.map((s,i)=>`<div style="position:relative;display:flex;gap:16px;padding-bottom:20px;">
     ${i<STEPS.length-1?`<div style="position:absolute;left:19px;top:44px;bottom:-2px;width:0;border-left:2px dashed #C6D8E6;"></div>`:''}
@@ -840,7 +841,7 @@ window.addComment=async function(id){const inp=$("#cin"+id);const v=(inp.value||
 
 /* ---------------- RANKS ---------------- */
 function viewRanks(){
-  let h=`<h2>Leaderboard</h2><p class="sub">Getting to know colleagues, one meetup at a time.</p><div class="card prize"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${icon('trophy',14)} Prizes · winners announced end of October 2026</span><p class="small" style="margin:11px 0 0;line-height:1.5;opacity:.96">Every meetup earns you points — but there's more. A panel of <b>CB management judges</b> will pick the best <b>ideas</b> shared in the discussions. Win a <b>cash prize for the best idea</b>, or a prize for <b>climbing the leaderboard</b>. Get to know your colleagues, brainstorm some fun ideas — and help make an impact on people's lives.</p><div class="prizerow"><div class="prizecard"><div class="pk">BEST IDEA</div><div class="pv">Cash prize</div></div><div class="prizecard"><div class="pk">TOP OF BOARD</div><div class="pv">Prize</div></div><div class="prizecard"><div class="pk">RUNNER-UP</div><div class="pv">Prize</div></div></div></div><div class="card">`;
+  let h=`<h2>Leaderboard</h2><p class="sub">Getting to know colleagues, one meetup at a time.</p><div class="card prize"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${icon('money',14)} Prizes · winners announced end of October 2026</span><p class="small" style="margin:11px 0 0;line-height:1.5;opacity:.96">Every meetup earns you points — but there's more. A panel of <b>CB management judges</b> will pick the best <b>ideas</b> shared in the discussions. Win <b>€250 for the best idea</b>, <b>€250</b> for topping the leaderboard, or <b>€150</b> as runner-up. Get to know your colleagues, brainstorm some fun ideas — and help make an impact on people's lives.</p><div class="prizerow"><div class="prizecard"><div class="pk">BEST IDEA</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">TOP OF BOARD</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">RUNNER-UP</div><div class="pv">€150</div></div></div></div><div class="card">`;
   C.leaderboard.slice(0,15).forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${r.photo?`<img src="${r.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(r.name)}</span><div class="nm">${r.name}</div><div class="p">${r.points}</div></div>`;});
   return h+`</div>`;
 }
