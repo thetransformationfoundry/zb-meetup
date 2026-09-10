@@ -13,6 +13,8 @@ const P = {
   trophy:'<path d="M7 4.5h10V9a5 5 0 0 1-10 0V4.5Z"/><path d="M7 6.5H4.5v.8A3 3 0 0 0 7.4 10M17 6.5h2.5v.8A3 3 0 0 1 16.6 10"/><path d="M12 14v2.5M9 20h6M10.2 20l.5-3.5h2.6l.5 3.5"/>',
   user:'<circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/>',
   bell:'<path d="M6 9.5a6 6 0 0 1 12 0c0 4.5 1.8 5.8 1.8 5.8H4.2S6 14 6 9.5Z"/><path d="M10 19a2 2 0 0 0 4 0"/>',
+  clock:'<circle cx="12" cy="12.6" r="8.4"/><path d="M12 8.2v4.4l2.9 1.9"/><path d="M9 2.6h6"/><path d="M12 2.6v1.6"/>',
+  help:'<circle cx="12" cy="12" r="9"/><path d="M9.9 9.4a2.2 2.2 0 1 1 2.7 2.5v1.5"/><path d="M12.6 16.6h-.01"/>',
   star:'<path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 16.9l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85Z"/>',
   mail:'<rect x="2.6" y="4.8" width="18.8" height="14.4" rx="2.6"/><path d="M3.4 7.2 12 13.2l8.6-6"/>',
   heart:'<path d="M12 20s-7-4.4-9.2-9A4.8 4.8 0 0 1 12 6.2 4.8 4.8 0 0 1 21.2 11C19 15.6 12 20 12 20Z"/>',
@@ -84,6 +86,25 @@ function pickImage(cb,px){
     };
     document.body.appendChild(inp); inp.click();
   }catch(e){ toast("Photo picker unavailable"); }
+}
+
+/* ---------------- go-live spin lock (BRIEF-019) ---------------- */
+// Soft launch gate, deliberately client-side: a user with a wrong clock could spin early
+// against a near-empty pool, which is harmless. It auto-lifts at SPIN_UNLOCK with no redeploy
+// because every render and every tick re-compares against the one constant.
+const SPIN_UNLOCK=window.ZB_SPIN_UNLOCK;
+// ?preview=1 forces the countdown even for an admin (QA); ?preview=0 clears it.
+(function(){try{
+  const m=(location.search||'').match(/[?&]preview=([01])/);
+  if(m)m[1]==='1'?localStorage.setItem('zbPreviewCountdown','1'):localStorage.removeItem('zbPreviewCountdown');
+}catch(e){}})();
+const previewCountdown=()=>{try{return localStorage.getItem('zbPreviewCountdown')==='1';}catch(e){return false;}};
+// Admins bypass so Sean and Donnae can seed and test; preview overrides that for QA.
+const spinLocked=()=>!!SPIN_UNLOCK&&Date.now()<SPIN_UNLOCK.getTime()&&(!C.admin||previewCountdown());
+function unlockParts(){
+  const ms=Math.max(0,SPIN_UNLOCK.getTime()-Date.now()), t=Math.floor(ms/1000);
+  const p=n=>n<10?'0'+n:String(n);
+  return {open:ms<=0,d:p(Math.floor(t/86400)),h:p(Math.floor(t/3600)%24),m:p(Math.floor(t/60)%60),s:p(t%60)};
 }
 
 /* ---------------- confetti (ported from the Claude Design handoff) ---------------- */
@@ -302,6 +323,31 @@ window.reloadAdmin=async function(){C.adminData=null;render();await loadAdminDat
 window.adminToggleQ=function(id){adminOpenQ=adminOpenQ===id?null:id;render();};
 window.adminToggleAnon=function(){adminAnon=!adminAnon;render();};
 
+// The tiles are updated in place. Re-rendering the screen each second would restart every
+// drift animation and the entry sequence, so only the digits change.
+let cdTimer=null;
+function cdTickOnce(){
+  const t=unlockParts();
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  set('cdD',t.d);set('cdH',t.h);set('cdM',t.m);set('cdS',t.s);
+  const tz=document.getElementById('cdTz');
+  if(t.open&&tz)tz.textContent='Spinning is open — refresh';
+  return !t.open;
+}
+function cdStop(){ if(cdTimer){clearInterval(cdTimer);cdTimer=null;} }
+function cdStart(){
+  cdStop();
+  if(typeof setInterval!=='function')return;
+  cdTickOnce();                                  // paint immediately, never flash zeros
+  cdTimer=setInterval(()=>{
+    if(!cdTickOnce()){cdStop();if(view==='spin')render();}   // at zero, fall through to the live screen
+  },1000);
+}
+// Background tabs throttle timers — re-sync the moment we come back.
+try{document.addEventListener&&document.addEventListener('visibilitychange',function(){
+  if(!document.hidden&&cdTimer)cdTickOnce();
+});}catch(e){}
+
 /* ---------------- render / router ---------------- */
 function render(){
   if(mode==="onboarding"){renderOnboard();return;}
@@ -310,12 +356,13 @@ function render(){
   S.setViewing && S.setViewing(view);
   renderAppbar();renderTabs();
   const s=$("#screen");
-  if(view==="spin")s.innerHTML=viewSpin();
+  if(view==="spin"){s.innerHTML=viewSpin();spinLocked()?cdStart():cdStop();}
   else if(view==="meetups")s.innerHTML=viewMeetups();
   else if(view==="messages")s.innerHTML=viewMessages();
   else if(view.startsWith("thread:"))s.innerHTML=viewThread(view.slice(7));
   else if(view.startsWith("meet:"))s.innerHTML=viewMeet(view.slice(5));
   else if(view.startsWith("recap:"))s.innerHTML=viewRecap(view.slice(6));
+  else if(view==="howitworks")s.innerHTML=howItWorksHTML(true);
   else if(view==="wall")s.innerHTML=viewWall();
   else if(view==="ranks")s.innerHTML=viewRanks();
   else if(view==="profile")s.innerHTML=viewProfile();
@@ -325,7 +372,7 @@ function render(){
   else if(view==="notifs")s.innerHTML=viewNotifs();
   s.scrollTop=0;
 }
-window.go=v=>{view=v;render();};
+window.go=v=>{if(v!=="spin")cdStop();view=v;render();};
 function renderAppbar(){$("#appbar").innerHTML=`<div class="brand">ZB <span>MeetUP</span></div><div class="spacer"></div><div class="pts">${C.me?C.me.points:0} pts</div><button class="bell" onclick="go('notifs')">${icon('bell',24)}${unread()?`<span class="badge">${unread()}</span>`:''}</button>`;}
 function renderTabs(){
   const reqB=activeMatches().filter(m=>(m.status==='active'&&!myAnswersDone(m))||(m.status==='requested'&&m.incoming)).length;
@@ -388,7 +435,7 @@ function welcomeHTML(){
     </div>
   </div>`;
 }
-function howItWorksHTML(){
+function howItWorksHTML(inApp){
   const STEPS=[
     {n:1,ic:spinnerIcon(19),title:"Get matched",body:"Each day, tap Spin to be paired with a colleague from a different part of the business. Matches are made so they work for on-site and remote people alike.",note:""},
     {n:2,ic:icon('chat',19),title:"Say hi & plan",body:"When you both accept, a shared space opens with a chat. Agree a time and place together.",note:""},
@@ -406,12 +453,12 @@ function howItWorksHTML(){
     </div>
   </div>`).join('');
   return `<div style="min-height:100vh;background:var(--bg);display:flex;flex-direction:column;">
-    <div style="position:sticky;top:0;z-index:20;display:flex;align-items:center;padding:16px 14px;background:rgba(245,247,250,.9);backdrop-filter:blur(12px);"><button type="button" onclick="obBackWelcome()" style="display:flex;align-items:center;gap:6px;padding:8px 12px 8px 8px;border:0;border-radius:999px;background:transparent;cursor:pointer;color:var(--ink);font-family:inherit;font-size:15px;font-weight:600;">${icon('back',18)}<span>Back</span></button></div>
+    <div style="position:sticky;top:0;z-index:20;display:flex;align-items:center;padding:16px 14px;background:rgba(245,247,250,.9);backdrop-filter:blur(12px);"><button type="button" onclick="${inApp?`go('spin')`:`obBackWelcome()`}" style="display:flex;align-items:center;gap:6px;padding:8px 12px 8px 8px;border:0;border-radius:999px;background:transparent;cursor:pointer;color:var(--ink);font-family:inherit;font-size:15px;font-weight:600;">${icon('back',18)}<span>Back</span></button></div>
     <div style="padding:2px 16px 0;animation:riseIn .5s ease-out both;"><div style="position:relative;overflow:hidden;border-radius:20px;padding:30px 26px 28px;background:linear-gradient(170deg,#3E6EA8 0%,#2F5F9E 42%,#20416F 100%);box-shadow:var(--shadow-lg);color:#fff;"><div style="position:absolute;right:-52px;top:-52px;width:172px;height:172px;border-radius:999px;border:2px dashed rgba(255,255,255,.22);"></div><div style="position:relative;font-size:11.5px;font-weight:700;letter-spacing:1.6px;color:rgba(255,255,255,.72);">FIVE SIMPLE STEPS</div><div style="position:relative;margin-top:10px;font-size:27px;line-height:1.18;font-weight:700;letter-spacing:-.5px;">How ZB MeetUP works</div><div style="position:relative;margin-top:10px;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.82);max-width:300px;">Meet colleagues, have great chats, earn points — in five simple steps.</div></div></div>
     <div style="padding:22px 16px 0;">${rows}</div>
     <div style="flex:1;min-height:8px;"></div>
     <div style="position:sticky;bottom:0;padding:14px 16px 22px;background:linear-gradient(to top,#F5F7FA 55%,rgba(245,247,250,0));">
-      <button type="button" onclick="obGoCreate()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">Got it — create my account</span></button>
+      <button type="button" onclick="${inApp?`go('spin')`:`obGoCreate()`}" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">${inApp?'Back':'Got it — create my account'}</span></button>
       <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:12px;">For Zimmer Biomet colleagues only</div>
     </div>
   </div>`;
@@ -585,7 +632,72 @@ window.finishOnboard=async function(){
 /* ---------------- SPIN ---------------- */
 const DARKBTN="linear-gradient(100deg,#04070D 0%,#0A1421 26%,#123156 55%,#1E63A8 82%,#2E86D6 100%)";
 const SHEEN=`<span style="position:absolute;top:-40%;bottom:-40%;left:0;width:46%;background:radial-gradient(closest-side,rgba(78,180,255,.34),rgba(78,180,255,0) 70%);filter:blur(6px);animation:sheen 5.2s ease-in-out infinite;pointer-events:none;"></span>`;
-function viewSpin(){
+function viewSpin(){ return spinLocked()?viewCountdown():spinScreenHTML(); }
+
+// Pills are ambience: REAL signed-up colleagues only (photo, else initials), newest first,
+// capped at 12. Before real signups exist we show one or three neutral initials-only holders —
+// never invented people (same authenticity rule as the demo-seed fix, BRIEF-016).
+const PILL_TINTS=['#4E80AE','#5E93B6','#6E9BC4','#7FA8CC'];
+function pillPeople(){
+  const tint=id=>{let h=0;const str=String(id||'');for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))>>>0;return PILL_TINTS[h%PILL_TINTS.length];};
+  const real=(C.users||[]).filter(u=>u&&u.name).slice();
+  real.sort((a,b)=>(b.createdAt&&b.createdAt.seconds||0)-(a.createdAt&&a.createdAt.seconds||0));
+  const list=real.slice(0,12).map(u=>({name:(u.first||(u.name||'').split(' ')[0]||''),photo:u.photo||null,tint:tint(u.uid),ini:inits(u.name)}));
+  if(list.length)return list;
+  // holding state — no names, no photos, no invented colleagues
+  return [{holder:true,tint:PILL_TINTS[0],ini:''},{holder:true,tint:PILL_TINTS[2],ini:''},{holder:true,tint:PILL_TINTS[3],ini:''}];
+}
+function pillHTML(p,dir,dur,delay,alpha){
+  const av=p.photo?`<img class="av" src="${p.photo}" alt="">`
+    :`<span class="av" style="background:${p.tint}">${p.holder?'':p.ini}</span>`;
+  return `<div class="zb-pill" style="background:rgba(255,255,255,${alpha});animation:${dir} ${dur}s ${delay}s linear infinite">
+    ${av}${p.holder?'':`<span class="nm">${p.name}</span>`}</div>`;
+}
+// Two pills per lane, offset exactly half a cycle, so their separation is constant and they
+// can never collide — the handoff's collision rule. Lanes scale down with the signup count.
+const LANES=[['zbDriftR',36,-3,-21,.26,.2],['zbDriftL',44,-8,-30,.22,.26],['zbDriftR',52,-14,-40,.24,.2],
+             ['zbDriftL',40,-5,-25,.2,.26],['zbDriftR',48,-11,-35,.26,.22],['zbDriftL',56,-19,-47,.22,.24]];
+function laneBand(cls,laneIdx,people){
+  if(!laneIdx.length)return '';
+  return `<div class="band ${cls}" aria-hidden="true">${laneIdx.map(i=>{
+    const [dir,dur,d1,d2,a1,a2]=LANES[i];
+    const p1=people[(i*2)%people.length],p2=people[(i*2+1)%people.length];
+    const two=people.length>1&&p1!==p2;
+    return `<div class="lane">${pillHTML(p1,dir,dur,d1,a1)}${two?pillHTML(p2,dir,dur,d2,a2):''}</div>`;
+  }).join('')}</div>`;
+}
+function viewCountdown(){
+  const t=unlockParts(), people=pillPeople();
+  // fewer signups -> fewer lanes, rather than repeating a name within a lane
+  const laneCount=people.length>=6?6:(people.length>=3?4:2);
+  const top=[0,1,2].slice(0,Math.ceil(laneCount/2)), bot=[3,4,5].slice(0,Math.floor(laneCount/2));
+  return `<div class="zb-cd">
+    <div class="behind" aria-hidden="true" inert>${spinScreenHTML()}</div>
+    <div class="scrim"></div>
+    ${laneBand('top',top,people)}
+    <div class="stage">
+      <div class="zb-cd-card">
+        <img class="logo" src="assets/zimmer-biomet-logo.svg" alt="Zimmer Biomet">
+        <div class="zb-clock"><div class="ring"></div><div class="ring-dashed"></div><div class="disc">${icon('clock',32)}</div></div>
+        <div class="zb-cd-eyebrow"><span class="dot"></span>COUNTDOWN TO LAUNCH</div>
+        <h1>Get ready to spin</h1>
+        <div class="zb-grid" role="timer" aria-live="off" aria-label="Time until spinning opens">
+          <div class="zb-tile"><div class="v" id="cdD">${t.d}</div><div class="l">Days</div></div>
+          <div class="zb-tile"><div class="v" id="cdH">${t.h}</div><div class="l">Hrs</div></div>
+          <div class="zb-tile"><div class="v" id="cdM">${t.m}</div><div class="l">Min</div></div>
+          <div class="zb-tile sec"><div class="v" id="cdS">${t.s}</div><div class="l">Sec</div></div>
+        </div>
+        <p class="zb-cd-sub"><b>Spinning opens Wednesday 16 September at 09:00.</b> You're all set — explore the app and we'll see you then.</p>
+      </div>
+      <div class="zb-cd-foot">
+        <button type="button" class="zb-how" onclick="go('howitworks')">${icon('help',17)}<span>How it works</span></button>
+        <div class="zb-tz" id="cdTz">${t.open?'Spinning is open — refresh':'Times shown for 09:00 Amsterdam'}</div>
+      </div>
+    </div>
+    ${laneBand('bot',bot,people)}
+  </div>`;
+}
+function spinScreenHTML(){
   const idle=!current;
   const rule=C.me.floor?"You're a warehouse/floor colleague, so you'll match with other on-site colleagues.":"You're desk-based, so you can match with on-site and remote colleagues.";
   const faceInner=idle?`<span style="display:inline-flex;animation:ringSpin 3.6s linear infinite">${spinnerIcon(54)}</span>`:(current.photo?`<img src="${current.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:999px">`:inits(current.name));
@@ -603,6 +715,9 @@ function viewSpin(){
   </div>`;
 }
 window.doSpin=async function(){
+  // The gate belongs on the action too: the blurred spin screen behind the countdown is
+  // decorative, but a keyboard user could otherwise still reach its button.
+  if(spinLocked()){toast("Spinning opens Wednesday 16 September at 09:00");return;}
   const pool=eligible();if(!pool.length){toast("No one left to match!");return;}
   // Every spin is priced by the store: a free spin (first of the day, or granted by sending a
   // request) costs nothing, otherwise 1 point. At 0 points it is blocked rather than going negative.
@@ -616,7 +731,8 @@ window.doSpin=async function(){
 };
 // skip() is gone with BRIEF-017: it returned to idle, which made the next spin look like a
 // first-of-day free spin. The only actions on a candidate are now Send request and Spin again.
-window.sendReq=async function(){const p=current;
+window.sendReq=async function(){if(spinLocked()){toast("Spinning opens Wednesday 16 September at 09:00");return;}
+  const p=current;
   const qs=pickQuestions();
   if(!qs.length){toast("No questions in the bank yet — an admin needs to add some");return;}
   current=null;

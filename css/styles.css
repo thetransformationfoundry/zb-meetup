@@ -28,6 +28,52 @@ body{font-family:var(--font);background:#e9edf2;color:var(--ink);-webkit-font-sm
 @keyframes reelDrift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
 @keyframes sheen{0%{transform:translateX(-140%) skewX(-16deg);opacity:0}8%{opacity:1}26%{transform:translateX(240%) skewX(-16deg);opacity:1}34%{opacity:0}100%{transform:translateX(240%) skewX(-16deg);opacity:0}}
 @keyframes btnGlow{0%,100%{box-shadow:0 6px 20px rgba(3,8,18,.45),0 0 0 rgba(56,160,235,0)}50%{box-shadow:0 8px 28px rgba(3,8,18,.5),0 0 30px rgba(56,160,235,.4)}}
+/* ---- Go-live countdown (BRIEF-019, ported from the Claude Design handoff) ----
+   NOTE on backdrop-filter: the handoff puts it on the frosted card, which also has a riseIn
+   entry animation — exactly the combination CLAUDE.md forbids (Android Chrome flicker, already
+   bitten). The card background is rgba(255,255,255,.94), so the blur contributes almost
+   nothing; it is dropped on the animated card and kept only on static elements. */
+@keyframes zbDriftR{from{transform:translateX(-104%)}to{transform:translateX(392px)}}
+@keyframes zbDriftL{from{transform:translateX(392px)}to{transform:translateX(-104%)}}
+@keyframes zbTickBeat{0%,100%{opacity:.35}50%{opacity:1}}
+.zb-cd{position:relative;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.zb-cd .behind{position:absolute;inset:0;z-index:0;filter:blur(18px);opacity:.9;pointer-events:none;transform:scale(1.04)}
+.zb-cd .scrim{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(12,34,58,.5) 0%,rgba(12,34,58,.66) 60%,rgba(8,24,42,.78) 100%)}
+.zb-cd .band{position:relative;z-index:2;flex:none;pointer-events:none}
+.zb-cd .band.top{padding:calc(6px + env(safe-area-inset-top,0px)) 0 0}
+.zb-cd .band.bot{padding:0 0 calc(12px + env(safe-area-inset-bottom,0px))}
+.zb-cd .lane{position:relative;height:48px;overflow:hidden;margin-bottom:6px}
+.zb-cd .stage{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:center;padding:6px 20px}
+.zb-pill{position:absolute;left:0;top:0;display:inline-flex;align-items:center;gap:11px;padding:4px 22px 4px 4px;border-radius:999px;box-shadow:0 6px 18px rgba(6,20,38,.16)}
+.zb-pill .av{width:40px;height:40px;border-radius:999px;border:3px solid #fff;box-shadow:0 3px 10px rgba(6,20,38,.22);object-fit:cover;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700;letter-spacing:.4px;flex:none;overflow:hidden}
+.zb-pill .nm{font-size:16.5px;font-weight:700;letter-spacing:-.3px;color:#fff;white-space:nowrap}
+.zb-cd-card{border-radius:28px;padding:22px 22px 18px;text-align:center;background:rgba(255,255,255,.94);border:1px solid rgba(255,255,255,.7);box-shadow:0 24px 60px rgba(4,14,28,.34),0 2px 8px rgba(4,14,28,.16);animation:riseIn .55s ease-out both}
+.zb-cd-card .logo{height:23px;width:auto;margin:0 auto 16px;display:block}
+.zb-clock{position:relative;width:104px;height:104px;margin:0 auto;display:flex;align-items:center;justify-content:center;animation:zbAwardPop .6s .08s cubic-bezier(.2,1.3,.4,1) both}
+.zb-clock .ring{position:absolute;inset:0;border:2px solid rgba(0,121,189,.34);border-radius:999px;animation:zbRingPulse 2.8s ease-out infinite}
+.zb-clock .ring-dashed{position:absolute;inset:11px;border:2px dashed rgba(0,121,189,.26);border-radius:999px;animation:ringSpin 26s linear infinite}
+.zb-clock .disc{width:72px;height:72px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#fff;background:linear-gradient(160deg,#3E6EA8 0%,#2F5F9E 45%,#20416F 100%);box-shadow:0 12px 28px rgba(32,65,111,.34)}
+.zb-cd-eyebrow{display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:6px 13px 6px 9px;border-radius:999px;background:var(--zb-blue-soft);color:var(--zb-blue);font-size:11px;font-weight:700;letter-spacing:1.3px;animation:riseIn .5s .16s both}
+.zb-cd-eyebrow .dot{width:7px;height:7px;border-radius:999px;background:var(--zb-blue);animation:zbTickBeat 1.6s ease-in-out infinite}
+.zb-cd-card h1{margin:10px 0 0;font-size:27px;font-weight:700;line-height:1.14;letter-spacing:-.7px;color:#1A1A1A;animation:riseIn .5s .22s both}
+.zb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px;animation:riseIn .5s .3s both}
+.zb-tile{padding:11px 4px 9px;border-radius:16px;background:#F5F7FA;border:1px solid #E7ECF2}
+.zb-tile .v{font-size:29px;font-weight:700;letter-spacing:-1.2px;color:#20416F;font-variant-numeric:tabular-nums}
+.zb-tile .l{font-size:10px;font-weight:700;letter-spacing:.9px;color:#8A94A3;text-transform:uppercase;margin-top:7px}
+.zb-tile.sec{background:var(--zb-blue-soft);border-color:#CFE4F1}
+.zb-tile.sec .v{color:var(--zb-blue)}
+.zb-tile.sec .l{color:#5E93B6}
+.zb-cd-sub{margin-top:14px;font-size:14px;line-height:1.55;color:var(--muted);animation:riseIn .5s .38s both}
+.zb-cd-sub b{color:#1A1A1A;font-weight:650}
+.zb-cd-foot{display:flex;flex-direction:column;align-items:center;gap:9px;margin-top:12px;animation:riseIn .5s .5s both}
+.zb-how{display:inline-flex;align-items:center;gap:9px;padding:11px 20px 11px 17px;min-height:44px;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:inherit;font-size:14px;font-weight:650;letter-spacing:-.1px;cursor:pointer}
+.zb-how:hover{background:rgba(255,255,255,.26)}
+.zb-tz{font-size:12.5px;font-weight:600;color:rgba(255,255,255,.66);text-align:center}
+/* Reduced motion: entry, rings and the heartbeat stop and the pills hold still — but the
+   countdown keeps ticking, because it is information rather than decoration. */
+@media (prefers-reduced-motion: reduce){
+  .zb-cd *,.zb-pill,.zb-clock,.zb-clock .ring,.zb-clock .ring-dashed,.zb-cd-card{animation:none !important}
+}
 /* ---- Points Awarded screen (BRIEF-017, ported from the Claude Design handoff) ----
    btnGlow above is already byte-identical to the handoff's, so it is reused. popIn/riseIn are
    NOT: ours are gentler and shared by other screens, so the award screen gets its own. */
