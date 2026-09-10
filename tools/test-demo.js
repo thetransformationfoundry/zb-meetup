@@ -119,8 +119,35 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   window.obStep(4); document.getElementById("ob-consent").checked = true;
   await window.finishOnboard();
   chk("enters app on Spin", /TODAY.S MATCH/.test(scr()));
+  /* ---- BRIEF-017: spin points economy ---- */
+  chk("signup grants the 30-point bonus", (await window.ZB_STORE.getMe()).points === 30);
+  chk("the bonus is not granted twice", (await window.ZB_STORE.claimSignupBonus()) === false
+      && (await window.ZB_STORE.getMe()).points === 30);
+  chk("first spin of the day is free", (await window.ZB_STORE.spinState()).freeSpin === true);
   await window.doSpin(); chk("spins a match", /Send request/.test(scr()));
+  chk("the free spin cost nothing", (await window.ZB_STORE.getMe()).points === 30
+      && (await window.ZB_STORE.spinState()).freeSpin === false);
+  await window.doSpin();
+  chk("a respin costs 1 point", (await window.ZB_STORE.getMe()).points === 29);
+  await window.doSpin();
+  chk("each further respin costs 1 more", (await window.ZB_STORE.getMe()).points === 28);
+  chk("the reroll button shows its cost", /Spin again \(−1 pt\)/.test(scr()));
+
+  // drain to zero and confirm the block, and that points never go negative
+  for (let i = 0; i < 40; i++) await window.doSpin();
+  const drained = await window.ZB_STORE.getMe();
+  chk("points floor at 0, never negative", drained.points === 0);
+  const blocked = await window.ZB_STORE.paySpin();
+  chk("respin is blocked at 0 points", blocked.ok === false && blocked.points === 0);
+  window.go("spin");
+  chk("spin screen explains being out of points", /out of points/.test(scr()));
+
+  // sending a request grants the next spin free
+  await window.ZB_STORE.saveMe({ points: 5 });
+  await window.doSpin();               // costs 1 -> 4
   await window.sendReq(); await new Promise(r=>setTimeout(r,0));
+  chk("sending a request grants a free next spin", (await window.ZB_STORE.spinState()).freeSpin === true);
+  chk("Skip is gone from the spin screen", !/onclick="skip\(\)"/.test(scr()));
   const id = (await window.ZB_STORE.myMatches())[0].id;
   window.go("meet:"+id);
 
@@ -154,7 +181,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("re-adding the photo does not re-award", (await ptsOf("Test User")) === mePts0 + 5 && (await ptsOf(other.name)) === otherPts0 + 5);
   await window.ans(id,0,"a"); await window.ans(id,1,"b"); await window.ans(id,2,"c");
   await window.complete(id);
-  chk("completes my part (+10 pts total)", /10 pts/.test(bar()));
+  chk("appbar shows the new total after +10", bar().indexOf((mePts0 + 10) + " pts") > -1);
   chk("my questions award only me", (await ptsOf("Test User")) === mePts0 + 10);
   chk("the other participant's points do not move", (await ptsOf(other.name)) === otherPts0 + 5);
   const mine = (await window.ZB_STORE.myMatches()).find(x => x.id === id);

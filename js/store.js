@@ -60,7 +60,11 @@
   let MATCHES = [];              // {id,a,b,person,status,type,questionIds,questions,answers,photo,messages,createdAt}
   let NOTIFS = [];
   let POSTS = SEED_POSTS.map((p,i) => ({ id:"s"+(i+1), seed:true, names:p.names, scene:p.scene, photo:"assets/holding-demo-photos/"+slug(p.names)+".jpg", hearts:p.hearts, liked:false, comments:p.comments.map(c=>({...c})) }));
-  let RESPINS = { date:"", used:0 };
+  const SIGNUP_BONUS = 30;
+  const todayStr = () => new Date().toISOString().slice(0,10);
+  // Day-stamped, like the live store: a previous day's record means today's free spin is unused.
+  let SPIN = { date:"", freeAvailable:true };
+  const normSpin = () => { if (SPIN.date !== todayStr()) SPIN = { date:todayStr(), freeAvailable:true }; return SPIN; };
   let mid = 1, wid = 100, nid = 1;
   const now = () => Date.now();
   const P = v => Promise.resolve(v);
@@ -83,7 +87,7 @@
     // ---- profile ----
     getMe() { return P(ME ? { ...ME } : null); },
     saveMe(partial) {
-      ME = Object.assign(ME || { points:0, color:"#0079BD" }, partial);
+      ME = Object.assign(ME || { points:SIGNUP_BONUS, signupBonusGranted:true, color:"#0079BD" }, partial);   // BRIEF-017
       if (this._email && !ME.email) ME.email = this._email;
       if (this._authcb) this._authcb({ uid:"me", email:ME.email });
       return P({ ...ME });
@@ -108,12 +112,19 @@
       })));
     },
     getMatch(id) { return P(MATCHES.find(m => m.id === id)); },
-    respinsLeft() {
-      const d = new Date().toISOString().slice(0,10);
-      if (RESPINS.date !== d) RESPINS = { date:d, used:0 };
-      return P(Math.max(0, 2 - RESPINS.used));
+    // ---- spin economy (BRIEF-017) ----
+    spinState() { const sp = normSpin(); return P({ points:(ME&&ME.points)||0, freeSpin:sp.freeAvailable }); },
+    paySpin() {
+      const sp = normSpin();
+      if (sp.freeAvailable) { sp.freeAvailable = false; return P({ ok:true, free:true, points:(ME&&ME.points)||0 }); }
+      if (ME && ME.points >= 1) { ME.points -= 1; return P({ ok:true, free:false, points:ME.points }); }
+      return P({ ok:false, free:false, points:0 });        // blocked, never negative
     },
-    useRespin() { const d = new Date().toISOString().slice(0,10); if (RESPINS.date !== d) RESPINS = { date:d, used:0 }; RESPINS.used++; return P(true); },
+    grantFreeSpin() { const sp = normSpin(); sp.freeAvailable = true; return P(true); },
+    claimSignupBonus() {
+      if (!ME || ME.signupBonusGranted) return P(false);
+      ME.signupBonusGranted = true; ME.points = (ME.points||0) + SIGNUP_BONUS; return P(true);
+    },
     createMatch(other, type, questions) {
       const m = { id:"m"+(mid++), a:"me", b:other.uid, person:other, status:"requested", type, questionIds:questions.map(q=>q.id||q.t), questions, answers:["","",""], photo:null, completedBy:{}, photoAwarded:{}, postId:null, messages:[], createdAt:now() };
       MATCHES.push(m);

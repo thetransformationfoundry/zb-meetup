@@ -85,6 +85,40 @@ function pickImage(cb,px){
   }catch(e){ toast("Photo picker unavailable"); }
 }
 
+/* ---------------- confetti (inline; no library, no CDN) ---------------- */
+// A one-shot canvas burst, ~1.4s, then it removes itself. Everything is feature-detected so
+// the Node harness (and any browser without canvas/rAF) simply skips it.
+function confetti(){
+  try{
+    if(typeof document.createElement!=='function'||typeof requestAnimationFrame!=='function')return;
+    const c=document.createElement('canvas');
+    if(!c||typeof c.getContext!=='function')return;
+    const ctx=c.getContext('2d'); if(!ctx||!ctx.fillRect)return;
+    const w=window.innerWidth||390,h=window.innerHeight||700;
+    c.width=w;c.height=h;
+    c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999';
+    document.body.appendChild(c);
+    const COLS=['#0079BD','#E5731E','#0EA5A5','#F2C230','#7C5CD6'];
+    const bits=[];for(let i=0;i<90;i++)bits.push({
+      x:Math.random()*w, y:-20-Math.random()*h*0.4,
+      vx:(Math.random()-0.5)*2.2, vy:2+Math.random()*3.2,
+      s:5+Math.random()*6, r:Math.random()*Math.PI, vr:(Math.random()-0.5)*0.25,
+      col:COLS[(Math.random()*COLS.length)|0]
+    });
+    const t0=Date.now();
+    (function frame(){
+      const age=Date.now()-t0;
+      ctx.clearRect(0,0,w,h);
+      bits.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.vy+=0.045;b.r+=b.vr;
+        ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.r);
+        ctx.globalAlpha=Math.max(0,1-age/1400);ctx.fillStyle=b.col;
+        ctx.fillRect(-b.s/2,-b.s/2,b.s,b.s*0.6);ctx.restore();});
+      if(age<1400)requestAnimationFrame(frame);
+      else if(c.remove)c.remove();
+    })();
+  }catch(e){/* decorative only — never let it break onboarding */}
+}
+
 /* ---------------- build stamp ---------------- */
 // The version we are RUNNING, taken from this script's own ?v= in index.html — so there is no
 // second constant to forget to bump. null when that can't be read (e.g. the Node harness).
@@ -125,7 +159,7 @@ window.checkUpdate=function(){
 };
 
 /* ---------------- state ---------------- */
-let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],respins:2,admin:false,leaderboard:[],bugs:[],build:null,adminData:null};
+let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],spin:{points:0,freeSpin:true},admin:false,leaderboard:[],bugs:[],build:null,adminData:null};
 let adminOpenQ=null,adminAnon=false;   // which question is expanded; whether to hide who said what
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
 let OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
@@ -176,17 +210,21 @@ function unread(){return C.notifs.filter(n=>!n.read).length;}
 
 /* ---------------- data load ---------------- */
 async function refresh(){
-  const [me,users,matches,posts,notifs,questions,respins,admin,lb,bugs]=await Promise.all([
-    S.getMe(),S.listUsers(),S.myMatches(),S.listPosts(),S.listNotifs(),S.questionBank(),S.respinsLeft(),S.isAdmin(),S.leaderboard(),S.listBugs()
+  const [me,users,matches,posts,notifs,questions,spin,admin,lb,bugs]=await Promise.all([
+    S.getMe(),S.listUsers(),S.myMatches(),S.listPosts(),S.listNotifs(),S.questionBank(),S.spinState(),S.isAdmin(),S.leaderboard(),S.listBugs()
   ]);
   // Roles are normalised ON READ (see normalizeRole): live users onboarded on the old 18-role
   // list, and matches carry a profile snapshot taken at creation time, so both can hold legacy strings.
   if(me)me.role=normalizeRole(me.role);
   const users2=users.map(u=>Object.assign({},u,{role:normalizeRole(u.role)}));
   const matches2=matches.map(m=>m.person?Object.assign({},m,{person:Object.assign({},m.person,{role:normalizeRole(m.person.role)})}):m);
-  C.me=me;C.users=users2;C.matches=matches2;C.posts=posts;C.notifs=notifs;C.questions=questions;C.respins=respins;C.admin=admin;C.leaderboard=lb;C.bugs=bugs;
+  C.me=me;C.users=users2;C.matches=matches2;C.posts=posts;C.notifs=notifs;C.questions=questions;C.spin=spin;C.admin=admin;C.leaderboard=lb;C.bugs=bugs;
   if(!C.build)loadBuild();          // fire-and-forget; re-renders the You screen when it lands
   // A shared photo is worth +5 to both, but each side may only write its own points, so claim mine here.
+  // Accounts created before BRIEF-017 never got the 30-point signup bonus; grant it once.
+  if(S.claimSignupBonus&&C.me&&!C.me.signupBonusGranted){
+    if(await S.claimSignupBonus()){const [me2,lb2,sp2]=await Promise.all([S.getMe(),S.leaderboard(),S.spinState()]);C.me=me2;C.leaderboard=lb2;C.spin=sp2;}
+  }
   const unclaimed=C.matches.filter(m=>m.photo&&!m.photoAwarded);
   if(unclaimed.length&&S.claimPhotoAward){
     let got=false;for(const m of unclaimed){ if(await S.claimPhotoAward(m.id))got=true; }
@@ -451,6 +489,7 @@ window.finishOnboard=async function(){
   await S.saveMe({name:OB.name,email:OB.email,color:OB.color,photo:OB.photo||null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now()});
   await S.welcome();
   authBusy=false; mode="app"; view="spin"; await refresh();
+  confetti(); toast("You've earned 30 points to get started!");
 };
 
 /* ---------------- SPIN ---------------- */
@@ -469,19 +508,28 @@ function viewSpin(){
       ${idle?`<div style="text-align:center;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.82);margin:0 auto;max-width:300px;">Tap the button below and we'll find you a colleague to grab a coffee or a call with.</div>`:`<div style="margin-top:18px;background:#fff;color:var(--ink);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(16,24,40,.18);animation:popIn .34s cubic-bezier(.2,.9,.3,1.2) both;"><div style="display:flex;align-items:center;gap:12px;"><div style="width:44px;height:44px;flex:none;border-radius:999px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;background:${current.color};">${current.photo?`<img src="${current.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(current.name)}</div><div style="min-width:0;"><div style="font-size:16px;font-weight:650;">${current.name}</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px;">${current.role} · ${current.dept}</div></div><div style="margin-left:auto;flex:none;padding:4px 9px;border-radius:999px;background:#F5F7FA;border:1px solid #ECEFF3;font-size:11px;font-weight:600;color:var(--muted);">${wcLabel(current.workClass)}</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #ECEFF3;font-size:13.5px;font-weight:600;color:var(--zb-blue);">Suggested: ${current._type}</div></div>`}
       <div style="flex:1;min-height:14px;"></div>${reelHTML()}
     </div>
-    ${idle?`<button type="button" onclick="doSpin()" style="position:relative;overflow:hidden;margin-top:14px;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span id="spinLabel" style="position:relative;">Spin the wheel</span></button>`:`<div style="margin-top:14px;display:flex;flex-direction:column;gap:9px;"><button type="button" onclick="sendReq()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">Send request to ${current.first}</span></button><div style="display:flex;gap:9px;"><button type="button" onclick="doSpin()" ${C.respins<=0?'disabled':''} style="flex:1;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px;border-radius:12px;background:#fff;border:1px solid #ECEFF3;color:var(--muted);font-family:inherit;font-size:14px;font-weight:600;${C.respins<=0?'opacity:.5;cursor:not-allowed;':''}">${icon('refresh',15)}<span>Spin again (${C.respins})</span></button><button type="button" onclick="skip()" style="flex:1;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px;border-radius:12px;background:#fff;border:1px solid #ECEFF3;color:var(--muted);font-family:inherit;font-size:14px;font-weight:600;">${icon('x',14)}<span>Skip</span></button></div></div>`}
+    ${idle?`<button type="button" onclick="doSpin()" style="position:relative;overflow:hidden;margin-top:14px;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span id="spinLabel" style="position:relative;">Spin the wheel${C.spin.freeSpin?'':` (−1 pt)`}</span></button>`:`<div style="margin-top:14px;display:flex;flex-direction:column;gap:9px;"><button type="button" onclick="sendReq()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">Send request to ${current.first}</span></button><button type="button" onclick="doSpin()" ${(!C.spin.freeSpin&&C.spin.points<1)?'disabled':''} style="width:100%;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px;border-radius:12px;background:#fff;border:1px solid #ECEFF3;color:var(--muted);font-family:inherit;font-size:14px;font-weight:600;${(!C.spin.freeSpin&&C.spin.points<1)?'opacity:.5;cursor:not-allowed;':''}">${icon('refresh',15)}<span>${C.spin.freeSpin?'Spin again (free)':'Spin again (−1 pt)'}</span></button><div class="muted small center">${C.spin.freeSpin?'This spin is free.':(C.spin.points<1?"You're out of points — send a request, or earn points by meeting someone.":`You have ${C.spin.points} point${C.spin.points===1?'':'s'}. Meeting someone earns them back.`)}</div></div>`}
     <div style="margin:14px 2px 4px;display:flex;align-items:flex-start;gap:9px;color:var(--muted);font-size:12.5px;line-height:1.45;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA3AF" stroke-width="1.9" stroke-linecap="round" style="flex:none;margin-top:1px;"><circle cx="12" cy="12" r="8.6"></circle><path d="M12 11v5.2M12 7.9v.1"></path></svg><span>${rule}</span></div>
   </div>`;
 }
 window.doSpin=async function(){
   const pool=eligible();if(!pool.length){toast("No one left to match!");return;}
-  if(current){if(C.respins<=0){toast("No respins left today");return;}await S.useRespin();C.respins=await S.respinsLeft();}
+  // Every spin is priced by the store: a free spin (first of the day, or granted by sending a
+  // request) costs nothing, otherwise 1 point. At 0 points it is blocked rather than going negative.
+  const paid=await S.paySpin();
+  if(!paid.ok){toast("You're out of points for now — send a request, or earn points by meeting someone");await refresh();return;}
+  C.spin=await S.spinState();if(C.me)C.me.points=paid.points;
+  if(!paid.free)renderAppbar();
   const face=$("#spinFace"),lbl=$("#spinLabel");if(lbl)lbl.textContent="Finding your match…";
   let ticks=0,total=18+Math.floor(Math.random()*6),delay=45;
   (function step(){const p=pool[Math.floor(Math.random()*pool.length)];if(face){face.textContent=inits(p.name);face.style.backgroundColor=p.color;}ticks++;if(ticks>=total){p._type=meetupType(p);current=p;render();return;}if(ticks>total-6)delay+=40;setTimeout(step,delay);})();
 };
-window.skip=function(){current=null;render();};
-window.sendReq=async function(){const p=current;current=null;await S.createMatch(p,p._type,pickQuestions());toast("Request sent to "+p.first);await refresh();};
+// skip() is gone with BRIEF-017: it returned to idle, which made the next spin look like a
+// first-of-day free spin. The only actions on a candidate are now Send request and Spin again.
+window.sendReq=async function(){const p=current;current=null;
+  await S.createMatch(p,p._type,pickQuestions());
+  await S.grantFreeSpin();                      // chaining real meetups costs nothing
+  toast("Request sent to "+p.first+" — your next spin is free");await refresh();};
 window.acceptReq=async function(id){await S.acceptMatch(id);toast("Matched! Plan your meetup");await refresh();};
 window.declineReq=async function(id){await S.declineMatch(id);await refresh();};
 

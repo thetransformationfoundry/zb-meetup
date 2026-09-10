@@ -10,6 +10,11 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const FV = firebase.firestore.FieldValue;
 const nowTs = () => FV.serverTimestamp();
+const SIGNUP_BONUS = 30;
+const todayStr = () => new Date().toISOString().slice(0,10);
+// A spin record from a previous day means today's free spin has not been used yet.
+const normSpin = sp => (sp && sp.date === todayStr()) ? { date:sp.date, freeAvailable: !!sp.freeAvailable }
+                                                      : { date: todayStr(), freeAvailable: true };
 const ADMINS = (window.ZB_CONFIG.ADMIN_EMAILS || []).map(e => e.toLowerCase());
 
 // default question bank (always present; admin can add more)
@@ -129,7 +134,10 @@ const ZB_STORE = {
     const existing = await ref.get();
     const data = Object.assign({}, partial);
     if (partial.name) data.first = partial.name.split(" ")[0];
-    if (!existing.exists) { data.points = 0; data.createdAt = nowTs(); data.email = auth.currentUser.email; }
+    if (!existing.exists) {
+      data.points = SIGNUP_BONUS; data.signupBonusGranted = true;   // BRIEF-017 signup bonus
+      data.createdAt = nowTs(); data.email = auth.currentUser.email;
+    }
     await ref.set(data, { merge:true });
     const s = await ref.get(); cachedMe = Object.assign({ uid }, s.data());
     cache["users"] = null;
@@ -151,18 +159,53 @@ const ZB_STORE = {
     out.sort((a,b) => 0);
     return out;
   },
-  async respinsLeft() {
+  // ---- spin economy (BRIEF-017) ----
+  // users/{uid}.spin = { date:"YYYY-MM-DD", freeAvailable:bool }, day-stamped so a free spin
+  // cannot be minted by leaving and coming back. A new day always grants one free spin;
+  // sending a request grants another. Everything else costs 1 point, floored and blocked at 0.
+  async spinState() {
     const me = cachedMe || (await this.getMe()) || {};
-    const r = me.respins || { date:"", used:0 }; const today = new Date().toISOString().slice(0,10);
-    return r.date === today ? Math.max(0, 2 - r.used) : 2;
+    const s = normSpin(me.spin);
+    return { points: me.points || 0, freeSpin: s.freeAvailable };
   },
-  async useRespin() {
-    const uid = uidNow(); const today = new Date().toISOString().slice(0,10);
-    const me = cachedMe || (await this.getMe()) || {}; const r = me.respins || {};
-    const used = r.date === today ? (r.used||0) + 1 : 1;
-    await db.collection("users").doc(uid).set({ respins:{ date:today, used } }, { merge:true });
-    if (cachedMe) cachedMe.respins = { date:today, used };
+  // Prices one spin. Returns { ok, free, points } — ok:false means the user is out of points.
+  async paySpin() {
+    const uid = uidNow(); const ref = db.collection("users").doc(uid);
+    let res = { ok:false, free:false, points:0 };
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(ref); const d = snap.data() || {};
+      const s = normSpin(d.spin); const points = d.points || 0;
+      if (s.freeAvailable) {
+        tx.update(ref, { spin:{ date:s.date, freeAvailable:false } });
+        res = { ok:true, free:true, points };
+      } else if (points >= 1) {
+        tx.update(ref, { points: FV.increment(-1), spin:{ date:s.date, freeAvailable:false } });
+        res = { ok:true, free:false, points: points - 1 };
+      } else {
+        res = { ok:false, free:false, points:0 };   // blocked, never negative
+      }
+    });
+    if (res.ok) { cachedMe = null; cache["users"] = null; }
+    return res;
+  },
+  // Sending a request makes the NEXT spin free, so chaining real meetups costs nothing.
+  async grantFreeSpin() {
+    const uid = uidNow(); const today = todayStr();
+    await db.collection("users").doc(uid).set({ spin:{ date:today, freeAvailable:true } }, { merge:true });
+    if (cachedMe) cachedMe.spin = { date:today, freeAvailable:true };
     return true;
+  },
+  // Existing accounts predate the 30-point signup bonus; grant it exactly once.
+  async claimSignupBonus() {
+    const uid = uidNow(); const ref = db.collection("users").doc(uid); let granted = false;
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(ref); const d = snap.data(); if (!d) return;
+      if (d.signupBonusGranted) return;
+      granted = true;
+      tx.update(ref, { points: FV.increment(SIGNUP_BONUS), signupBonusGranted:true });
+    });
+    if (granted) { cachedMe = null; cache["users"] = null; }
+    return granted;
   },
   async createMatch(other, type, questions) {
     const uid = uidNow(); const me = cachedMe || (await this.getMe());
