@@ -30,6 +30,9 @@ matching push. Data model: `users/{uid}` already exists; add an `fcmTokens` arra
      tokens with title/body + a `target` for deep-linking.
    - **Scheduled reminder**: once/day, for matches accepted > 3 days ago and not completed by that user, send a
      "finish your meetup" push. (This also delivers the roadmap's 3-day reminder.)
+   - **Daily spin nudge (from Sean, 2026-09-10):** a scheduled function at **09:00 Europe/Amsterdam** sends every
+     user who has a token + notification consent a "Time to spin — meet someone new today" push (`target: spin`).
+     Respect consent/opt-out; don't send to users who declined.
 3. **Consent step** (`js/app.js:255`): add a line + default-on toggle — "Get notified about matches and
    messages" — that drives the permission request. Respect a user who declines at the OS level (don't nag;
    re-offerable from Profile). Keep the GDPR consent copy accurate (mention push).
