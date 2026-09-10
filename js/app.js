@@ -222,7 +222,7 @@ window.checkUpdate=function(){
 let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],spin:{points:0,freeSpin:true},admin:false,leaderboard:[],bugs:[],build:null,adminData:null};
 let adminOpenQ=null,adminAnon=false;   // which question is expanded; whether to hide who said what
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
-let AWARD={first:"",points:30,balance:30};   // props for the Points Awarded screen
+let AWARD={first:"",points:30,bonus:0,balance:30};   // props for the Points Awarded screen
 let ICE={qs:[],answers:["","",""],from:"onboard"};   // the icebreaker step
 let OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
 // The two matching-critical labels — keyed off by eligible(), so never inline these strings.
@@ -518,7 +518,8 @@ window.iceFromProfile=function(){iceStart('profile');};
 // Leaving the award screen: stop the rAF loop and drop the canvas so it can't keep drawing.
 async function showAward(){
   const me=await S.getMe();
-  AWARD={first:(me&&(me.first||(me.name||"").split(" ")[0]))||"",points:30,balance:(me&&me.points)||30};
+  AWARD={first:(me&&(me.first||(me.name||"").split(" ")[0]))||"",points:30,
+         bonus:(me&&me.icebreakerBonusGranted)?10:0,balance:(me&&me.points)||30};
   mode="onboarding";onboardStep='awarded';renderOnboard();
 }
 window.awardToSpin=async function(){
@@ -537,7 +538,7 @@ function renderOnboard(){
     const done=ICE.qs.filter((q,i)=>(ICE.answers[i]||'').trim()).length;
     sc.innerHTML=`<div class="ob"><div>
       <h2>A little about you</h2>
-      <p class="sub">Three quick icebreakers so colleagues have something to talk about when you meet. Shared <b>only with the people you match with</b> — never on the wall, and not collected by admins.</p>
+      <p class="sub">Three quick icebreakers so colleagues have something to talk about when you meet — answer all three and <b>earn 10 points</b>. Shared <b>only with the people you match with</b> — never on the wall, and not collected by admins.</p>
       ${ICE.qs.map((q,i)=>`<div class="q"><div class="t">${q.text}</div>
         <textarea class="input" rows="2" placeholder="Your answer…" oninput="iceAns(${i},this.value)">${ICE.answers[i]||''}</textarea></div>`).join('')}
       <p class="muted small" style="line-height:1.5">Keep it work-appropriate — these are shown to colleagues you'll be meeting. You can change them later on the You screen.</p>
@@ -560,6 +561,8 @@ function renderOnboard(){
         <p class="sub">Onboarding complete. Spin to get matched with a colleague and start earning.</p>
         <div class="zb-chip-award"><span class="puck">${icon('star',19)}</span>
           <span style="display:flex;align-items:baseline;gap:6px"><span class="n">${AWARD.points} points</span><span class="t">awarded to you!</span></span></div>
+        ${AWARD.bonus?`<div class="zb-chip-award zb-chip-bonus"><span class="puck">${icon('chat',17)}</span>
+          <span style="display:flex;align-items:baseline;gap:6px"><span class="n">+${AWARD.bonus} points</span><span class="t">for your icebreakers</span></span></div>`:''}
         <div class="balance">Balance: ${AWARD.balance} points</div>
       </div>
       <div class="foot">
@@ -828,21 +831,25 @@ function viewMeetups(){
   if(hist.length){h+=`<div class="hr"></div><p class="sub" style="font-weight:700;color:var(--ink)">Completed</p>`;hist.forEach(m=>{h+=`<div class="card" style="cursor:pointer" onclick="go('recap:${m.id}')"><div class="row between"><div class="row">${av(m.person,'sm')}<div><div style="font-weight:600">${m.person.name}</div><div class="muted small">${m.type}${m.otherCompleted?'':` · waiting on ${m.person.first}`}</div></div></div><div class="row" style="gap:8px"><span class="chip good">+${myPoints(m)} pts</span>${icon('back',16)}</div></div></div>`;});}
   return h;
 }
+// A partner's icebreakers, shown in both the active shared space and the completed recap so the
+// two cannot drift. Read from the live user list first; the match's profile snapshot is the
+// fallback, so answers filled in after the match was created still appear.
+function talkingPointsHTML(m){
+  const fresh=(C.users||[]).filter(u=>u&&u.uid===m.person.uid)[0];
+  const ib=((fresh&&fresh.icebreakers)||m.person.icebreakers||[]).filter(x=>x&&(x.answer||'').trim());
+  if(!ib.length)return '';
+  return `<div class="card talk"><div class="row between"><div class="lead"><span class="nicon">${icon('chat',18)}</span><b>Talking points</b></div><span class="chip">${m.person.first}</span></div>
+    <p class="muted small" style="margin:8px 0 2px">${m.person.first}'s icebreakers — a head start on the conversation.</p>
+    ${ib.map(x=>`<div class="q"><div class="t">${x.question||''}</div><div class="small ans">${x.answer}</div></div>`).join('')}</div>`;
+}
 function viewMeet(id){
   const m=C.matches.find(x=>x.id===id&&!x.completed);if(!m)return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><div class="card muted">You've finished your part of this meetup.</div><button class="btn secondary" onclick="go('recap:${id}')">${icon('check',18)} View the recap</button>`;
   const last=m.messages.length?m.messages[m.messages.length-1]:null;
   const mp=typeof m.photo==='string'?m.photo:null;   // the shared meetup photo (base64), if set
   return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Meetup with ${m.person.first}</h2><p class="sub">A shared space you both fill in</p>
    <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">You both accepted — suggested: <b>${m.type}</b>. Plan a time and place together.</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} Plan your meetup${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Last message: ${(last.by==='me'?'You: ':'')+last.text}</div>`:''}</div>
+   ${talkingPointsHTML(m)}
    <div class="card"><div class="row between"><b>1 · Share a photo</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">A quick pic of the two of you — or a Teams screenshot. One photo per meetup: either of you can add it, and you both see it.</p>${m.photo?`${mp?`<img src="${mp}" alt="Your meetup photo" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} Add meetup photo</button>`}</div>
-   ${(function(){
-     const fresh=(C.users||[]).filter(u=>u&&u.uid===m.person.uid)[0];
-     const ib=((fresh&&fresh.icebreakers)||m.person.icebreakers||[]).filter(x=>x&&(x.answer||'').trim());
-     if(!ib.length)return '';
-     return `<div class="card"><div class="row between"><b>Talking points</b><span class="chip grey">${m.person.first}</span></div>
-       <p class="muted small" style="margin:8px 0 10px">${m.person.first}'s icebreakers — a head start on the conversation.</p>
-       ${ib.map(x=>`<div class="q"><div class="t">${x.question||''}</div><div class="small" style="margin-top:4px;white-space:pre-wrap">${x.answer}</div></div>`).join('')}</div>`;
-   })()}
    <div class="card"><div class="row between"><b>2 · Discussion questions</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${q.t}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="Your answer…">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">Your answers stay private (admins only). The photo goes to the community wall.</p></div>
    <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} Complete my part</button>
    <p class="muted small center" style="margin-top:8px">${canComplete(m)?"That's your +5 for the questions — the photo earns its own +5.":'Answer all 3 questions to complete your part.'}</p>
@@ -859,6 +866,7 @@ function viewRecap(id){
      <div class="muted small" style="margin-top:10px">${m.photoAwarded?'Shared photo +5':'No photo — no photo points'} · ${m.completed?'Your questions +5':'Questions not completed'}</div>
      <div class="muted small" style="margin-top:4px">${m.otherCompleted?`${m.person.first} has finished their part too.`:`${m.person.first} hasn't finished their part yet.`}</div></div>
    <div class="card"><b>The photo</b><div style="margin-top:10px">${sceneSquare(sc,'',mp)}</div>${mp?'':`<p class="muted small" style="margin-top:8px">No photo was added for this meetup.</p>`}</div>
+   ${talkingPointsHTML(m)}
    <div class="card"><b>Your answers</b><p class="muted small" style="margin:6px 0 10px">Only you (and admins) can see these — never the other participant.</p>
      ${m.questions.map((q,i)=>`<div class="q"><div class="t">${q.t}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><div class="small" style="margin-top:6px;white-space:pre-wrap">${(m.answers[i]||'').trim()||'<span class="muted">Not answered</span>'}</div></div>`).join('')}</div>`;
 }
@@ -914,13 +922,14 @@ function viewProfile(){
    ${C.admin?`<button class="btn secondary" style="margin-top:10px" onclick="go('admin')">${icon('chart',18)} Admin dashboard</button>`:''}
    ${(function(){
      const ib=(C.me&&C.me.icebreakers)||[];
+     const top='style="margin-top:14px"';
      const answered=ib.filter(x=>x&&(x.answer||'').trim()).length;
      if(answered>=3&&C.me&&C.me.icebreakerBonusGranted)
-       return `<div class="card"><div class="row between"><b>Your icebreakers</b><span class="chip good">+10 earned</span></div>
+       return `<div class="card" ${top}><div class="row between"><b>Your icebreakers</b><span class="chip good">+10 earned</span></div>
          <p class="muted small" style="margin:8px 0 10px">Shown to colleagues you match with, as talking points.</p>
          ${ib.map(x=>`<div class="q"><div class="t">${x.question||''}</div><div class="small" style="margin-top:4px;white-space:pre-wrap">${x.answer}</div></div>`).join('')}
          <button class="btn ghost sm" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('pencil',15)} Edit answers</button></div>`;
-     return `<div class="card"><div class="row between"><b>Break the ice</b><span class="chip">+10 pts</span></div>
+     return `<div class="card" ${top}><div class="row between"><b>Break the ice</b><span class="chip">+10 pts</span></div>
        <p class="muted small" style="margin:8px 0 10px">Answer 3 quick questions about yourself and earn 10 points. They're shown only to colleagues you match with — a head start on the conversation.</p>
        <button class="btn secondary" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('chat',17)} ${answered?'Finish your icebreakers':'Answer 3 questions'}</button></div>`;
    })()}

@@ -78,6 +78,29 @@ professionalism note; meetups show partners' icebreakers and ask only T1 idea qu
 admin still manages both tiers (relabelled Idea/Icebreaker); consent copy updated; both stores in lockstep; demo
 harness green; `?v=` bumped; tracker + session log updated.
 
+## Revision — polish from Sean's live test (2026-09-10, same `feat/icebreakers` branch, before merge)
+Functionality + privacy boundary all verified (export is idea-only, no T2 leak). Four UI fixes:
+1. **"A little about you" screen must mention the +10** at the top. The intro currently explains the sharing/
+   privacy but not the reward — add that completing the 3 earns 10 points (the button already says "Save — earn 10
+   points", but the header should set it up).
+2. **Award screen — show the +10 as its own chip.** When the user answered the icebreakers, show a **"+10 points"**
+   chip **beneath** the existing "30 points" chip (so the two awards read distinctly: 30 signup + 10 icebreakers →
+   Balance 40). If they **skipped**, show only the 30-points chip. Balance line stays the true total.
+3. **You-screen spacing.** The "Your icebreakers" card (answered) and the "Break the ice" card (skipped) sit too
+   close to the buttons above — the card top touches the Admin dashboard / bug buttons. Add proper top margin/gap
+   so the card breathes (match the spacing between the other You-screen cards).
+4. **Meetup shared space order + emphasis.** Move **"1 · Share a photo" BELOW the Talking points card**, so the
+   order is: hero → **Talking points** → Share a photo → Discussion questions. And make the **Talking points card
+   "pop"** (more visual weight — e.g. a light accent background/border or subtle elevation) since it's the warm,
+   human "here's your partner" moment. Keep the photo + questions steps working; renumber only if needed.
+
+5. **Completed-meetup recap shows the icebreakers too.** The recap view (a completed match — "your part is
+   complete") currently shows the photo + your private T1 answers but not the partner's icebreakers. Add the same
+   **Talking points** card (partner's 3 icebreaker Q&A) to the recap, so it's consistent with the active shared
+   space. Keep "Your answers" clearly labelled private (you + admins only); icebreakers remain the partner-visible set.
+
+(App-wide primary-button gradient consistency is a separate follow-up — BRIEF-021 — not this branch.)
+
 ## Timeline note
 This reshapes onboarding, which colleagues hit from **Mon 14 Sep**, so it wants to land + be tested before then.
 If the window gets too tight to test comfortably: the safe fallback is to **load the 68 questions now** (content,

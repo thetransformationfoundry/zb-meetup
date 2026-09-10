@@ -1,6 +1,6 @@
 # Session — 2026-09-10 · BRIEF-020 · icebreakers + tier split by purpose (v=29)
 
-**Branch:** `feat/icebreakers` (off `main` @ d73cefc) · **Status:** built, harness 119/119 green,
+**Branch:** `feat/icebreakers` (off `main` @ d73cefc) · **Status:** built, harness 125/125 green,
 **awaiting Sean's test + merge**.
 
 ## The reframe
@@ -47,12 +47,28 @@ That is a privacy boundary as much as a UX one, so it is enforced in three place
    icebreakers and each answer appears on screen), which then failed for a genuine reason: it ran *after* the
    meetup was completed, where `viewMeet` correctly shows the recap. Moved to while the meetup is active.
 
-## Harness (11 new checks, 119 total)
+## Harness (17 new checks, 125 total)
 The bank is 68 with 34/34; onboarding asks three questions and they are all Tier 2; three answers are stored
 on the user with question text; +10 granted once and not twice; the signup bonus is asserted at 30 *before*
 the icebreaker bonus lands; meetup questions are Tier-1 only; with no Idea questions a meetup gets none; the
 partner's icebreakers render as talking points; and four separate assertions that **no icebreaker answer and
 no Tier-2 question text reaches the idea bank or the CSV**.
+
+## Revision — polish (2026-09-10, same branch)
+Five fixes from Sean's review, all UI:
+1. **The intro names the reward** — "answer all three and **earn 10 points**" in the header, not only on the
+   button, so the incentive is visible before someone decides whether to bother.
+2. **Award screen shows a second chip**: the 30-point signup chip, then a **+10 for your icebreakers** chip
+   beneath it (its own spring, 100ms later), reconciling to Balance 40. Skipped icebreakers show only the 30.
+3. **You-screen spacing** — the icebreaker card was flush against the buttons above it; now `margin-top:14px`
+   like the other cards.
+4. **Shared space reordered** to hero → Talking points → photo → questions, and the card got real presence:
+   a tinted gradient, blue question text, and a chat icon in the header. It is static, so the tint carries no
+   `backdrop-filter` risk. Talking points before the tasks makes sense — it is what starts the conversation.
+5. **The recap shows Talking points too.** While wiring it I **factored the card into one
+   `talkingPointsHTML(m)` helper** used by both the active space and the recap, rather than copying the
+   markup — two copies of the same card would have drifted the first time either changed. "Your answers"
+   keeps its private label.
 
 ## Live note
 The reseed happens when an **admin opens the admin dashboard** — that is what runs `seedQuestionBank()`. Until
