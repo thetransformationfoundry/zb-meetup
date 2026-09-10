@@ -20,7 +20,13 @@ const document = { querySelector:s=>store[s]||(store[s]=El()), getElementById:id
   currentScript:{ src:"js/app.js?v=15" } };
 // version.json over fetch = what is DEPLOYED. Off until a test turns it on.
 // export path: Blob + URL.createObjectURL + <a download>
-global.confirm = () => true;          // question delete asks for confirmation
+global.confirm = () => true;
+// ?preview=1 stores a flag in localStorage; the app reads it through try/catch.
+const _ls = {};
+global.localStorage = { getItem:k=>(k in _ls?_ls[k]:null), setItem:(k,v)=>{_ls[k]=String(v);}, removeItem:k=>{delete _ls[k];} };
+const REAL_NOW = Date.now;
+const setNow = t => { Date.now = () => t; };
+const realNow = () => { Date.now = REAL_NOW; };          // question delete asks for confirmation
 global.__lastDownload = null;
 global.Blob = function(parts){ this.parts = parts; this._text = (parts||[]).join(""); };
 global.URL = { createObjectURL(b){ global.__lastDownload = { text:b._text }; return "blob:zb"; }, revokeObjectURL(){} };
@@ -55,7 +61,7 @@ load("js/firebase-config.js");
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__spinLocked=()=>spinLocked();window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -258,6 +264,57 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   try { await window.ZB_STORE.adminAnswers(); } catch (e) { denied = (e && e.code) === "zb/not-admin"; }
   chk("a non-admin cannot read the answers", denied && (await window.ZB_STORE.isAdmin()) === false);
   window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+
+  /* ---- BRIEF-019: go-live spin lock ---- */
+  const UNLOCK = window.__unlock.getTime();
+  chk("SPIN_UNLOCK is 2026-09-16 07:00Z (09:00 Amsterdam)",
+      window.__unlock.toISOString() === "2026-09-16T07:00:00.000Z");
+
+  setNow(UNLOCK - 3 * 86400000);          // three days before launch
+  // a normal colleague is locked out and sees the countdown
+  window.ZB_STORE._email = "someone.else@zimmerbiomet.com";
+  await refreshAndSettle();
+  chk("a non-admin is locked before unlock", window.__spinLocked() === true);
+  window.go("spin");
+  const cd = scr();
+  chk("countdown screen renders", /COUNTDOWN TO LAUNCH/.test(cd) && /Get ready to spin/.test(cd)
+      && /id="cdD"/.test(cd) && /id="cdS"/.test(cd) && /How it works/.test(cd));
+  chk("countdown shows 3 days remaining", /id="cdD">03</.test(cd));
+  chk("the real spin screen is behind it, blurred", /class="behind"/.test(cd) && /TODAY.S MATCH/.test(cd));
+  chk("no invented colleagues in the pills", !/Priya Raman|Anna Kessler|Mandy Hill|Jonas Ott/.test(cd));
+  chk("the decorative layer is inert, so it can't be tabbed into", /class="behind"[^>]*inert/.test(cd));
+  // the gate is on the ACTION too, not just the view
+  const ptsBefore = (await window.ZB_STORE.getMe()).points;
+  await window.doSpin();
+  chk("doSpin is refused while locked", (await window.ZB_STORE.getMe()).points === ptsBefore);
+
+  // How it works is reachable and comes back to Spin
+  window.go("howitworks");
+  chk("How it works opens in-app and returns to Spin", /go\('spin'\)/.test(scr()));
+
+  // admins bypass so they can seed and test
+  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+  await refreshAndSettle();
+  chk("an admin bypasses the lock", window.__spinLocked() === false);
+  window.go("spin"); chk("admin sees the real spin screen", /TODAY.S MATCH/.test(scr()) && !/COUNTDOWN TO LAUNCH/.test(scr()));
+
+  // ?preview=1 forces the countdown for QA, even as an admin
+  global.localStorage.setItem("zbPreviewCountdown", "1");
+  chk("preview forces the countdown for an admin", window.__spinLocked() === true);
+  window.go("spin"); chk("preview shows the countdown", /COUNTDOWN TO LAUNCH/.test(scr()));
+  global.localStorage.removeItem("zbPreviewCountdown");
+
+  // at and after the unlock instant the gate lifts with no redeploy
+  setNow(UNLOCK);
+  window.ZB_STORE._email = "someone.else@zimmerbiomet.com";
+  await refreshAndSettle();
+  chk("the lock lifts exactly at the unlock instant", window.__spinLocked() === false);
+  setNow(UNLOCK + 60000);
+  chk("still open after the unlock", window.__spinLocked() === false);
+  window.go("spin"); chk("spin works after unlock", /TODAY.S MATCH/.test(scr()));
+  realNow();
+  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+  await refreshAndSettle();
 
   /* ---- BRIEF-008: editable question bank ---- */
   const bank = () => window.ZB_STORE.questionBank();

@@ -36,8 +36,15 @@ window.ZB_CONFIG = {
     "sean.abbood@thetransformationfoundry.nl" // Sean — builder
   ],
 
+  // Spinning unlocks Wed 16 Sep 2026, 09:00 Europe/Amsterdam (CEST = UTC+2, so 07:00Z).
+  // ONE source of truth — a fixed instant, so everyone unlocks together regardless of device
+  // timezone. This is a soft launch gate, not security: the check is client-side by design.
+  SPIN_UNLOCK: "2026-09-16T09:00:00+02:00",
+
   appName: "ZB MeetUP"
 };
+
+window.ZB_SPIN_UNLOCK = new Date(window.ZB_CONFIG.SPIN_UNLOCK);
 
 // Is this email allowed to hold an account? Case-insensitive, exact domain match
 // (so "notzimmerbiomet.com" and "zimmerbiomet.com.evil.tld" are both rejected).
