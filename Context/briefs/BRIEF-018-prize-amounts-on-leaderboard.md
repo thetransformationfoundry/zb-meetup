@@ -1,9 +1,22 @@
-# BRIEF-018 · Real prize amounts on the leaderboard card
+# BRIEF-018 · Launch copy pass — prize amounts + How It Works points economy
 
-**Branch:** `feat/prize-amounts`  ·  **Status:** ready for CC  ·  **From:** Donnae, 2026-09-10  ·  Small.
+**Branch:** `feat/launch-copy`  ·  **Status:** ready for CC  ·  **From:** Donnae + Sean, 2026-09-10  ·  Small, launch-relevant.
 
 ## Goal
-Update the Prizes card on the leaderboard/ranks screen with the confirmed amounts + a money icon.
+Update the Prizes card (ranks screen) with the confirmed amounts + money icon, AND update the **How It Works**
+explainer so it reflects the new **points economy** (BRIEF-017), which it currently doesn't mention at all.
+
+## Part B — How It Works updates (`howItWorksHTML` STEPS, `js/app.js:458`)
+The 5-step explainer predates the points economy. Update the copy (keep the 5-step structure, icons, styling):
+- **Step 1 "Get matched":** add the spin economy in plain language — you start with a **30-point welcome bonus**;
+  your **first spin each day is free**; if you **skip/respin** the colleague you're matched with it **costs 1
+  point**, so give people a chance. (Keep it friendly, not rule-heavy.)
+- **Step 5 "Climb & win":** state the real prizes — **€250** best idea (chosen by a CB management panel), **€250**
+  top of the leaderboard, **€150** runner-up; winners announced **end of October 2026**.
+- Sanity-check steps 2–4 still read true (they do: accept → shared space/chat → meet → photo + 3 questions).
+- Sean may tweak the exact wording — treat the above as the intent, keep it warm and concise.
+
+## Part A — Prizes card
 
 ## The prizes (confirmed by Donnae)
 - **Best Idea — €250** — most innovative idea, chosen by a panel of CB management judges.

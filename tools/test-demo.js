@@ -217,7 +217,23 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
 
   window.go("meetups"); chk("shows under Completed", /Completed/.test(scr()) && /\+10 pts/.test(scr()));
   window.go("recap:"+id); chk("recap shows my answers, not theirs", /Your answers/.test(scr()) && /Not answered/.test(scr()) === false);
-  window.go("ranks"); chk("leaderboard + prizes", /CB management judges/.test(scr()));
+  window.go("ranks");
+  const ranks = scr();
+  chk("leaderboard + prizes", /CB management judges/.test(ranks));
+  chk("prize card shows the real amounts",
+      (ranks.match(/€250/g)||[]).length >= 2 && /€150/.test(ranks)
+      && /winners announced end of October 2026/.test(ranks));
+  chk("prize chip uses the money icon, not an emoji",
+      /<rect x="2.6" y="6.4"/.test(ranks) && !/[\u{1F300}-\u{1FAFF}]/u.test(ranks));
+
+  window.go("howitworks");
+  const hiw = scr();
+  chk("How It Works explains the points economy",
+      /30-point welcome bonus/.test(hiw) && /first spin each day is free/i.test(hiw)
+      && /costs 1 point/.test(hiw));
+  chk("How It Works states the real prizes",
+      /€250/.test(hiw) && /€150/.test(hiw) && /end of October 2026/.test(hiw));
+  window.go("ranks");
   window.go("profile");
   const prof = scr();
   chk("profile", /Manage your profile/.test(prof));
