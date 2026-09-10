@@ -125,29 +125,55 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("avatar captures at 256px", global.__canvasPx === 256);
   window.obStep(4); document.getElementById("ob-consent").checked = true;
   await window.finishOnboard();
-  // onboarding now ends on the Points Awarded screen (BRIEF-017 / Claude Design handoff)
+  /* ---- BRIEF-020: the icebreaker step sits between onboarding and the award ---- */
+  const iceScr = scr();
+  chk("onboarding asks 3 icebreakers", /A little about you/.test(iceScr)
+      && (iceScr.match(/oninput="iceAns\(/g)||[]).length === 3
+      && /only with the people you match with/.test(iceScr)
+      && /work-appropriate/.test(iceScr));
+  const bank68 = await window.ZB_STORE.questionBank();
+  chk("question bank is the 68 from the source file",
+      bank68.length === 68 && bank68.filter(q=>q.tier===1).length === 34
+      && bank68.filter(q=>q.tier===2).length === 34);
+  const askedIce = []; let mIce, reIce = /class="t">([^<]+)</g;
+  while ((mIce = reIce.exec(iceScr))) askedIce.push(mIce[1]);
+  chk("icebreakers asked are all Tier 2", askedIce.length === 3
+      && askedIce.every(t => bank68.some(q => q.tier===2 && q.text === t)));
+
+  window.iceAns(0,"Answer one"); window.iceAns(1,"Answer two"); window.iceAns(2,"Answer three");
+  chk("signup grants the 30-point bonus", (await window.ZB_STORE.getMe()).points === 30);
+  chk("the signup bonus is not granted twice", (await window.ZB_STORE.claimSignupBonus()) === false
+      && (await window.ZB_STORE.getMe()).points === 30);
+  const ptsPre = (await window.ZB_STORE.getMe()).points;
+  await window.iceSave();
+  const meIce = await window.ZB_STORE.getMe();
+  chk("3 icebreakers stored on the user", (meIce.icebreakers||[]).length === 3
+      && meIce.icebreakers.every(x => x.id && x.question && x.answer));
+  chk("completing all 3 grants +10 once", meIce.points === ptsPre + 10
+      && meIce.icebreakerBonusGranted === true
+      && (await window.ZB_STORE.claimIcebreakerBonus()) === false
+      && (await window.ZB_STORE.getMe()).points === ptsPre + 10);
+
+  // onboarding then ends on the Points Awarded screen (BRIEF-017 / Claude Design handoff)
   const award = scr();
   chk("lands on the Points Awarded screen", /YOU'RE ALL SET/.test(award)
       && /Nice work, Test,/.test(award)                     // firstName injected
       && /30 points/.test(award) && /awarded to you!/.test(award)
-      && /Balance: 30 points/.test(award)
+      && /Balance: 40 points/.test(award)          // 30 signup + 10 icebreakers
       && /Take me to Spin/.test(award) && /Celebrate again/.test(award));
   chk("award screen renders without a real canvas", /<canvas id="cfCanvas">/.test(award));
   window.zbCelebrate();                                     // must be a no-op, not a throw
   await window.awardToSpin();
   chk("enters app on Spin", /TODAY.S MATCH/.test(scr()));
   /* ---- BRIEF-017: spin points economy ---- */
-  chk("signup grants the 30-point bonus", (await window.ZB_STORE.getMe()).points === 30);
-  chk("the bonus is not granted twice", (await window.ZB_STORE.claimSignupBonus()) === false
-      && (await window.ZB_STORE.getMe()).points === 30);
   chk("first spin of the day is free", (await window.ZB_STORE.spinState()).freeSpin === true);
   await window.doSpin(); chk("spins a match", /Send request/.test(scr()));
-  chk("the free spin cost nothing", (await window.ZB_STORE.getMe()).points === 30
+  chk("the free spin cost nothing", (await window.ZB_STORE.getMe()).points === 40   // 30 + 10 icebreakers
       && (await window.ZB_STORE.spinState()).freeSpin === false);
   await window.doSpin();
-  chk("a respin costs 1 point", (await window.ZB_STORE.getMe()).points === 29);
+  chk("a respin costs 1 point", (await window.ZB_STORE.getMe()).points === 39);
   await window.doSpin();
-  chk("each further respin costs 1 more", (await window.ZB_STORE.getMe()).points === 28);
+  chk("each further respin costs 1 more", (await window.ZB_STORE.getMe()).points === 38);
   chk("the reroll button shows its cost", /Spin again \(−1 pt\)/.test(scr()));
 
   // drain to zero and confirm the block, and that points never go negative
@@ -167,6 +193,13 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("Skip is gone from the spin screen", !/onclick="skip\(\)"/.test(scr()));
   const id = (await window.ZB_STORE.myMatches())[0].id;
   window.go("meet:"+id);
+  // the partner's icebreakers show as talking points in the shared space (BRIEF-020)
+  const partner = (await window.ZB_STORE.myMatches()).find(x=>x.id===id).person;
+  const partnerIce = ((await window.ZB_STORE.listUsers()).find(u=>u.uid===partner.uid)||{}).icebreakers||[];
+  const meetScr = scr();
+  chk("meetup shows the partner's icebreakers as talking points",
+      partnerIce.length === 3 && /Talking points/.test(meetScr)
+      && partnerIce.every(x => meetScr.indexOf(x.answer) > -1));
 
   // messaging + the bell: a message must produce a notif that deep-links to the thread
   window.go("thread:"+id);
@@ -282,6 +315,21 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("export produces real CSV rows",
       csv.indexOf('"Question","Tier","Answer"') > -1 && csv.split("\r\n").length === 4);
 
+  // BRIEF-020: icebreakers must NEVER reach the idea bank or the export
+  const ideaBank = await window.ZB_STORE.adminAnswers();
+  const iceAnswers = ((await window.ZB_STORE.getMe()).icebreakers||[]).map(x=>x.answer);
+  const bankText = JSON.stringify(ideaBank);
+  chk("idea bank contains no icebreaker answers", iceAnswers.every(a => bankText.indexOf(a) === -1));
+  chk("idea bank holds only Tier-1 questions",
+      ideaBank.questions.every(q => q.tier !== 2));
+  window.exportData();
+  const csvIce = (global.__lastDownload || {}).text || "";
+  chk("CSV export contains no icebreaker answers", iceAnswers.every(a => csvIce.indexOf(a) === -1));
+  chk("CSV export contains no Tier-2 question text",
+      (await window.ZB_STORE.questionBank()).filter(q=>q.tier===2)
+        .every(q => csvIce.indexOf(q.text) === -1));
+
+
   // security property: a non-admin gets nothing
   window.ZB_STORE._email = "someone.else@zimmerbiomet.com";
   let denied = false;
@@ -383,10 +431,14 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       /qEdit\(/.test(bankUI) && /qDel\(/.test(bankUI) && /qTier\(/.test(bankUI));
 
   // tiering still drives pickQuestions, including when a tier is emptied
+  chk("meetup questions are Tier-1 (idea) only",
+      window.__pickQuestions().length === 3
+      && window.__pickQuestions().every(q => q.tier === 1));
   const tier1 = (await bank()).filter(q => q.tier === 1);
   for (const q of tier1) await window.ZB_STORE.updateQuestion(q.id, { tier:2 });
   await refreshAndSettle();
-  chk("an empty tier-1 still yields 3 questions", window.__pickQuestions().length === 3);
+  chk("with no idea questions a meetup gets none (and spinning is blocked)",
+      window.__pickQuestions().length === 0);
   for (const q of tier1) await window.ZB_STORE.updateQuestion(q.id, { tier:1 });
   await refreshAndSettle();
   chk("tiering restored", (await bank()).filter(q => q.tier === 1).length === tier1.length);

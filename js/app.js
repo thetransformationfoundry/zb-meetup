@@ -223,6 +223,7 @@ let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],spin:{points:
 let adminOpenQ=null,adminAnon=false;   // which question is expanded; whether to hide who said what
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
 let AWARD={first:"",points:30,balance:30};   // props for the Points Awarded screen
+let ICE={qs:[],answers:["","",""],from:"onboard"};   // the icebreaker step
 let OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
 // The two matching-critical labels — keyed off by eligible(), so never inline these strings.
 const EMEA_ROLE='EMEA - QARA Commercial';
@@ -268,18 +269,14 @@ function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=(Math.random(
 // one tier-1 plus two tier-2. Since an admin can now delete and re-tier freely (BRIEF-008), a
 // tier can be empty — so the picks are topped up from the whole shuffled bank rather than
 // leaving holes. Returns fewer than 3 only if the bank itself holds fewer.
+// Meetup discussion questions are Tier-1 (IDEA) ONLY — BRIEF-020. Tier 2 are icebreakers,
+// asked once at onboarding and never collected, so they must never appear in a meetup.
+const ideaQuestions=()=>(C.questions||[]).filter(q=>q.tier===1);
+const icebreakerQuestions=()=>(C.questions||[]).filter(q=>q.tier===2);
 function pickQuestions(){
-  const bank=C.questions||[];
+  const bank=ideaQuestions();
   if(!bank.length)return [];
-  const first=history().length===0&&activeMatches().length===0;
-  const t1=shuffle(bank.filter(q=>q.tier===1)),t2=shuffle(bank.filter(q=>q.tier!==1));
-  let ch=first?t1.slice(0,3):[t1[0],t2[0],t2[1]];
-  ch=ch.filter(Boolean);
-  if(ch.length<3){                                     // top up from whatever is left
-    const rest=shuffle(bank).filter(q=>!ch.some(c=>c.id===q.id));
-    ch=ch.concat(rest.slice(0,3-ch.length));
-  }
-  return ch.slice(0,3).map(q=>({id:q.id,t:q.text,tier:q.tier}));
+  return shuffle(bank).slice(0,3).map(q=>({id:q.id,t:q.text,tier:q.tier}));
 }
 const myAnswersDone=m=>m.answers.every(a=>(a||'').trim());
 const canComplete=m=>myAnswersDone(m)&&!m.completed;   // my 3 answers = my +5; the photo earns its own +5
@@ -489,7 +486,41 @@ window.obGoCreate=function(){stopTagline();onboardStep=0;renderOnboard();};
 window.obGoSignIn=function(){stopTagline();onboardStep='signin';renderOnboard();};
 window.obHow=function(){stopTagline();onboardStep='how';renderOnboard();};
 window.obBackWelcome=function(){onboardStep='welcome';renderOnboard();};
+// Three random icebreakers. `from` decides where Save/Skip goes: the onboarding award screen,
+// or back to You when it's picked up later.
+function iceStart(from){
+  const pool=shuffle(icebreakerQuestions()).slice(0,3);
+  const existing=(C.me&&C.me.icebreakers)||[];
+  ICE={qs:pool.length?pool:[],answers:pool.map(q=>{
+    const hit=existing.filter(x=>x&&x.id===q.id)[0];return hit?(hit.answer||''):'';
+  }),from:from||'onboard'};
+  if(!ICE.qs.length){iceDone();return;}
+  mode="onboarding";onboardStep='ice';renderOnboard();
+}
+window.iceAns=function(i,v){ICE.answers[i]=v;
+  const b=document.querySelector('.ob-cta .btn');
+  if(b)b.textContent=ICE.answers.filter(a=>(a||'').trim()).length===3?'Save — earn 10 points':'Save';
+};
+function iceDone(){
+  if(ICE.from==='profile'){mode="app";view="profile";refresh();return;}
+  showAward();
+}
+window.iceSave=async function(){
+  const list=ICE.qs.map((q,i)=>({id:q.id,question:q.text,answer:(ICE.answers[i]||'').trim()}))
+                   .filter(x=>x.answer);
+  await S.saveIcebreakers(list);
+  if(list.length===3&&await S.claimIcebreakerBonus())toast("Nice — 10 points for your icebreakers!");
+  await refresh();
+  iceDone();
+};
+window.iceSkip=function(){iceDone();};
+window.iceFromProfile=function(){iceStart('profile');};
 // Leaving the award screen: stop the rAF loop and drop the canvas so it can't keep drawing.
+async function showAward(){
+  const me=await S.getMe();
+  AWARD={first:(me&&(me.first||(me.name||"").split(" ")[0]))||"",points:30,balance:(me&&me.points)||30};
+  mode="onboarding";onboardStep='awarded';renderOnboard();
+}
 window.awardToSpin=async function(){
   try{ if(cfRaf)cancelAnimationFrame(cfRaf); }catch(e){}
   cfRaf=null;cfCanvas=null;cfParts=[];
@@ -501,6 +532,21 @@ function renderOnboard(){
   const sc=$("#screen"),ab=$("#appbar"),tb=$("#tabbar");
   if(onboardStep==='welcome'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=welcomeHTML();startTagline();return; }
   if(onboardStep==='how'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=howItWorksHTML();return; }
+  if(onboardStep==='ice'){
+    ab.style.display='none';tb.style.display='none';sc.style.padding='';
+    const done=ICE.qs.filter((q,i)=>(ICE.answers[i]||'').trim()).length;
+    sc.innerHTML=`<div class="ob"><div>
+      <h2>A little about you</h2>
+      <p class="sub">Three quick icebreakers so colleagues have something to talk about when you meet. Shared <b>only with the people you match with</b> — never on the wall, and not collected by admins.</p>
+      ${ICE.qs.map((q,i)=>`<div class="q"><div class="t">${q.text}</div>
+        <textarea class="input" rows="2" placeholder="Your answer…" oninput="iceAns(${i},this.value)">${ICE.answers[i]||''}</textarea></div>`).join('')}
+      <p class="muted small" style="line-height:1.5">Keep it work-appropriate — these are shown to colleagues you'll be meeting. You can change them later on the You screen.</p>
+      </div><div class="ob-cta">
+      <button class="btn" onclick="iceSave()">${icon('check',18)} ${done===3?'Save — earn 10 points':'Save'}</button>
+      <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="iceSkip()">Skip for now</button>
+    </div></div>`;
+    return;
+  }
   if(onboardStep==='awarded'){
     ab.style.display='none';tb.style.display='none';sc.style.padding='0';
     const first=(AWARD.first||'').trim();
@@ -585,7 +631,11 @@ function renderOnboard(){
       <div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">…or pick an avatar colour</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="obColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${(OB.color===c&&!OB.photo)?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div>`;
     cta=`<button class="btn" onclick="obStep(4)">Continue</button>`;
   } else {
-    body=`<h2>One quick thing</h2><p class="sub">Your consent, so the app can work.</p><div class="card small" style="line-height:1.5">ZB MeetUP stores your profile, meetup <b>photos</b> and question <b>answers</b> so the app works. Meetup photos appear on the community wall; your answers stay <b>private</b> (visible only to admins). You can delete your account any time.</div><label class="row" style="gap:10px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ob-consent" style="width:20px;height:20px"> <span class="small">I understand and consent (GDPR).</span></label>`;
+    body=`<h2>One quick thing</h2><p class="sub">Your consent, so the app can work.</p><div class="card small" style="line-height:1.5">ZB MeetUP stores your profile, meetup <b>photos</b> and your answers so the app works.
+      <br><br>· Meetup <b>photos</b> appear on the community wall.
+      <br>· Your <b>meetup discussion answers</b> are private to you and are <b>reviewed by admins</b> — they form the idea bank behind the prize.
+      <br>· Your <b>icebreaker answers</b> are shown <b>only to colleagues you match with</b>, as talking points. They are not collected by admins and not exported.
+      <br><br>You can change or delete your answers, and delete your account, at any time.</div><label class="row" style="gap:10px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ob-consent" style="width:20px;height:20px"> <span class="small">I understand and consent (GDPR).</span></label>`;
     cta=`<button class="btn" onclick="finishOnboard()">Enter ZB MeetUP</button>`;
   }
   $("#screen").innerHTML=`<div class="ob"><div>${dots}${body}</div><div class="ob-cta">${cta}</div></div>`;
@@ -646,9 +696,8 @@ window.finishOnboard=async function(){
   // The award screen is the last step of onboarding. It REPORTS the bonus the store already
   // granted — per the handoff, this screen is not the source of truth for the award — then
   // routes on to Spin.
-  const me=await S.getMe();
-  AWARD={first:(me&&(me.first||(me.name||"").split(" ")[0]))||"",points:30,balance:(me&&me.points)||30};
-  onboardStep='awarded'; renderOnboard();
+  await refresh();
+  iceStart('onboard');          // icebreakers first, so the award screen shows the real balance
 };
 
 /* ---------------- SPIN ---------------- */
@@ -756,7 +805,7 @@ window.doSpin=async function(){
 window.sendReq=async function(){if(spinLocked()){toast("Spinning opens Wednesday 16 September at 09:00");return;}
   const p=current;
   const qs=pickQuestions();
-  if(!qs.length){toast("No questions in the bank yet — an admin needs to add some");return;}
+  if(!qs.length){toast("No discussion questions in the bank yet — an admin needs to add some");return;}
   current=null;
   await S.createMatch(p,p._type,qs);
   await S.grantFreeSpin();                      // chaining real meetups costs nothing
@@ -786,6 +835,14 @@ function viewMeet(id){
   return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Meetup with ${m.person.first}</h2><p class="sub">A shared space you both fill in</p>
    <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">You both accepted — suggested: <b>${m.type}</b>. Plan a time and place together.</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} Plan your meetup${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Last message: ${(last.by==='me'?'You: ':'')+last.text}</div>`:''}</div>
    <div class="card"><div class="row between"><b>1 · Share a photo</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">A quick pic of the two of you — or a Teams screenshot. One photo per meetup: either of you can add it, and you both see it.</p>${m.photo?`${mp?`<img src="${mp}" alt="Your meetup photo" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} Add meetup photo</button>`}</div>
+   ${(function(){
+     const fresh=(C.users||[]).filter(u=>u&&u.uid===m.person.uid)[0];
+     const ib=((fresh&&fresh.icebreakers)||m.person.icebreakers||[]).filter(x=>x&&(x.answer||'').trim());
+     if(!ib.length)return '';
+     return `<div class="card"><div class="row between"><b>Talking points</b><span class="chip grey">${m.person.first}</span></div>
+       <p class="muted small" style="margin:8px 0 10px">${m.person.first}'s icebreakers — a head start on the conversation.</p>
+       ${ib.map(x=>`<div class="q"><div class="t">${x.question||''}</div><div class="small" style="margin-top:4px;white-space:pre-wrap">${x.answer}</div></div>`).join('')}</div>`;
+   })()}
    <div class="card"><div class="row between"><b>2 · Discussion questions</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${q.t}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="Your answer…">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">Your answers stay private (admins only). The photo goes to the community wall.</p></div>
    <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} Complete my part</button>
    <p class="muted small center" style="margin-top:8px">${canComplete(m)?"That's your +5 for the questions — the photo earns its own +5.":'Answer all 3 questions to complete your part.'}</p>
@@ -855,6 +912,18 @@ function viewProfile(){
    <button class="btn secondary" onclick="go('editprofile')">${icon('pencil',18)} Edit profile &amp; avatar</button>
    <button class="btn secondary" style="margin-top:10px" onclick="go('bug')">${icon('bug',18)} Report a bug</button>
    ${C.admin?`<button class="btn secondary" style="margin-top:10px" onclick="go('admin')">${icon('chart',18)} Admin dashboard</button>`:''}
+   ${(function(){
+     const ib=(C.me&&C.me.icebreakers)||[];
+     const answered=ib.filter(x=>x&&(x.answer||'').trim()).length;
+     if(answered>=3&&C.me&&C.me.icebreakerBonusGranted)
+       return `<div class="card"><div class="row between"><b>Your icebreakers</b><span class="chip good">+10 earned</span></div>
+         <p class="muted small" style="margin:8px 0 10px">Shown to colleagues you match with, as talking points.</p>
+         ${ib.map(x=>`<div class="q"><div class="t">${x.question||''}</div><div class="small" style="margin-top:4px;white-space:pre-wrap">${x.answer}</div></div>`).join('')}
+         <button class="btn ghost sm" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('pencil',15)} Edit answers</button></div>`;
+     return `<div class="card"><div class="row between"><b>Break the ice</b><span class="chip">+10 pts</span></div>
+       <p class="muted small" style="margin:8px 0 10px">Answer 3 quick questions about yourself and earn 10 points. They're shown only to colleagues you match with — a head start on the conversation.</p>
+       <button class="btn secondary" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('chat',17)} ${answered?'Finish your icebreakers':'Answer 3 questions'}</button></div>`;
+   })()}
    ${buildStampHTML()}
    <div class="hr"></div><button class="btn ghost" onclick="signOut()">${icon('signout',18)} Sign out</button><button class="btn danger" style="margin-top:10px" onclick="askDelete()">${icon('trash',18)} Delete my account</button><p class="muted small center" style="margin-top:8px">Deleting removes your profile, photos and answers (GDPR).</p>`;
 }
@@ -902,19 +971,19 @@ function viewAdmin(){
        </div></div>`;
    })()}
    <div class="card"><div class="row between" style="margin-bottom:6px"><b>Question bank</b><span class="chip grey">${C.questions.length}</span></div>
-     <p class="muted small" style="margin:0 0 10px">Tier 1 leads a colleague's first meetup; tier 2 fills the rest. Editing a question doesn't change answers already given.</p>
+     <p class="muted small" style="margin:0 0 10px"><b>Idea</b> questions are asked in meetups and collected for the idea bank. <b>Icebreakers</b> are asked once at onboarding, shown only to a colleague's meetup partners, and never exported. Tap the pill to switch. Editing a question doesn't change answers already given.</p>
      ${C.questions.map(q=>qEditId===q.id
        ? `<div class="q" style="margin:10px 0"><textarea class="input" rows="2" id="qedit-${q.id}">${q.text}</textarea>
             <div class="row" style="gap:8px;margin-top:8px"><button class="btn sm" onclick="qSave('${q.id}')">${icon('check',15)} Save</button>
             <button class="btn ghost sm" onclick="qEdit(null)">Cancel</button></div></div>`
        : `<div class="row between" style="gap:10px;border-top:1px solid var(--line);padding:9px 0">
             <span class="small" style="flex:1;min-width:0">${q.text}</span>
-            <button class="iconbtn" title="Tier" onclick="qTier('${q.id}',${q.tier===1?2:1})"><span class="tierpill" style="margin-left:0;cursor:pointer;${q.tier===1?'':'opacity:.45'}">T${q.tier===1?1:2}</span></button>
+            <button class="iconbtn" title="Tier" onclick="qTier('${q.id}',${q.tier===1?2:1})"><span class="tierpill" style="margin-left:0;cursor:pointer;${q.tier===1?'':'opacity:.45'}">${q.tier===1?'Idea':'Icebreaker'}</span></button>
             <button class="iconbtn" title="Edit" onclick="qEdit('${q.id}')">${icon('pencil',16)}</button>
             <button class="iconbtn" title="Delete" onclick="qDel('${q.id}')">${icon('trash',16)}</button>
           </div>`).join('')}
      <div class="row" style="gap:8px;margin-top:12px"><input class="input" id="newq" placeholder="Add a question…"><button class="btn sm" onclick="addQ()">${icon('plus',16)}</button></div>
-     <div class="row" style="gap:8px;margin-top:8px"><span class="muted small">New questions start at tier 2 — tap T2 to promote.</span></div></div>
+     <div class="row" style="gap:8px;margin-top:8px"><span class="muted small">New questions start as Icebreakers — tap the pill to make one an Idea question.</span></div></div>
    <div class="card"><div class="row between"><b>Bug reports</b><span class="chip ${C.bugs.length?'':'grey'}">${C.bugs.length}</span></div>${C.bugs.length?C.bugs.map(b=>`<div class="small" style="padding:8px 0;border-top:1px solid var(--line)"><b>${b.by}</b> · ${b.at}<br>${b.text}</div>`).join(''):`<p class="muted small" style="margin-top:8px">No bug reports yet.</p>`}</div>`;
 }
 // CSV rather than .xlsx: a real xlsx is a zip archive, which would mean pulling in a library
@@ -931,7 +1000,10 @@ window.exportData=function(){
   if(!C.admin){toast("Admins only");return;}
   if(!d||d.error||!(d.questions||[]).length){toast("No answers to export yet");return;}
   const rows=[["Question","Tier","Answer","Colleague","Meetup type","Date","Match ID"]];
-  d.questions.forEach(q=>q.answers.forEach(a=>rows.push([
+  // Tier-1 only. Icebreakers live on user docs and never reach adminAnswers(), but filter here
+  // too so a mis-tiered question can never leak an icebreaker answer into the export.
+  const ideaOnly=d.questions.filter(q=>q.tier!==2);
+  ideaOnly.forEach(q=>q.answers.forEach(a=>rows.push([
     q.text,q.tier||'',a.text,adminAnon?'anonymised':a.by,a.type,a.date,a.matchId])));
   const csv="\uFEFF"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
   const name="zb-meetup-answers-"+new Date().toISOString().slice(0,10)+".csv";

@@ -35,14 +35,85 @@
     ["Ruben","Vos","QARA Manager","Quality & Reg Affairs","partial",false],
   ].map(p => ({ uid:p[0]+p[1], name:p[0]+" "+p[1], first:p[0], role:p[2], dept:p[3], workClass:p[4], floor:p[5], color:col(), photo:null, points:20+Math.floor(Math.random()*70) }));
 
+  // Demo icebreakers so the meetup "Talking points" card has something to show. Invented
+  // answers for invented people (see the seed-name note above) — three Tier-2 questions each.
+  const DEMO_ICE = [
+    { id:"t2q23", question:"Beach, mountains or city?", answer:"Mountains, every time — quieter and better coffee." },
+    { id:"t2q11", question:"What's your most useless talent?", answer:"I can name any Eurovision winner since 1998." },
+    { id:"t2q25", question:"What's a small thing that always makes your day better?", answer:"The first coffee, before anyone emails." },
+  ];
+  USERS.forEach(u => { u.icebreakers = DEMO_ICE.map(x => Object.assign({}, x)); });
+
+  // Verbatim from Context/questions-source.md — see the live store for the tier contract.
   const QUESTIONS = [
-    { id:"q1", text:"If you were CEO for a day, what would you initiate?", tier:1, count:6 },
-    { id:"q2", text:"How would you bring AI into your day-to-day work?", tier:1, count:9 },
-    { id:"q3", text:"Start / Stop / Continue — name one of each for our team.", tier:1, count:4 },
-    { id:"q4", text:"What's a hobby or passion outside of work?", tier:2, count:7 },
-    { id:"q5", text:"What's something you're proud of this year?", tier:2, count:3 },
-    { id:"q6", text:"What's one thing that would make your workday better?", tier:2, count:5 },
-    { id:"q7", text:"If you could swap roles for a week, what would you try?", tier:2, count:2 },
+    { id:"t1q1", text:"If you were CEO of Zimmer Biomet for a day, what's the first thing you'd change?", tier:1, count:0 },
+    { id:"t1q2", text:"If you were site leader / departmental director for a week, what would you fix first?", tier:1, count:0 },
+    { id:"t1q3", text:"What's one thing another department is doing that we should be doing?", tier:1, count:0 },
+    { id:"t1q4", text:"What do you think other departments would say we do best – and worst?", tier:1, count:0 },
+    { id:"t1q5", text:"What's the most valuable thing your department does that the rest of the business doesn't know about?", tier:1, count:0 },
+    { id:"t1q6", text:"What's the one task in your week that feels like a waste of time – and how would you eliminate it?", tier:1, count:0 },
+    { id:"t1q7", text:"Start / Stop / Continue: name one thing we should start doing, one we should stop, and one we should keep.", tier:1, count:0 },
+    { id:"t1q8", text:"Where do things get \"stuck\" between your team and another team? What would unblock it?", tier:1, count:0 },
+    { id:"t1q9", text:"If you had €10,000 -  €100,000 to improve your workplace, what would you spend it on?", tier:1, count:0 },
+    { id:"t1q10", text:"What's one process you've seen at a previous employer that would work well here?", tier:1, count:0 },
+    { id:"t1q11", text:"What's the most common mistake or block do you see – and what causes it?", tier:1, count:0 },
+    { id:"t1q12", text:"What information do you need regularly that's hard to find or always arrives late?", tier:1, count:0 },
+    { id:"t1q13", text:"How would you bring AI into your daily work if it were available tomorrow?", tier:1, count:0 },
+    { id:"t1q14", text:"What's one repetitive task you'd hand over to a robot or AI without a second thought?", tier:1, count:0 },
+    { id:"t1q15", text:"Which report, check or admin step could be automated so you can focus on more valuable work?", tier:1, count:0 },
+    { id:"t1q16", text:"Have you used ZB AI Portal and what are your thoughts? How could it improve?", tier:1, count:0 },
+    { id:"t1q17", text:"What data do we collect that we're probably not using well enough?", tier:1, count:0 },
+    { id:"t1q18", text:"What's the one piece of technology or equipment that would make your job easier?", tier:1, count:0 },
+    { id:"t1q19", text:"What's one thing that would make you look forward to coming to work more often?", tier:1, count:0 },
+    { id:"t1q20", text:"Which two departments should talk to each other more, and about what?", tier:1, count:0 },
+    { id:"t1q21", text:"What do new colleagues struggle with most in their first weeks – how could onboarding be better?", tier:1, count:0 },
+    { id:"t1q22", text:"What skill would you love to learn that would also help the company?", tier:1, count:0 },
+    { id:"t1q23", text:"How can management communicate better with the shop floor and commercial teams?", tier:1, count:0 },
+    { id:"t1q24", text:"What's one small thing that would noticeably improve the experience for other departments?", tier:1, count:0 },
+    { id:"t1q25", text:"If we could launch one new product, service or initiative in your department next year, what should it be?", tier:1, count:0 },
+    { id:"t1q26", text:"A magic wand removes one rule, form or approval step tomorrow. Which one disappears, and what happens next?", tier:1, count:0 },
+    { id:"t1q27", text:"Imagine a new colleague from the year 2040 visits Hazeldonk. What would make them laugh at how we work today?", tier:1, count:0 },
+    { id:"t1q28", text:"If our biggest customer were a 12-year-old, how would you explain what we do – and what would they think is silly?", tier:1, count:0 },
+    { id:"t1q29", text:"Pitch a completely ridiculous product or service for ZB. Then tell us the one serious idea hiding inside it.", tier:1, count:0 },
+    { id:"t1q30", text:"If your department were a sports team, what position is unfilled and who should we sign?", tier:1, count:0 },
+    { id:"t1q31", text:"You've been made Minister of Tuesdays. What's the one thing that would make every Tuesday at ZB better?", tier:1, count:0 },
+    { id:"t1q32", text:"If we had to run the entire site with half the meetings, which ones survive and why?", tier:1, count:0 },
+    { id:"t1q33", text:"A robot starts on your team on Monday. Write its job description in three lines.", tier:1, count:0 },
+    { id:"t1q34", text:"What would you rename your job title to if it had to describe what you actually do?", tier:1, count:0 },
+    { id:"t2q1", text:"What did you want to be when you were 10 years old?", tier:2, count:0 },
+    { id:"t2q2", text:"What was your very first job, and what did it teach you?", tier:2, count:0 },
+    { id:"t2q3", text:"What's the best piece of career advice you've ever received?", tier:2, count:0 },
+    { id:"t2q4", text:"What's something you're surprisingly good at that has nothing to do with your job?", tier:2, count:0 },
+    { id:"t2q5", text:"What would your colleagues be surprised to learn about you?", tier:2, count:0 },
+    { id:"t2q6", text:"What's your go-to way to switch off after a long day?", tier:2, count:0 },
+    { id:"t2q7", text:"What's the best trip you've ever taken – and where's next on the list?", tier:2, count:0 },
+    { id:"t2q8", text:"What's a hobby you've picked up (or dropped) in the last few years?", tier:2, count:0 },
+    { id:"t2q9", text:"What's your favourite thing to cook or eat – and who makes it best?", tier:2, count:0 },
+    { id:"t2q10", text:"Are you a morning person or a night owl – and does your job agree with that?", tier:2, count:0 },
+    { id:"t2q11", text:"What's your most useless talent?", tier:2, count:0 },
+    { id:"t2q12", text:"If you could have any animal as a colleague, which would it be and what job would it do?", tier:2, count:0 },
+    { id:"t2q13", text:"What's the worst haircut or fashion choice you've ever made?", tier:2, count:0 },
+    { id:"t2q14", text:"If you had to eat one meal every day for the rest of your life, what would it be?", tier:2, count:0 },
+    { id:"t2q15", text:"What's a song you know every word to, even though you'd never admit it?", tier:2, count:0 },
+    { id:"t2q16", text:"What's the strangest thing in your fridge or desk drawer right now?", tier:2, count:0 },
+    { id:"t2q17", text:"Which fictional character would be the best (or worst) colleague?", tier:2, count:0 },
+    { id:"t2q18", text:"If your life were a film, who would play you and what would it be called?", tier:2, count:0 },
+    { id:"t2q19", text:"Which emoji do you overuse?", tier:2, count:0 },
+    { id:"t2q20", text:"Would you rather work four 10-hour days or five 8-hour days?", tier:2, count:0 },
+    { id:"t2q21", text:"Would you rather have unlimited coffee or unlimited holiday?", tier:2, count:0 },
+    { id:"t2q22", text:"Would you rather be able to speak every language or play every instrument?", tier:2, count:0 },
+    { id:"t2q23", text:"Beach, mountains or city?", tier:2, count:0 },
+    { id:"t2q24", text:"Team teleport or team invisibility – and how would you use it at work?", tier:2, count:0 },
+    { id:"t2q25", text:"What's a small thing that always makes your day better?", tier:2, count:0 },
+    { id:"t2q26", text:"Which skill or hobby have you always wanted to try but never got around to?", tier:2, count:0 },
+    { id:"t2q27", text:"What's the best concert, match or event you've ever been to?", tier:2, count:0 },
+    { id:"t2q28", text:"If you could have dinner with anyone – alive or historical – who's at the table?", tier:2, count:0 },
+    { id:"t2q29", text:"What's a tradition you love, and one you secretly don't get?", tier:2, count:0 },
+    { id:"t2q30", text:"Cats, dogs, or \"I have enough going on already\"?", tier:2, count:0 },
+    { id:"t2q31", text:"What's the last thing that made you laugh out loud?", tier:2, count:0 },
+    { id:"t2q32", text:"If you won the lottery tomorrow, what's the first (sensible) thing and the first (not-so-sensible) thing you'd do?", tier:2, count:0 },
+    { id:"t2q33", text:"What's your signature move at a party – dancing, DJ-ing, kitchen-hanging or early exit?", tier:2, count:0 },
+    { id:"t2q34", text:"Which three words would your best friend use to describe you?", tier:2, count:0 },
   ];
 
   const SEED_POSTS = [
@@ -223,6 +294,13 @@
       if (!(window.ZB_CONFIG.ADMIN_EMAILS||[]).map(x=>x.toLowerCase()).includes(e))
         return Promise.reject({ code:"zb/not-admin", message:"Admins only" });
       return P(false);        // the demo list is already editable in place
+    },
+    // ---- icebreakers (BRIEF-020), mirroring the live store ----
+    saveIcebreakers(list) { if (ME) ME.icebreakers = list || []; return P(true); },
+    claimIcebreakerBonus() {
+      if (!ME || ME.icebreakerBonusGranted) return P(false);
+      if ((ME.icebreakers||[]).filter(x => x && (x.answer||"").trim()).length < 3) return P(false);
+      ME.icebreakerBonusGranted = true; ME.points = (ME.points||0) + 10; return P(true);
     },
     addQuestion(text, tier) {
       QUESTIONS.push({ id:"q"+(Date.now().toString(36)), text, tier:(tier===1?1:2), count:0 });
