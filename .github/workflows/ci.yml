@@ -28,6 +28,11 @@ jobs:
       - name: node tools/test-demo.js
         run: node tools/test-demo.js
 
+      # Real colleagues' names, roles and work locations were once committed here (BRIEF-016).
+      # This fails the build if a seed colleague is not on the invented allow-list.
+      - name: node tools/check-seed-names.js
+        run: node tools/check-seed-names.js
+
   stamp:
     name: Stamp the build
     needs: harness                      # never stamp a deploy whose harness is red
