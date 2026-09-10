@@ -21,7 +21,7 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | **First live deploy** (v=7 on main) | ✅ | 2026-09-08 — tested live by Sean + Donnae |
 | Sign-in screen for returning users (+ forgot password) | ✅ | BRIEF-002 + amendment — merged + live v=10 (2026-09-09, SHA 2857ba4) |
 | Password-reset confirmation screen (check email + junk) | ✅ | Live feedback 2026-09-09 (reset email hit Outlook Junk) — merged + live v=11 (SHA 57e1f31) |
-| Reset email deliverability (SPF/DKIM / IT allow-list) | 💡 | firebaseapp.com sender flagged by Outlook — decision open (see 2026-09-09 session log): recommend ZB IT allow-list noreply@zb-meetup.firebaseapp.com + custom sender domain for the proper fix |
+| Reset email deliverability (SPF/DKIM / IT allow-list) | ⏭️ | NOT PURSUING (Sean, 2026-09-10): Donnae sends colleagues a personal email with the app link, so the ZB IT allow-list note isn't needed. Reset emails may still land in Junk; acceptable. Custom sender domain remains a later nicety |
 | Restrict sign-up to allowed domains (zimmerbiomet.com / thetransformationfoundry.nl) | ✅ | BRIEF-009 — merged + live v=12 (2026-09-09, SHA 943499a); rules published + tested. Auth blocking function deferred to BRIEF-004 (needs Identity Platform) |
 | Lock wall-post update rule (author/admin edit content; others heart/comment only) | ✅ | BRIEF-010 — rules published + simulator-verified DENIED for non-author overwrite (2026-09-09). Branch `cc6d8d2` to merge as bookkeeping |
 | Wall integrity: comment identity (byUid) + interaction value validation | 📋 | BRIEF-011 — Part A (comment spoofing) before wider launch; Part B backlog unless hearts feed prizes |
@@ -32,8 +32,8 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Meetup photo quality (crisp) + card fit (no gutters) | ✅ | BRIEF-006 — merged + live v=15 (2026-09-09, SHA fdda24f); 960px capture + never-upscale guard, full-width card. Confirmed on a real phone (fresh capture crisp; card fills edge-to-edge) after clearing the iOS home-screen cache |
 | Either participant updates shared photo on wall post | 📋 | BRIEF-013 — low priority; BRIEF-006/010/001 collision (non-author photo replace skips wall post). Pairs with BRIEF-011 posts-rule work |
 | Admin: surface captured answers + real export | ✅ | BRIEF-007 — merged + live v=21 (2026-09-10, SHA 17c713c); idea bank (real counts + answers, anonymise toggle), CSV export (formula-injection guarded). No rules change needed |
-| Admin: editable question bank with tiers | 📋 | BRIEF-008 |
-| **Spin points economy** + Points Awarded screen | 🔨 | BRIEF-017 built (v=23) on `feat/spin-economy` — 30-pt bonus, free first/post-request spins, −1 respins, Skip + 2/day cap removed; award screen ported from the Claude Design handoff |
+| Admin: editable question bank with tiers | 🔨 | BRIEF-008 built (v=24) on `feat/admin-question-bank` — add/edit/delete/tier on real records; defaults seeded once into `questionBank`. **No rules change needed** |
+| **Spin points economy** + Points Awarded screen | ✅ | BRIEF-017 — merged + live v=23 (2026-09-10, SHA b3740a3). 30-pt bonus, free first/post-request spins, −1 respins, Skip + 2/day cap removed; award screen ported from the Claude Design handoff. Live-tested with a non-admin Test User (30→28 respins→33 after a meetup) |
 | Full GSCC/EMEA role list + QARA cross-site matching + onboarding reorder | ✅ | BRIEF-015 — merged 2026-09-10 (v=18); 108 roles, EMEA restricted to the QARA set, legacy roles normalised on read |
 | Purge real names from git history + seed-name CI guard | ✅ | BRIEF-016 — repo recreated + history scrubbed 2026-09-10 (0 real names across 28 commits; old commit URLs 404). `tools/check-seed-names.js` gates every push. Repo hygiene, not a formal GDPR incident (Sean). Caveat: can't un-publish 4–10 Sep window (0 forks/stars) |
 | Real ~50-question bank (Donnae) + tiering | 💡 | Feeds BRIEF-008 once list ready |
@@ -51,8 +51,8 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 8. Admin answers/export → BRIEF-007, editable questions → BRIEF-008.
 
 ## Pre-launch verification (needs real accounts, before inviting colleagues)
-- [~] **Non-admin earns the photo +5.** LIKELY DONE: Test User 1 (`sean.abbood+testuser@…`, non-admin) shows
-  5 pts / 0 meetups on 2026-09-09 — the shape of the shared-photo self-claim. Confirm the 5 came from adding a
-  meetup photo, then tick. (This was the exact rules gap the +10-to-both bug hid.)
+- [x] **Non-admin earns points.** DONE 2026-09-10: a non-admin Test User onboarded (award screen, +30), respun
+  (30→28), sent a request and completed their part (+5 → 33) — all on the live rules. The non-admin points path
+  (the exact rules gap the +10-to-both bug hid) works end-to-end.
 - [ ] **Donnae's total corrected** as expected after the BRIEF-005 fix.
 - [ ] Two-account live check of each merged feature as the backlog lands.

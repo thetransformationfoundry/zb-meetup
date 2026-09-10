@@ -20,6 +20,7 @@ const document = { querySelector:s=>store[s]||(store[s]=El()), getElementById:id
   currentScript:{ src:"js/app.js?v=15" } };
 // version.json over fetch = what is DEPLOYED. Off until a test turns it on.
 // export path: Blob + URL.createObjectURL + <a download>
+global.confirm = () => true;          // question delete asks for confirmation
 global.__lastDownload = null;
 global.Blob = function(parts){ this.parts = parts; this._text = (parts||[]).join(""); };
 global.URL = { createObjectURL(b){ global.__lastDownload = { text:b._text }; return "blob:zb"; }, revokeObjectURL(){} };
@@ -54,7 +55,7 @@ load("js/firebase-config.js");
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -256,6 +257,61 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   let denied = false;
   try { await window.ZB_STORE.adminAnswers(); } catch (e) { denied = (e && e.code) === "zb/not-admin"; }
   chk("a non-admin cannot read the answers", denied && (await window.ZB_STORE.isAdmin()) === false);
+  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+
+  /* ---- BRIEF-008: editable question bank ---- */
+  const bank = () => window.ZB_STORE.questionBank();
+  const n0 = (await bank()).length;
+
+  await window.ZB_STORE.addQuestion("A brand new question?", 2);
+  let qs = await bank();
+  chk("admin can add a question", qs.length === n0 + 1
+      && qs.some(q => q.text === "A brand new question?" && q.tier === 2));
+
+  const target = qs.find(q => q.text === "A brand new question?");
+  await window.ZB_STORE.updateQuestion(target.id, { text:"An edited question?" });
+  qs = await bank();
+  chk("admin can edit the text", qs.some(q => q.id === target.id && q.text === "An edited question?")
+      && !qs.some(q => q.text === "A brand new question?"));
+
+  await window.ZB_STORE.updateQuestion(target.id, { tier:1 });
+  qs = await bank();
+  chk("admin can toggle the tier", qs.find(q => q.id === target.id).tier === 1);
+
+  await window.ZB_STORE.deleteQuestion(target.id);
+  qs = await bank();
+  chk("admin can delete a question", qs.length === n0 && !qs.some(q => q.id === target.id));
+
+  // the UI exposes all of it
+  await window.reloadAdmin(); await tick(8); window.go("admin");
+  const bankUI = scr();
+  chk("bank UI offers edit, delete and tier controls",
+      /qEdit\(/.test(bankUI) && /qDel\(/.test(bankUI) && /qTier\(/.test(bankUI));
+
+  // tiering still drives pickQuestions, including when a tier is emptied
+  const tier1 = (await bank()).filter(q => q.tier === 1);
+  for (const q of tier1) await window.ZB_STORE.updateQuestion(q.id, { tier:2 });
+  await refreshAndSettle();
+  chk("an empty tier-1 still yields 3 questions", window.__pickQuestions().length === 3);
+  for (const q of tier1) await window.ZB_STORE.updateQuestion(q.id, { tier:1 });
+  await refreshAndSettle();
+  chk("tiering restored", (await bank()).filter(q => q.tier === 1).length === tier1.length);
+
+  // a non-admin cannot seed the bank
+  window.ZB_STORE._email = "someone.else@zimmerbiomet.com";
+  let seedDenied = false;
+  try { await window.ZB_STORE.seedQuestionBank(); } catch (e) { seedDenied = (e && e.code) === "zb/not-admin"; }
+  chk("a non-admin cannot seed the question bank", seedDenied);
+  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+
+  // an edited question must not split the idea bank into two entries
+  const answered = (await window.ZB_STORE.adminAnswers()).questions[0];
+  await window.ZB_STORE.updateQuestion(answered.id, { text:"Reworded by the admin?" });
+  const relabelled = await window.ZB_STORE.adminAnswers();
+  const same = relabelled.questions.filter(q => q.id === answered.id);
+  chk("editing a question relabels its answers, not duplicates them",
+      same.length === 1 && same[0].text === "Reworded by the admin?"
+      && same[0].count === answered.count);
   window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
 
   /* ---- BRIEF-015: role list, migration, EMEA/GSCC matching ---- */

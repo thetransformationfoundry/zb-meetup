@@ -90,7 +90,7 @@ function mapMatch(id, d, uid) {
   const otherUid = d.a === uid ? d.b : d.a;
   const cb = d.completedBy || {};
   const legacyDone = d.status === "completed";   // matches completed under the old both-at-once model
-  const myAns = (d.answers && d.answers[uid]) || ["","",""];
+  const myAns = (d.answers && d.answers[uid]) || (d.questions||[]).map(()=>"") || [];
   const msgs = (d.messages || []).map(m => ({ by: m.by === uid ? "me" : "them", text:m.text }));
   const unread = Math.max(0, msgs.filter(m => m.by === "them").length - ((d.reads && d.reads[uid]) || 0));
   return { id, a:d.a, b:d.b, status:d.status, type:d.type, questions:d.questions || [], person:other,
@@ -350,11 +350,57 @@ const ZB_STORE = {
   async welcome() { const uid = uidNow(); if (uid) await addNotif(uid, { type:"welcome", icon:"users", text:"Welcome to ZB MeetUP! Tap Spin to find your first match.", target:"spin" }); return true; },
 
   // ---- questions / admin ----
+  // ---- question bank: real editable records (BRIEF-008) ----
+  // Before this, DEFAULTS were hardcoded and merely concatenated with whatever an admin had
+  // added, so the original seven could never be edited or deleted. Now:
+  //   - once seeded (marker doc app/questionBank), the collection is AUTHORITATIVE, so an
+  //     admin's deletions stick instead of the defaults reappearing;
+  //   - until then DEFAULTS are returned as a read-only fallback, so meetups keep working for
+  //     everyone even though no admin has opened the admin screen yet.
   async questionBank() {
-    const added = await ttl("qbank", 60000, () => db.collection("questionBank").get().then(q => q.docs.map(d => Object.assign({ id:d.id }, d.data()))));
-    return DEFAULTS.concat(added);
+    const [docs, seeded] = await Promise.all([
+      ttl("qbank", 60000, () => db.collection("questionBank").get()
+        .then(q => q.docs.map(d => Object.assign({ id:d.id }, d.data())))),
+      ttl("qseed", 60000, () => db.collection("app").doc("questionBank").get()
+        .then(d => d.exists && !!(d.data()||{}).seeded).catch(() => false)),
+    ]);
+    if (seeded) return docs;
+    return DEFAULTS.concat(docs);          // pre-seed behaviour, unchanged
   },
-  async addQuestion(text) { await db.collection("questionBank").add({ text, tier:2, count:0, createdAt:nowTs() }); cache["qbank"] = null; return true; },
+  // Turns the hardcoded defaults into editable docs. Admin-only, idempotent: it skips ids that
+  // already exist, so running it twice cannot duplicate or resurrect a deleted question.
+  async seedQuestionBank() {
+    if (!ADMINS.includes((auth.currentUser && auth.currentUser.email || "").toLowerCase()))
+      throw { code:"zb/not-admin", message:"Admins only" };
+    const marker = db.collection("app").doc("questionBank");
+    const m = await marker.get();
+    if (m.exists && (m.data()||{}).seeded) return false;
+    const existing = await db.collection("questionBank").get();
+    const have = {}; existing.docs.forEach(d => have[d.id] = 1);
+    const batch = db.batch();
+    DEFAULTS.forEach(q => { if (!have[q.id])
+      batch.set(db.collection("questionBank").doc(q.id), { text:q.text, tier:q.tier, count:0, createdAt:nowTs() }); });
+    batch.set(marker, { seeded:true, at:nowTs() }, { merge:true });
+    await batch.commit();
+    cache["qbank"] = null; cache["qseed"] = null;
+    return true;
+  },
+  async addQuestion(text, tier) {
+    await db.collection("questionBank").add({ text, tier:(tier===1?1:2), count:0, createdAt:nowTs() });
+    cache["qbank"] = null; return true;
+  },
+  async updateQuestion(id, patch) {
+    const upd = {};
+    if (typeof patch.text === "string") upd.text = patch.text;
+    if (patch.tier === 1 || patch.tier === 2) upd.tier = patch.tier;
+    if (!Object.keys(upd).length) return false;
+    await db.collection("questionBank").doc(id).set(upd, { merge:true });
+    cache["qbank"] = null; return true;
+  },
+  async deleteQuestion(id) {
+    await db.collection("questionBank").doc(id).delete();
+    cache["qbank"] = null; return true;
+  },
   // ---- admin: the idea bank ----
   // Reads answers across ALL matches, which the published rule already allows for an admin:
   //   match /matches/{id} { allow read ...: if isAdmin() || <participant> ... }
@@ -380,8 +426,12 @@ const ZB_STORE = {
         });
       });
     });
-    const questions = [...byQ.values()].map(q => Object.assign({}, q, { count:q.answers.length }))
-      .sort((a,b) => b.count - a.count);
+    // Label each group with the question's CURRENT wording where it still exists in the bank:
+    // answers are grouped by question id, so an admin editing the text (BRIEF-008) must not make
+    // one question look like two. The answers themselves keep the wording colleagues were asked.
+    const current = {}; (await this.questionBank()).forEach(q => current[q.id] = q.text);
+    const questions = [...byQ.values()].map(q => Object.assign({}, q, {
+      count:q.answers.length, text:current[q.id] || q.text })).sort((a,b) => b.count - a.count);
     return { questions, totalAnswers:questions.reduce((n,q)=>n+q.count,0), totalMatches:snap.size };
   },
 
