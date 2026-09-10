@@ -31,9 +31,9 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Per-user completion + correct points + completed-meetups view | ✅ | BRIEF-005 — merged + live v=8 (2026-09-08, SHA a2d7c5c) |
 | Meetup photo quality (crisp) + card fit (no gutters) | ✅ | BRIEF-006 — merged + live v=15 (2026-09-09, SHA fdda24f); 960px capture + never-upscale guard, full-width card. Confirmed on a real phone (fresh capture crisp; card fills edge-to-edge) after clearing the iOS home-screen cache |
 | Either participant updates shared photo on wall post | 📋 | BRIEF-013 — low priority; BRIEF-006/010/001 collision (non-author photo replace skips wall post). Pairs with BRIEF-011 posts-rule work |
-| Admin: surface captured answers + real export | 🔨 | BRIEF-007 (`794071c`, v=19) — idea bank (real counts + answers, anonymise toggle), CSV export (formula-injection guarded). No rules change needed. Tested green by Sean; ready to merge |
+| Admin: surface captured answers + real export | ✅ | BRIEF-007 — merged + live v=21 (2026-09-10, SHA 17c713c); idea bank (real counts + answers, anonymise toggle), CSV export (formula-injection guarded). No rules change needed |
 | Admin: editable question bank with tiers | 📋 | BRIEF-008 |
-| **Spin points economy** (30 signup bonus + confetti, free first/post-request spins, −1 respins) | 🔨 | BRIEF-017 built (v=22) on `feat/spin-economy` — replaces the 2/day cap and Skip; existing users granted +30 once |
+| **Spin points economy** + Points Awarded screen | 🔨 | BRIEF-017 built (v=23) on `feat/spin-economy` — 30-pt bonus, free first/post-request spins, −1 respins, Skip + 2/day cap removed; award screen ported from the Claude Design handoff |
 | Full GSCC/EMEA role list + QARA cross-site matching + onboarding reorder | ✅ | BRIEF-015 — merged 2026-09-10 (v=18); 108 roles, EMEA restricted to the QARA set, legacy roles normalised on read |
 | Purge real names from git history + seed-name CI guard | ✅ | BRIEF-016 — repo recreated + history scrubbed 2026-09-10 (0 real names across 28 commits; old commit URLs 404). `tools/check-seed-names.js` gates every push. Repo hygiene, not a formal GDPR incident (Sean). Caveat: can't un-publish 4–10 Sep window (0 forks/stars) |
 | Real ~50-question bank (Donnae) + tiering | 💡 | Feeds BRIEF-008 once list ready |

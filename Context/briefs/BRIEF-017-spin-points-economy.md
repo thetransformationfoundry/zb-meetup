@@ -43,8 +43,18 @@ A single `spin()` action, priced by a per-user "free spin available" state:
    `sendRequest` grants the next free spin; day-stamped free-spin state persisted. Remove the 2/day cap + Skip.
 2. UI (`viewSpin`): drop Skip; reroll button shows cost ("Spin again (−1 pt)" / "(free)"); disabled at 0 points
    with the message; show the user's current points on the spin screen so the cost is legible.
-3. **Onboarding confetti** on completion + a "You earned 30 points" line. Keep it lightweight — a small inline
-   canvas/CSS confetti, **no external library** (no-build architecture). No emojis in UI chrome.
+3. **Award / confetti screen** — shown once on onboarding completion, then → Spin. **Design is done by Claude
+   Design** at `zimmer-biomet/ZB-MeetUP/design_handoff_points_awarded/` (see `ZB MeetUP Points Awarded.dc.html`,
+   `animations.css`, `PointsAwarded.jsx`). **Port it into the app**, don't reinvent:
+   - Reuse its **vanilla `<canvas>` confetti** (the `burst()` / `tick()` rAF loop) as-is — it's self-contained,
+     **no external library** (keeps the no-build architecture). Keep the `prefers-reduced-motion` suppression.
+   - Convert the Design-Connect/React wrapper (`x-dc`, `{{ }}` props, `DCLogic`) to our vanilla `app.js` patterns
+     (template string + `window.*` handlers), matching the existing welcome/spin screens. Reuse our `icon()` set;
+     the design's SVGs are already Phosphor-style line icons (trophy, star, spin-arrows) — no emojis.
+   - Wire the props: `firstName` from the user's profile, `balance` = their points (30 for a new user); primary
+     **"Take me to Spin"** → `go('spin')`; **"Celebrate again"** → replay the confetti burst.
+   - **Do not commit the raw handoff files** (they reference a DC `support.js`); port the CSS + confetti + markup
+     into `js/app.js` / `css/styles.css`.
 4. **Existing-user migration:** grant +30 once to accounts that never received the signup bonus (guard so it's
    applied a single time — e.g. a `signupBonusGranted` flag), so you/Donnae/Test User start fair.
 5. Bump `?v=`.

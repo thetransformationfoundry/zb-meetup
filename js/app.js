@@ -13,6 +13,7 @@ const P = {
   trophy:'<path d="M7 4.5h10V9a5 5 0 0 1-10 0V4.5Z"/><path d="M7 6.5H4.5v.8A3 3 0 0 0 7.4 10M17 6.5h2.5v.8A3 3 0 0 1 16.6 10"/><path d="M12 14v2.5M9 20h6M10.2 20l.5-3.5h2.6l.5 3.5"/>',
   user:'<circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/>',
   bell:'<path d="M6 9.5a6 6 0 0 1 12 0c0 4.5 1.8 5.8 1.8 5.8H4.2S6 14 6 9.5Z"/><path d="M10 19a2 2 0 0 0 4 0"/>',
+  star:'<path d="M12 3.6l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 16.9l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85Z"/>',
   mail:'<rect x="2.6" y="4.8" width="18.8" height="14.4" rx="2.6"/><path d="M3.4 7.2 12 13.2l8.6-6"/>',
   heart:'<path d="M12 20s-7-4.4-9.2-9A4.8 4.8 0 0 1 12 6.2 4.8 4.8 0 0 1 21.2 11C19 15.6 12 20 12 20Z"/>',
   chat:'<path d="M20.5 12a7.8 7.8 0 0 1-11.3 7L4 20.5l1.5-5.1A7.8 7.8 0 1 1 20.5 12Z"/>',
@@ -85,39 +86,76 @@ function pickImage(cb,px){
   }catch(e){ toast("Photo picker unavailable"); }
 }
 
-/* ---------------- confetti (inline; no library, no CDN) ---------------- */
-// A one-shot canvas burst, ~1.4s, then it removes itself. Everything is feature-detected so
-// the Node harness (and any browser without canvas/rAF) simply skips it.
-function confetti(){
-  try{
-    if(typeof document.createElement!=='function'||typeof requestAnimationFrame!=='function')return;
-    const c=document.createElement('canvas');
-    if(!c||typeof c.getContext!=='function')return;
-    const ctx=c.getContext('2d'); if(!ctx||!ctx.fillRect)return;
-    const w=window.innerWidth||390,h=window.innerHeight||700;
-    c.width=w;c.height=h;
-    c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999';
-    document.body.appendChild(c);
-    const COLS=['#0079BD','#E5731E','#0EA5A5','#F2C230','#7C5CD6'];
-    const bits=[];for(let i=0;i<90;i++)bits.push({
-      x:Math.random()*w, y:-20-Math.random()*h*0.4,
-      vx:(Math.random()-0.5)*2.2, vy:2+Math.random()*3.2,
-      s:5+Math.random()*6, r:Math.random()*Math.PI, vr:(Math.random()-0.5)*0.25,
-      col:COLS[(Math.random()*COLS.length)|0]
+/* ---------------- confetti (ported from the Claude Design handoff) ---------------- */
+// Lifted from design_handoff_points_awarded (PointsAwarded.jsx): two bottom-corner cannons
+// firing inward, gravity + drag, rectangles squashed by |cos(rot)| to fake a 3D flutter, 25%
+// circles, fade over the final 40 frames. Vanilla canvas 2D + rAF — no library, no CDN.
+// The handoff's React refs become module-level state here; the rAF loop stops when the
+// particle array empties and restarts on the next burst.
+const CONFETTI_COLORS=["#0079BD","#2E86D6","#20416F","#7FC4E8","#F2C230","#FFFFFF","#E8536B"];
+let cfParts=[],cfRaf=null,cfSize={w:0,h:0},cfCanvas=null;
+const reducedMotion=()=>{try{return !!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);}catch(e){return false;}};
+function cfResize(){
+  const c=cfCanvas; if(!c)return;
+  const dpr=window.devicePixelRatio||1, r=c.getBoundingClientRect();
+  c.width=r.width*dpr; c.height=r.height*dpr;
+  c.getContext("2d").setTransform(dpr,0,0,dpr,0,0);
+  cfSize={w:r.width,h:r.height};
+}
+function cfTick(){
+  const c=cfCanvas; if(!c){cfRaf=null;return;}
+  const {w,h}=cfSize, ctx=c.getContext("2d");
+  ctx.clearRect(0,0,w,h);
+  const next=[];
+  for(const p of cfParts){
+    p.life++; p.vy+=0.32; p.vx*=0.988; p.vy*=0.992;
+    p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr;
+    const fade=p.life>p.max-40?Math.max(0,(p.max-p.life)/40):1;
+    if(p.life<p.max&&p.y<h+40){
+      ctx.save(); ctx.globalAlpha=fade; ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.color;
+      if(p.round){ctx.beginPath();ctx.arc(0,0,p.w*0.55,0,Math.PI*2);ctx.fill();}
+      else ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h*Math.abs(Math.cos(p.rot*0.9)));
+      ctx.restore(); next.push(p);
+    }
+  }
+  cfParts=next;
+  cfRaf=cfParts.length?requestAnimationFrame(cfTick):null;
+}
+function cfBurst(scale){
+  if(!cfCanvas||reducedMotion())return;
+  const {w,h}=cfSize, n=Math.round(120*(scale||1));
+  for(let i=0;i<n;i++){
+    const fromLeft=i%2===0;
+    const ang=(fromLeft?-60:-120)+(Math.random()*44-22);
+    const sp=11+Math.random()*11, rad=(ang*Math.PI)/180;
+    cfParts.push({
+      x:fromLeft?-8:w+8, y:h*(0.58+Math.random()*0.22),
+      vx:Math.abs(Math.cos(rad))*sp*(fromLeft?1:-1), vy:Math.sin(rad)*sp,
+      w:5+Math.random()*6, h:8+Math.random()*8,
+      rot:Math.random()*Math.PI, vr:(Math.random()-0.5)*0.34,
+      color:CONFETTI_COLORS[(Math.random()*CONFETTI_COLORS.length)|0],
+      round:Math.random()<0.25, life:0, max:150+Math.random()*90
     });
-    const t0=Date.now();
-    (function frame(){
-      const age=Date.now()-t0;
-      ctx.clearRect(0,0,w,h);
-      bits.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.vy+=0.045;b.r+=b.vr;
-        ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.r);
-        ctx.globalAlpha=Math.max(0,1-age/1400);ctx.fillStyle=b.col;
-        ctx.fillRect(-b.s/2,-b.s/2,b.s,b.s*0.6);ctx.restore();});
-      if(age<1400)requestAnimationFrame(frame);
-      else if(c.remove)c.remove();
-    })();
+  }
+  if(!cfRaf)cfRaf=requestAnimationFrame(cfTick);
+}
+// Attach to the canvas in the award screen. Everything is feature-detected, so the Node
+// harness (no rAF, no real canvas) skips it and the screen still renders its final state.
+function confettiInit(){
+  try{
+    if(typeof requestAnimationFrame!=='function')return;
+    const c=document.querySelector("#cfCanvas");
+    if(!c||typeof c.getContext!=='function'||typeof c.getBoundingClientRect!=='function')return;
+    const ctx=c.getContext("2d");
+    if(!ctx||typeof ctx.clearRect!=='function'||typeof ctx.setTransform!=='function')return;
+    cfCanvas=c; cfParts=[];
+    cfResize();
+    if(!window.__cfResizeBound){window.addEventListener("resize",cfResize);window.__cfResizeBound=true;}
+    setTimeout(()=>cfBurst(1),220);      // entry sequence, per the handoff
+    setTimeout(()=>cfBurst(0.5),900);
   }catch(e){/* decorative only — never let it break onboarding */}
 }
+window.zbCelebrate=function(){ if(!cfCanvas)confettiInit(); else cfBurst(1); };
 
 /* ---------------- build stamp ---------------- */
 // The version we are RUNNING, taken from this script's own ?v= in index.html — so there is no
@@ -162,6 +200,7 @@ window.checkUpdate=function(){
 let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],spin:{points:0,freeSpin:true},admin:false,leaderboard:[],bugs:[],build:null,adminData:null};
 let adminOpenQ=null,adminAnon=false;   // which question is expanded; whether to hide who said what
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
+let AWARD={first:"",points:30,balance:30};   // props for the Points Awarded screen
 let OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
 // The two matching-critical labels — keyed off by eligible(), so never inline these strings.
 const EMEA_ROLE='EMEA - QARA Commercial';
@@ -363,12 +402,40 @@ window.obGoCreate=function(){stopTagline();onboardStep=0;renderOnboard();};
 window.obGoSignIn=function(){stopTagline();onboardStep='signin';renderOnboard();};
 window.obHow=function(){stopTagline();onboardStep='how';renderOnboard();};
 window.obBackWelcome=function(){onboardStep='welcome';renderOnboard();};
+// Leaving the award screen: stop the rAF loop and drop the canvas so it can't keep drawing.
+window.awardToSpin=async function(){
+  try{ if(cfRaf)cancelAnimationFrame(cfRaf); }catch(e){}
+  cfRaf=null;cfCanvas=null;cfParts=[];
+  mode="app"; view="spin"; await refresh();
+};
 
 /* ---------------- onboarding ---------------- */
 function renderOnboard(){
   const sc=$("#screen"),ab=$("#appbar"),tb=$("#tabbar");
   if(onboardStep==='welcome'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=welcomeHTML();startTagline();return; }
   if(onboardStep==='how'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=howItWorksHTML();return; }
+  if(onboardStep==='awarded'){
+    ab.style.display='none';tb.style.display='none';sc.style.padding='0';
+    const first=(AWARD.first||'').trim();
+    sc.innerHTML=`<div class="zb-award">
+      <canvas id="cfCanvas"></canvas>
+      <div class="glow"></div>
+      <div class="body">
+        <div class="zb-medal"><div class="ring"></div><div class="ring-dashed"></div><div class="disc">${icon('trophy',46)}</div></div>
+        <div class="eyebrow">YOU'RE ALL SET</div>
+        <h1>${first?`Nice work, ${first},`:'Nice work,'}<br>your first MeetUP awaits</h1>
+        <p class="sub">Onboarding complete. Spin to get matched with a colleague and start earning.</p>
+        <div class="zb-chip-award"><span class="puck">${icon('star',19)}</span>
+          <span style="display:flex;align-items:baseline;gap:6px"><span class="n">${AWARD.points} points</span><span class="t">awarded to you!</span></span></div>
+        <div class="balance">Balance: ${AWARD.balance} points</div>
+      </div>
+      <div class="foot">
+        <button type="button" class="zb-primary-btn" onclick="awardToSpin()">${icon('refresh',20)}<span>Take me to Spin</span></button>
+        <button type="button" class="zb-ghost-btn" onclick="zbCelebrate()">Celebrate again</button>
+      </div></div>`;
+    confettiInit();
+    return;
+  }
   if(onboardStep==='resetsent'){
     ab.style.display='';tb.style.display='';sc.style.padding='';
     ab.innerHTML=`<div class="brand" style="margin:0 auto">ZB <span>MeetUP</span></div>`;tb.innerHTML="";
@@ -488,8 +555,13 @@ window.finishOnboard=async function(){
       :/in-use/.test(code)?"That email already has an account — tap sign in.":"Couldn't create the account."); return; }
   await S.saveMe({name:OB.name,email:OB.email,color:OB.color,photo:OB.photo||null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now()});
   await S.welcome();
-  authBusy=false; mode="app"; view="spin"; await refresh();
-  confetti(); toast("You've earned 30 points to get started!");
+  authBusy=false;
+  // The award screen is the last step of onboarding. It REPORTS the bonus the store already
+  // granted — per the handoff, this screen is not the source of truth for the award — then
+  // routes on to Spin.
+  const me=await S.getMe();
+  AWARD={first:(me&&(me.first||(me.name||"").split(" ")[0]))||"",points:30,balance:(me&&me.points)||30};
+  onboardStep='awarded'; renderOnboard();
 };
 
 /* ---------------- SPIN ---------------- */
