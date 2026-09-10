@@ -12,9 +12,9 @@
 
   // Demo colleagues (the pool you get matched with)
   const USERS = [
-    ["Mira","Halvorsen","Warehouse Clerk","Distribution","on-site",true],
-    ["Tobias","Halvorsen","Warehouse Clerk","Distribution","on-site",true],
-    ["Elin","Koster","Quality Specialist","Quality & Reg Affairs","on-site",false],
+    ["Mira","Halvorsen","GSCC Warehouse Clerk","Distribution","on-site",true],
+    ["Tobias","Halvorsen","GSCC Warehouse Clerk","Distribution","on-site",true],
+    ["Elin","Koster","GSCC - QARA","Quality & Reg Affairs","on-site",false],
     // DEMO ONLY — every one of these colleagues is FICTIONAL. They exist in this in-browser
     // store, are never written to Firestore, and are never seen by a live user. The roles are
     // real entries from ROLES so the demo exercises real matching; the people are invented.

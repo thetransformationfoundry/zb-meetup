@@ -60,10 +60,10 @@ only, never written to Firestore, never seen by a live user — but his question
 had made a step toward: I had seeded `GSCC - QARA` as **"Donnae Abbood"**, a real person, with her role and
 work setup, in a **public repo**.
 
-Checking the file properly, the nine pre-existing seed colleagues (`Noor Baaijens`, `Wessel Duifhuis`,
-`Ilse Verkerk`, `Bram Roelofsen`, `Sanne Kolthoff`, `Timo Vermeulen`, `Joris Stevens`, `Maud Hendriks`,
-`Lars Wieringa`) read like real Dutch/EMEA colleagues, each paired with a specific role, department and work
-location. `Context/holding-photos.md` explicitly labels the *wall* pairs as dummy names; nothing said the same
+Checking the file properly, the nine pre-existing seed colleagues read like real Dutch/EMEA colleagues, each
+paired with a specific role, department and work location. (Their names are deliberately **not** recorded here —
+writing them into a tracked file would re-publish the very data we removed. The authoritative list lived in the
+working session only; see BRIEF-016.) `Context/holding-photos.md` explicitly labels the *wall* pairs as dummy names; nothing said the same
 of the seed **users**. Name + role + site for a real colleague is personal data, and `CLAUDE.md` is
 unambiguous: *"Never commit secrets or personal data… no employee list in the repo."*
 
@@ -72,7 +72,5 @@ saying so and warning against putting a real colleague's details there. Roles re
 so the demo still exercises real matching — only the people are invented. Nothing in the app or harness keys
 off the names, so the change is inert beyond the demo UI.
 
-**Open question for Sean:** were those nine original names taken from the employee spreadsheet? If so they
-were in the public repo from the first commit and are in git history, which a rename does not erase. If any is
-a real colleague, say so and we can decide whether history needs rewriting before the wider invite — a public
-repo, a real name, and their role and work location together is the kind of thing worth being sure about.
+**Answered (Sean, 2026-09-10):** they were real colleagues with real roles. History was therefore rewritten
+and the repo recreated under **BRIEF-016** — see `Context/sessions/2026-09-10_brief-016-pii-history-purge.md`.
