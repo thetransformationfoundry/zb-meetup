@@ -19,6 +19,10 @@ const document = { querySelector:s=>store[s]||(store[s]=El()), getElementById:id
   // app.js derives the version it is RUNNING from its own script src
   currentScript:{ src:"js/app.js?v=15" } };
 // version.json over fetch = what is DEPLOYED. Off until a test turns it on.
+// export path: Blob + URL.createObjectURL + <a download>
+global.__lastDownload = null;
+global.Blob = function(parts){ this.parts = parts; this._text = (parts||[]).join(""); };
+global.URL = { createObjectURL(b){ global.__lastDownload = { text:b._text }; return "blob:zb"; }, revokeObjectURL(){} };
 global.__buildOk = false;
 global.__buildJson = null;
 global.fetch = async () => ({ ok: global.__buildOk, json: async () => global.__buildJson });
@@ -101,7 +105,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && window.ZB_DOMAIN_OK("nodomain") === false);
 
   chk("create step's sign-in link goes to the sign-in screen", /obGoSignIn\(\)/.test(scr()) && !/onclick="obSignIn\(\)"/.test(scr()));
-  document.getElementById("ob-email").value = "test@zimmerbiomet.com";
+  // onboard as an ADMIN address (allowed domain) so BRIEF-007's idea bank is exercised
+  document.getElementById("ob-email").value = "sean.abbood@thetransformationfoundry.nl";
   document.getElementById("ob-pass").value = "demo1234"; window.obCreate();
   document.getElementById("ob-name").value = "Test User"; window.obName();
   document.getElementById("ob-wc").value = "partial";
@@ -185,6 +190,36 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("a newer deployed version is reported as stale",
       /Update available/.test(scr()) && /abc1234/.test(scr()) && /remove the icon/.test(scr()));
   window.go("admin"); chk("admin dashboard", /Admin dashboard/.test(scr()));
+
+  /* ---- BRIEF-007: the idea bank + export ---- */
+  chk("runs as an admin", (await window.ZB_STORE.isAdmin()) === true);
+  const agg = await window.ZB_STORE.adminAnswers();
+  chk("answers aggregate across matches", agg.totalAnswers === 3 && agg.questions.length === 3
+      && agg.questions.every(q => q.count === 1 && q.answers[0].text.length > 0));
+
+  await refreshAndSettle();
+  window.go("admin"); await tick(8); window.go("admin");
+  const dash = scr();
+  chk("dashboard shows real counts, not zero", /The idea bank/.test(dash) && /3 answers/.test(dash));
+
+  const q0 = agg.questions[0];
+  window.adminToggleQ(q0.id);
+  chk("a question expands to show its answers", scr().includes(q0.answers[0].text));
+  window.adminToggleAnon();
+  chk("anonymise hides who answered", /anonymised/.test(scr()));
+  window.adminToggleAnon();
+
+  window.exportData();
+  const csv = (global.__lastDownload || {}).text || "";
+  chk("export produces real CSV rows",
+      csv.indexOf('"Question","Tier","Answer"') > -1 && csv.split("\r\n").length === 4);
+
+  // security property: a non-admin gets nothing
+  window.ZB_STORE._email = "someone.else@zimmerbiomet.com";
+  let denied = false;
+  try { await window.ZB_STORE.adminAnswers(); } catch (e) { denied = (e && e.code) === "zb/not-admin"; }
+  chk("a non-admin cannot read the answers", denied && (await window.ZB_STORE.isAdmin()) === false);
+  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
 
   /* ---- BRIEF-015: role list, migration, EMEA/GSCC matching ---- */
   const EMEA = "EMEA - QARA Commercial", QARA = "GSCC - QARA";

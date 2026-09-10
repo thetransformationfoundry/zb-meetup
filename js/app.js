@@ -125,7 +125,8 @@ window.checkUpdate=function(){
 };
 
 /* ---------------- state ---------------- */
-let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],respins:2,admin:false,leaderboard:[],bugs:[],build:null};
+let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],respins:2,admin:false,leaderboard:[],bugs:[],build:null,adminData:null};
+let adminOpenQ=null,adminAnon=false;   // which question is expanded; whether to hide who said what
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
 let OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
 // The two matching-critical labels — keyed off by eligible(), so never inline these strings.
@@ -194,6 +195,18 @@ async function refresh(){
   render();
 }
 
+// The idea bank reads answers across ALL matches, so it is loaded lazily — only for an admin,
+// only when the admin screen is opened — rather than on every refresh.
+async function loadAdminData(force){
+  if(!C.admin||(C.adminData&&!force))return;
+  try{ C.adminData=await S.adminAnswers(); }
+  catch(e){ C.adminData={error:(e&&e.code)==='zb/not-admin'?'Admins only.':'Could not load answers.',questions:[],totalAnswers:0,totalMatches:0}; }
+  if(view==='admin')render();
+}
+window.reloadAdmin=async function(){C.adminData=null;render();await loadAdminData(true);};
+window.adminToggleQ=function(id){adminOpenQ=adminOpenQ===id?null:id;render();};
+window.adminToggleAnon=function(){adminAnon=!adminAnon;render();};
+
 /* ---------------- render / router ---------------- */
 function render(){
   if(mode==="onboarding"){renderOnboard();return;}
@@ -213,7 +226,7 @@ function render(){
   else if(view==="profile")s.innerHTML=viewProfile();
   else if(view==="editprofile")s.innerHTML=viewEditProfile();
   else if(view==="bug")s.innerHTML=viewBug();
-  else if(view==="admin")s.innerHTML=viewAdmin();
+  else if(view==="admin"){s.innerHTML=viewAdmin();if(C.admin&&!C.adminData)loadAdminData();}
   else if(view==="notifs")s.innerHTML=viewNotifs();
   s.scrollTop=0;
 }
@@ -587,11 +600,56 @@ function viewAdmin(){
   const topQ=[...C.questions].sort((a,b)=>(b.count||0)-(a.count||0)).slice(0,5);
   return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Admin dashboard</h2><p class="sub">Super-admin view (Donnae + Sean).</p>
    <div class="card"><div class="row"><div class="stat"><div class="v">${completed}</div><div class="l">My meetups</div></div><div class="stat"><div class="v">${activeN}</div><div class="l">Active now</div></div><div class="stat"><div class="v">${parts}</div><div class="l">People</div></div><div class="stat"><div class="v">${C.posts.length}</div><div class="l">Wall posts</div></div></div></div>
-   <div class="card"><div class="row between"><b>Most-answered questions</b>${icon('chart',18)}</div>${topQ.map(q=>`<div style="margin-top:10px"><div class="row between small"><span style="flex:1;padding-right:8px">${q.text}</span><b>${q.count||0}</b></div><div style="height:7px;background:var(--line);border-radius:4px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,(q.count||0)*10)}%;background:var(--zb-blue)"></div></div></div>`).join('')}<button class="btn secondary sm" style="width:100%;margin-top:14px;justify-content:center" onclick="exportData()">${icon('download',18)} Export answers to Excel</button><p class="muted small" style="margin-top:6px">The idea-bank harvest (AI initiatives, CEO-for-a-day, etc.).</p></div>
+   ${(function(){
+     const d=C.adminData;
+     if(!C.admin)return `<div class="card muted small">Admin only.</div>`;
+     if(!d)return `<div class="card center muted small">Loading answers…</div>`;
+     if(d.error)return `<div class="card muted small">${d.error}</div>`;
+     const qs=d.questions||[];
+     return `<div class="card"><div class="row between"><b>The idea bank</b><span class="chip ${d.totalAnswers?'':'grey'}">${d.totalAnswers} answers</span></div>
+       <p class="muted small" style="margin:8px 0 10px">Across ${d.totalMatches} meetup${d.totalMatches===1?'':'s'}. Tap a question to read the answers. These are private — admins only.</p>
+       ${qs.length?qs.map(q=>`<div style="border-top:1px solid var(--line);padding:10px 0 4px">
+           <div class="row between" style="cursor:pointer;gap:10px" onclick="adminToggleQ('${String(q.id).replace(/'/g,"\\'")}')">
+             <span class="small" style="flex:1">${q.text}${q.tier===1?'<span class="tierpill">key idea</span>':''}</span>
+             <span class="chip ${q.count?'':'grey'}">${q.count}</span>
+           </div>
+           ${adminOpenQ===q.id?`<div style="margin-top:8px">${q.answers.map(a=>`<div class="q" style="margin:8px 0"><div class="small" style="white-space:pre-wrap">${a.text}</div><div class="muted small" style="margin-top:4px">${adminAnon?'anonymised':a.by}${a.type?' · '+a.type:''}${a.date?' · '+a.date:''}</div></div>`).join('')||'<div class="muted small">No answers yet.</div>'}</div>`:''}
+         </div>`).join(''):`<div class="muted small">No answers captured yet — they appear here as colleagues complete meetups.</div>`}
+       <div class="row" style="gap:8px;margin-top:12px">
+         <button class="btn secondary sm" onclick="exportData()">${icon('download',16)} Export answers</button>
+         <button class="btn ghost sm" onclick="adminToggleAnon()">${adminAnon?'Show names':'Anonymise'}</button>
+         <button class="btn ghost sm" onclick="reloadAdmin()">${icon('refresh',16)}</button>
+       </div></div>`;
+   })()}
    <div class="card"><div class="row between" style="margin-bottom:6px"><b>Question bank</b><span class="chip grey">${C.questions.length}</span></div>${C.questions.map(q=>`<div class="small" style="padding:6px 0;border-top:1px solid var(--line)">${q.tier===1?'<span class="tierpill">T1</span> ':''}${q.text}</div>`).join('')}<div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newq" placeholder="Add a question…"><button class="btn sm" onclick="addQ()">${icon('plus',16)}</button></div></div>
    <div class="card"><div class="row between"><b>Bug reports</b><span class="chip ${C.bugs.length?'':'grey'}">${C.bugs.length}</span></div>${C.bugs.length?C.bugs.map(b=>`<div class="small" style="padding:8px 0;border-top:1px solid var(--line)"><b>${b.by}</b> · ${b.at}<br>${b.text}</div>`).join(''):`<p class="muted small" style="margin-top:8px">No bug reports yet.</p>`}</div>`;
 }
-window.exportData=function(){toast("Export coming in the live build");};
+// CSV rather than .xlsx: a real xlsx is a zip archive, which would mean pulling in a library
+// (SheetJS ~100KB) and this app deliberately has no build step. Excel opens this natively —
+// UTF-8 BOM so accented names survive, CRLF line endings, and every field quoted.
+function csvCell(v){
+  v=String(v==null?'':v);
+  // A leading = + - @ makes Excel treat the cell as a formula; prefix so it stays text.
+  if(/^[=+\-@]/.test(v))v="'"+v;
+  return '"'+v.replace(/"/g,'""')+'"';
+}
+window.exportData=function(){
+  const d=C.adminData;
+  if(!C.admin){toast("Admins only");return;}
+  if(!d||d.error||!(d.questions||[]).length){toast("No answers to export yet");return;}
+  const rows=[["Question","Tier","Answer","Colleague","Meetup type","Date","Match ID"]];
+  d.questions.forEach(q=>q.answers.forEach(a=>rows.push([
+    q.text,q.tier||'',a.text,adminAnon?'anonymised':a.by,a.type,a.date,a.matchId])));
+  const csv="\uFEFF"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
+  const name="zb-meetup-answers-"+new Date().toISOString().slice(0,10)+".csv";
+  try{
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+    const a=document.createElement("a");a.href=url;a.download=name;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    toast((rows.length-1)+" answers exported");
+  }catch(e){ toast("Couldn't start the download"); }
+};
 window.addQ=async function(){const v=($("#newq").value||'').trim();if(!v)return;await S.addQuestion(v);toast("Question added");await refresh();};
 
 /* ---------------- NOTIFICATIONS ---------------- */
