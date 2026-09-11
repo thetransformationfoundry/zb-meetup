@@ -136,3 +136,25 @@ No rules change, no data-model change. `?v=` 42 → 43; harness 178/178 green.
 **Both question sets are now native-reviewed.** The remaining machine-drafted text is the **UI dictionary**
 (`js/i18n.js`, 195 keys) — never reviewed in either language. Worth tracking separately; it is one file and
 correctable without a reseed, unlike the questions.
+
+## Round 6 — a data-loss bug found by Sean's "are these random?" question (v=44)
+Sean asked whether the icebreaker and discussion questions are randomised per user. Checking the code to
+answer him turned up a real bug in `iceStart()`.
+
+**What was wrong.** It reshuffled the bank **every time**, including when the colleague already had saved
+icebreakers. So "Edit answers" presented three *different* questions with empty boxes, and `iceSave()` then
+replaced the stored list with those three — **silently discarding the answers they had written**, and with
+them the evidence of the +10 they had earned.
+
+**Fix.** Re-opening now reuses the questions actually answered (resolved against the live bank so the
+viewer's language applies), topping up at random only when there are fewer than three — i.e. first run, or a
+partially completed set. Two regression checks: re-opening shows the answered questions, and saving after a
+re-open preserves the answers.
+
+**Randomisation, as answered to Sean:** icebreakers are 3 drawn at random from the 34 Tier-2 per colleague,
+fixed once answered; discussion questions are 3 drawn at random from the 34 Tier-1 **per meetup**, snapshotted
+on the match so both participants see the same three, each in their own language.
+
+Validated the eight questions in Sean's screenshots against `questions-i18n.md` by id: the icebreakers were
+t2q23 / t2q20 / t2q2, the talking points t2q23 / t2q11 / t2q25, and the discussion questions t1q3 / t1q14 /
+t1q1 — all correct tiers, all matching the reviewed Romanian text exactly.
