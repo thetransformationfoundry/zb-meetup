@@ -158,3 +158,25 @@ on the match so both participants see the same three, each in their own language
 Validated the eight questions in Sean's screenshots against `questions-i18n.md` by id: the icebreakers were
 t2q23 / t2q20 / t2q2, the talking points t2q23 / t2q11 / t2q25, and the discussion questions t1q3 / t1q14 /
 t1q1 — all correct tiers, all matching the reviewed Romanian text exactly.
+
+## Round 7 — two more English leaks in the icebreaker flow (v=45)
+Sean's test of the round-6 fix surfaced two separate bugs, both in the same area:
+
+1. **The You-screen card rendered the stored English snapshot.** A saved icebreaker is
+   `{id, question, answer}` where `question` is the **canonical English** text captured at save time. The
+   Talking-points card had been fixed to resolve it through `qText()` in round 2, but the colleague's *own*
+   card on the You screen still printed `x.question` raw — so a Romanian user read their own icebreakers in
+   English. Now routed through `qText({id, text:x.question}, myLang())` like every other question render.
+2. **Typing overwrote the translated Save label with English.** `iceAns()` re-set the button text on every
+   keystroke using hardcoded `'Save — earn 10 points'` / `'Save'`, so a fully Romanian screen sprouted an
+   English button the moment the colleague typed. It now uses `t()`.
+
+The second is the more instructive one: the *render* was correctly translated and the bug lived in an
+imperative DOM update that ran afterwards. A screenshot taken before typing would have looked perfect — which
+is exactly what the earlier rounds' screenshots were.
+
+Three checks added (183 total): re-opened prompts render in the viewer's language rather than the stored
+English, the Save label stays translated while typing, and the You card renders prompts translated.
+
+**Confirmed working in Sean's test:** the round-6 fix held (the three answered questions came back with their
+answers), editing one answer saved correctly, and the +10 did not re-award (points stayed at 40).
