@@ -48,6 +48,9 @@ body{font-family:var(--font);background:#e9edf2;color:var(--ink);-webkit-font-sm
    renders identically on every platform and matches the tierpill treatment. */
 .langpill{display:inline-block;white-space:nowrap;font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--zb-blue);background:var(--zb-blue-soft);border:1px solid #CFE4F1;padding:2px 6px;border-radius:6px;vertical-align:middle}
 .langpill.on-dark{color:#fff;background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.3)}
+/* SVG flag badge (BRIEF-023A): rounded, hairline border, sits on the text baseline. */
+.langflag{display:inline-flex;align-items:center;vertical-align:middle;width:20px;height:13px;border-radius:3px;overflow:hidden;box-shadow:0 0 0 1px rgba(16,24,40,.18)}
+.langflag svg{display:block}
 /* ---- Go-live countdown (BRIEF-019, ported from the Claude Design handoff) ----
    NOTE on backdrop-filter: the handoff puts it on the frosted card, which also has a riseIn
    entry animation — exactly the combination CLAUDE.md forbids (Android Chrome flicker, already

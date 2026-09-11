@@ -62,7 +62,7 @@ load("js/i18n.js");                  // ZB_I18N + ZB_T
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__spinLocked=()=>spinLocked();window.__unlock=SPIN_UNLOCK;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -183,8 +183,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   /* ---- BRIEF-017: spin points economy ---- */
   chk("first spin of the day is free", (await window.ZB_STORE.spinState()).freeSpin === true);
   await window.doSpin(); chk("spins a match", /Send request/.test(scr()));
-  chk("the match card shows the colleague's language badge",
-      /class="langpill"[^>]*>(EN|NL|RO)</.test(scr()));
+  chk("the match card shows the colleague's language flag",
+      /class="langflag"/.test(scr()) && /<svg viewBox="0 0 24 16"/.test(scr()));
   chk("the free spin cost nothing", (await window.ZB_STORE.getMe()).points === 40   // 30 + 10 icebreakers
       && (await window.ZB_STORE.spinState()).freeSpin === false);
   await window.doSpin();
@@ -218,8 +218,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       partnerIce.length === 3 && /Talking points/.test(meetScr)
       && partnerIce.every(x => meetScr.indexOf(x.answer) > -1));
   chk("talking points card has the accent treatment", /class="card talk"/.test(meetScr));
-  chk("talking points header carries the partner's language badge",
-      /class="langpill"/.test(meetScr));
+  chk("talking points header carries the partner's language flag",
+      /class="langflag"/.test(meetScr));
   chk("shared space explains how to log the meetup",
       /Log your meetup below/.test(meetScr) && /during or just after you meet/.test(meetScr)
       && meetScr.indexOf("Log your meetup below") < meetScr.indexOf("1 · Share a photo"));
@@ -343,7 +343,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   window.go("profile");
   const prof = scr();
   chk("profile", /Manage your profile/.test(prof));
-  chk("your own language badge shows on You", /class="langpill"/.test(prof));
+  chk("your own language flag shows on You", /class="langflag"/.test(prof));
   // BRIEF-021: one gradient primary per screen; secondaries keep the pale style
   const gradPrimaries = t => (t.match(/class="btn"(?![^>]*\bsm\b)/g)||[]).length;
   chk("the answered You screen shows no competing gradient primary", gradPrimaries(prof) === 0);
@@ -511,6 +511,35 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   /* ---- BRIEF-023: fallbacks, badges, export language ---- */
   chk("t() falls back to English for a missing language",
       window.ZB_T("back", "nl") === "Terug" && window.ZB_T("back", "xx") === "Back");
+  chk("langBadge returns a flag for each language",
+      ["en","nl","ro"].every(l => /class="langflag"/.test(window.__langBadge(l)))
+      && window.__langBadge("en").indexOf("#012169") > -1        // Union Jack for English
+      && window.__langBadge("nl").indexOf("#AE1C28") > -1
+      && window.__langBadge("ro").indexOf("#FCD116") > -1);
+  chk("an unknown language code still renders a badge (normalised to en)",
+      /class="langflag"/.test(window.__langBadge("zz")));
+  // and the real fallback branch: if a flag cannot resolve, the text pill renders instead
+  const keptFlag = window.__FLAG_SVG.nl; delete window.__FLAG_SVG.nl;
+  chk("a missing flag falls back to the text pill, never blank",
+      /class="langpill"/.test(window.__langBadge("nl"))
+      && window.__langBadge("nl").indexOf("NL") > -1);
+  window.__FLAG_SVG.nl = keptFlag;
+  /* ---- BRIEF-023A: wider coverage + notifications ---- */
+  chk("t() interpolates params rather than concatenating fragments",
+      window.ZB_T("meet_waiting","nl",{name:"Ana"}).indexOf("Ana") > -1
+      && window.ZB_T("meet_waiting","ro",{name:"Ana"}).indexOf("{name}") === -1);
+  // notifications render from type + name in the reader's language
+  chk("a notification renders from its type in the reader's language",
+      window.__notifText({type:"accept",name:"Ana",text:"Ana accepted your match! Open the shared space to coordinate."})
+        === window.ZB_T("notif_accept","en",{name:"Ana"}));
+  chk("an old notification with no name field recovers it from the stored English",
+      window.__notifText({type:"msg",text:"Bram sent you a message"}).indexOf("Bram") > -1);
+  chk("an unknown notification type falls back to its stored English text",
+      window.__notifText({type:"something-new",text:"A brand new kind of notice"})
+        === "A brand new kind of notice");
+  chk("a welcome notification needs no name", window.__notifText({type:"welcome",text:"whatever"})
+        === window.ZB_T("notif_welcome","en"));
+
   chk("t() returns the key rather than blank for an unknown key",
       window.ZB_T("no_such_key", "nl") === "no_such_key");
 
@@ -534,8 +563,28 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("CSV export stays English even for a non-English viewer",
       csvLang.indexOf(anyNl.text_nl) === -1);
 
+  // BRIEF-023A: the wider surfaces now follow the viewer's language
+  await window.ZB_STORE.saveMe({ lang: "ro" });
+  await refreshAndSettle();
+  window.go("wall");      const wRo = scr();
+  window.go("ranks");     const rRo = scr();
+  window.go("messages");  const mRo = scr();
+  window.go("notifs");    const nRo = scr();
+  window.go("howitworks");const hRo = scr();
+  chk("Wall renders in the viewer's language", /Peretele comunit/.test(wRo));
+  chk("Leaderboard + prize banner render in the viewer's language",
+      /Clasament/.test(rRo) && /CEA MAI BUN/.test(rRo) && /€250/.test(rRo));
+  chk("Messages renders in the viewer's language", /Mesaje/.test(mRo));
+  chk("Notifications chrome renders in the viewer's language", /Notific/.test(nRo));
+  chk("How It Works step content renders in the viewer's language",
+      /Fii pus în leg/.test(hRo) && /Urcă și câștigă/.test(hRo));
+  chk("no raw i18n keys leak into the UI",
+      ![wRo,rRo,mRo,nRo,hRo].some(x => /\b(notif_|meet_|wall_|ranks_|hiw_|msgs_)[a-z0-9_]+\b/.test(x)));
+
   await window.ZB_STORE.saveMe({ lang: "en" });
   await refreshAndSettle();
+  window.go("ranks");
+  chk("switching back to English restores English", /Leaderboard/.test(scr()));
 
   /* ---- BRIEF-008: editable question bank ---- */
   const bank = () => window.ZB_STORE.questionBank();
