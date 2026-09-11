@@ -1,6 +1,6 @@
 # Session — 2026-09-11 · BRIEF-023A · i18n follow-up (v=39)
 
-**Branch:** `feat/multilingual` (continues `acdf92d`) · **Status:** built, harness 172/172 green,
+**Branch:** `feat/multilingual` (continues `acdf92d`) · **Status:** built, harness 175/175 green,
 **awaiting Sean's test + merge + a reseed**. Presentation layer only.
 
 ## What we did
@@ -44,7 +44,7 @@ Admin dashboard, the question-bank editor labels and the **CSV export stay Engli
 points, countdown, rules untouched. Free-text **answers** are still not translated across languages — the flag
 remains the bridge; live answer translation is a later layer.
 
-## Harness (20 new checks, 172 total)
+## Harness (25 new checks, 175 total)
 Flags per language and the real pill-fallback branch; talking-points prompts follow the viewer; `t()`
 interpolation; notifications by type, with name recovery from old English text, unknown-type fallback and
 welcome; Wall / Leaderboard+prizes / Messages / Notifications / How-It-Works all render Romanian; **no raw
@@ -74,3 +74,21 @@ ever appears. The stored value is untouched.
 **A miss worth recording:** the prize paragraph had not actually been wired in round 1 — my replacement
 silently matched nothing, and I only caught it by re-running a "what English literals remain in this view"
 audit rather than trusting the earlier pass. That audit is why the four leftovers above were found too.
+
+## Round 3 — a real bug in the language switch (v=41)
+Sean switched from Romanian to Dutch, tapped **Beantwoord 3 vragen** on the You screen, and got the
+icebreaker step **still in Romanian** — in English too. Everything else followed the new language.
+
+**Cause.** `iceStart()` sets `mode="onboarding"` so it can reuse the onboarding shell, and `myLang()` read
+`(mode==="onboarding" && OB.lang) || C.me.lang`. `OB.lang` is set once during first-run onboarding and is
+never updated by Edit profile — so any screen that runs in onboarding mode rendered in **the language picked
+at signup**, permanently. It only showed on the icebreaker step because that is the one such screen reachable
+after onboarding.
+
+**Fix.** The saved profile now wins: `(C.me && C.me.lang) || (mode==="onboarding" && OB.lang) || "en"`.
+`OB.lang` still leads during genuine first-run onboarding, where no profile exists yet. `iceStart()` also
+syncs `OB.lang` from the profile as belt and braces.
+
+Three regression checks added — the step follows the current language, follows a second change, and returns
+to English — because a stale-state bug like this returns the moment someone adds another screen that borrows
+the onboarding shell.
