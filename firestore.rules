@@ -38,6 +38,21 @@ service cloud.firestore {
     function touchesComments() {
       return request.resource.data.diff(resource.data).affectedKeys().hasAny(['comments']);
     }
+    // A meetup has ONE shared photo and ONE wall post (BRIEF-001). Either participant may
+    // replace the photo, but BRIEF-010 locked post content to the author — so without this the
+    // non-author's replacement silently failed to reach the wall. This opens exactly one crack:
+    // a diff of nothing but `photo`, and only for a participant of the post's own match.
+    // Costs one document read, and only when a photo is replaced on a completed meetup.
+    function photoOnlyByParticipant() {
+      let keys = request.resource.data.diff(resource.data).affectedKeys();
+      return keys.hasOnly(['photo'])
+        && resource.data.matchId is string
+        && exists(/databases/$(database)/documents/matches/$(resource.data.matchId))
+        && request.auth.uid in [
+             get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.a,
+             get(/databases/$(database)/documents/matches/$(resource.data.matchId)).data.b
+           ];
+    }
 
     match /posts/{id} {
       allow read: if signedIn();
@@ -50,6 +65,7 @@ service cloud.firestore {
           || isAdmin()
           || request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(['hearts','heartedBy','comments'])
+          || photoOnlyByParticipant()          // BRIEF-013: the shared photo, either participant
         )
         // And separately: if the write touches comments at all, it must be a single append
         // stamped with the caller's own uid. Admins are exempt so they can moderate.

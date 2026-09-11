@@ -274,6 +274,12 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   const after = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
   chk("late photo updates the existing post, no duplicate",
       after.length === before && after[0].photo === "data:image/jpeg;base64,LATE");
+  // BRIEF-013: replacing the shared photo again still updates that one post, unconditionally —
+  // the non-author skip is gone from the live store (the rule now permits a photo-only diff).
+  await window.ZB_STORE.setMatchPhoto(id, "data:image/jpeg;base64,AGAIN", {names:"Test User & X",scene:"coffee"});
+  const after2 = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
+  chk("replacing the shared photo again updates the same single post",
+      after2.length === before && after2[0].photo === "data:image/jpeg;base64,AGAIN");
 
   window.go("meetups"); chk("shows under Completed", /Completed/.test(scr()) && /\+10 pts/.test(scr()));
   window.go("recap:"+id);
