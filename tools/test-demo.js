@@ -148,6 +148,11 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   await window.finishOnboard();
   /* ---- BRIEF-020: the icebreaker step sits between onboarding and the award ---- */
   const iceScr = scr();
+  chk("a colleague who has not earned the bonus is offered it",
+      (function(){ window.iceAns(0,"a"); window.iceAns(1,"b"); window.iceAns(2,"c");
+        const lbl = document.querySelector(".ob-cta .btn").textContent;
+        window.iceAns(0,""); window.iceAns(1,""); window.iceAns(2,"");
+        return lbl === window.ZB_T("ice_save_bonus", "en"); })());
   chk("onboarding asks 3 icebreakers", /A little about you/.test(iceScr)
       && (iceScr.match(/oninput="iceAns\(/g)||[]).length === 3
       && /only with the people you match with/.test(iceScr)
@@ -631,8 +636,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && !/Beach, mountains or city\?/.test(scr()));
   // typing must not overwrite the translated Save label with English
   window.iceAns(0, "x"); window.iceAns(1, "y"); window.iceAns(2, "z");
-  chk("the Save label stays translated while typing",
-      document.querySelector(".ob-cta .btn").textContent === window.ZB_T("ice_save_bonus", "ro"));
+  chk("the Save label stays translated while typing, and does not re-promise an earned bonus",
+      document.querySelector(".ob-cta .btn").textContent === window.ZB_T("save", "ro"));
   window.iceSkip();
   window.go("profile");
   chk("the You card renders prompts in the viewer's language",
