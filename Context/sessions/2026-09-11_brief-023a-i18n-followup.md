@@ -120,3 +120,19 @@ Dictionary is now **195 keys**, all three languages complete.
 The **splash/welcome screen itself** (rotating taglines, the reel) stays English, since it renders before the
 picker and the device-language default only covers the common case. A small flag switcher there would close
 it — worth doing only if Sean wants it, as it adds a second place to choose a language.
+
+## Round 5 — Romanian native review folded in (v=43)
+Sean's Romanian reviewer returned **30 edits**, applied to `Context/questions-i18n.md` (its header now marks
+Romanian native-reviewed, alongside Dutch). Both stores regenerated from the source by id.
+
+**Verified the same way as Donnae's Dutch:** every one of the 68 NL and 68 RO strings in **both**
+`js/store.js` and `js/store-firebase.js` is byte-identical to `questions-i18n.md` — 272 string comparisons,
+zero mismatches. Confirmed Dutch was untouched (0 NL diffs), that exactly 30 Romanian strings changed, and
+that no translation fields leaked onto the three DEMO_ICE entries this time (the mistake from round 1, where
+those objects share the `{ id:"t2q…"` shape).
+
+No rules change, no data-model change. `?v=` 42 → 43; harness 178/178 green.
+
+**Both question sets are now native-reviewed.** The remaining machine-drafted text is the **UI dictionary**
+(`js/i18n.js`, 195 keys) — never reviewed in either language. Worth tracking separately; it is one file and
+correctable without a reseed, unlike the questions.
