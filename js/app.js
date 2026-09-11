@@ -586,10 +586,18 @@ window.obBackWelcome=function(){onboardStep='welcome';renderOnboard();};
 // or back to You when it's picked up later.
 function iceStart(from){
   if(C.me&&C.me.lang)OB.lang=C.me.lang;      // keep OB in step with the saved profile
-  const pool=shuffle(icebreakerQuestions()).slice(0,3);
-  const existing=(C.me&&C.me.icebreakers)||[];
-  ICE={qs:pool.length?pool:[],answers:pool.map(q=>{
-    const hit=existing.filter(x=>x&&x.id===q.id)[0];return hit?(hit.answer||''):'';
+  const bank=icebreakerQuestions();
+  const answered=((C.me&&C.me.icebreakers)||[]).filter(x=>x&&(x.answer||'').trim());
+  // Re-opening KEEPS the questions already answered. Reshuffling every time meant "Edit
+  // answers" showed three different questions with empty boxes, and saving then overwrote the
+  // stored list — silently discarding what the colleague had written.
+  let pool=answered.slice(0,3).map(x=>bank.filter(q=>q.id===x.id)[0]||{id:x.id,text:x.question,tier:2});
+  if(pool.length<3){                          // first time, or a partial set: top up at random
+    const rest=shuffle(bank).filter(q=>!pool.some(p=>p.id===q.id));
+    pool=pool.concat(rest.slice(0,3-pool.length));
+  }
+  ICE={qs:pool,answers:pool.map(q=>{
+    const hit=answered.filter(x=>x&&x.id===q.id)[0];return hit?(hit.answer||''):'';
   }),from:from||'onboard'};
   if(!ICE.qs.length){iceDone();return;}
   mode="onboarding";onboardStep='ice';renderOnboard();

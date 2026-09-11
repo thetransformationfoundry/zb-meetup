@@ -611,6 +611,24 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   await window.ZB_STORE.saveIcebreakers([]);
   await refreshAndSettle();
   window.iceFromProfile();
+  // Re-opening must show the questions you actually answered, not a fresh random three —
+  // otherwise Save overwrites the stored set and the answers are lost.
+  await window.ZB_STORE.saveIcebreakers([
+    {id:"t2q23",question:"Beach, mountains or city?",answer:"Kept one"},
+    {id:"t2q11",question:"What's your most useless talent?",answer:"Kept two"},
+    {id:"t2q25",question:"What's a small thing that always makes your day better?",answer:"Kept three"}]);
+  await refreshAndSettle();
+  window.iceFromProfile();
+  const reopened = scr();
+  chk("re-opening shows the answered questions, not a new random set",
+      /Kept one/.test(reopened) && /Kept two/.test(reopened) && /Kept three/.test(reopened));
+  await window.iceSave();
+  const kept = (await window.ZB_STORE.getMe()).icebreakers || [];
+  chk("saving after a re-open preserves the answers",
+      kept.length === 3 && kept.map(x=>x.answer).sort().join("|") === "Kept one|Kept three|Kept two");
+  await window.ZB_STORE.saveIcebreakers([]);
+  await refreshAndSettle();
+  window.iceFromProfile();
   chk("the icebreaker step follows the CURRENT language, not the signup one",
       /C[âa]teva lucruri despre tine/.test(scr()) && /Salveaz[ăa]/.test(scr()));
   window.iceSkip();
