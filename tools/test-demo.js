@@ -595,7 +595,31 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("no raw i18n keys leak into the UI",
       ![wRo,rRo,mRo,nRo,hRo,mtRo,rcRo].some(x => /\b(notif_|meet_|wall_|ranks_|hiw_|msgs_)[a-z0-9_]+\b/.test(x)));
 
+  // Changing language later must also reach screens that run in onboarding mode — the
+  // icebreaker step reuses it, and used to render in the language picked at signup.
+  await window.ZB_STORE.saveIcebreakers([]);
+  await refreshAndSettle();
+  window.iceFromProfile();
+  chk("the icebreaker step follows the CURRENT language, not the signup one",
+      /C[âa]teva lucruri despre tine/.test(scr()) && /Salveaz[ăa]/.test(scr()));
+  window.iceSkip();
+
+  await window.ZB_STORE.saveMe({ lang: "nl" });
+  await refreshAndSettle();
+  window.iceFromProfile();
+  chk("switching language again re-renders the icebreaker step",
+      /Iets over jou/.test(scr()) && !/C[âa]teva lucruri despre tine/.test(scr()));
+  window.iceSkip();
+
   await window.ZB_STORE.saveMe({ lang: "en" });
+  await refreshAndSettle();
+  window.iceFromProfile();
+  chk("and back to English", /A little about you/.test(scr()));
+  window.iceSkip();
+  await window.ZB_STORE.saveIcebreakers([
+    {id:"t2q23",question:"Beach, mountains or city?",answer:"Answer one"},
+    {id:"t2q11",question:"What's your most useless talent?",answer:"Answer two"},
+    {id:"t2q25",question:"What's a small thing that always makes your day better?",answer:"Answer three"}]);
   await refreshAndSettle();
   window.go("ranks");
   chk("switching back to English restores English", /Leaderboard/.test(scr()));

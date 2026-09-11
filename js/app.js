@@ -106,7 +106,11 @@ function pickImage(cb,px){
 // The viewer's language. During onboarding the profile may not exist yet, so OB.lang leads.
 const LANGS=["en","nl","ro"];
 function myLang(){
-  const l=(mode==="onboarding"&&OB&&OB.lang)||(C.me&&C.me.lang)||"en";
+  // The SAVED profile wins whenever there is one. OB.lang only leads during first-run
+  // onboarding, before the profile exists — otherwise a later language change on Edit profile
+  // would be ignored on any screen that runs in onboarding mode (the icebreaker step reuses it,
+  // so it was rendering in whatever language you originally signed up with).
+  const l=(C.me&&C.me.lang)||(mode==="onboarding"&&OB&&OB.lang)||"en";
   return LANGS.indexOf(l)>-1?l:"en";
 }
 // t(key) — English is the fallback for a missing language and a missing key (never blank).
@@ -575,6 +579,7 @@ window.obBackWelcome=function(){onboardStep='welcome';renderOnboard();};
 // Three random icebreakers. `from` decides where Save/Skip goes: the onboarding award screen,
 // or back to You when it's picked up later.
 function iceStart(from){
+  if(C.me&&C.me.lang)OB.lang=C.me.lang;      // keep OB in step with the saved profile
   const pool=shuffle(icebreakerQuestions()).slice(0,3);
   const existing=(C.me&&C.me.icebreakers)||[];
   ICE={qs:pool.length?pool:[],answers:pool.map(q=>{
