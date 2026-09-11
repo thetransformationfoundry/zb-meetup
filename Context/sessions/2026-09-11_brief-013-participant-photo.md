@@ -1,6 +1,6 @@
 # Session — 2026-09-11 · BRIEF-013 · either participant may refresh the wall photo (v=35)
 
-**Branch:** `fix/either-participant-photo` (off `main` @ 6da651e) · **Status:** built, harness 135/135 green,
+**Branch:** `fix/either-participant-photo` (off `main` @ 6da651e) · **Status:** built, harness 137/137 green,
 **awaiting Sean's rules publish + merge**.
 
 ## The collision this resolves
@@ -48,3 +48,25 @@ handover rather than left to "should be fine".
 ## Note
 This is the last of the residual flags I raised during BRIEF-005/006/010. BRIEF-011 Part B (validating heart
 *values*) stays won't-do by Sean's call.
+
+## Follow-up: the feature was unreachable after both completed (Sean, 2026-09-11)
+Writing the test steps I told Sean to change the photo "from the recap" — and he correctly pointed out there
+was no such control. Checking properly: `viewMeet` bails to the recap once **you** have completed, and the
+recap only had a Back button. So the reachable window was narrow:
+
+| Situation | Could you replace the photo? |
+|---|---|
+| You haven't completed | yes — shared space still active |
+| You completed, partner hasn't | no UI path |
+| Both completed | no UI path for either |
+
+The rule and the client both permitted it; only the UI didn't offer it. **Added a Change photo action to the
+recap** (`?v=36`) — the same `addPhoto(id)` handler, with a line saying either participant can change it and
+that it updates on the wall for both. `addPhoto` already looked matches up across all statuses, so no other
+change was needed.
+
+Worth knowing: after completion the photo is already public on the wall, so changing it changes what
+colleagues have already seen. No confirm dialog — Sean asked for the action directly, and it is the same
+shared-photo intent as before completion.
+
+Two checks added: the recap exposes the action, and using it updates the same single post.

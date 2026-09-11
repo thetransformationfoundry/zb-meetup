@@ -880,7 +880,9 @@ function viewRecap(id){
    <div class="card"><div class="row between"><div class="row">${av(m.person)}<div><div style="font-weight:700">${m.person.name}</div><div class="muted small">${m.person.role} · ${m.person.dept}</div></div></div><span class="chip good">+${myPoints(m)} pts</span></div>
      <div class="muted small" style="margin-top:10px">${m.photoAwarded?'Shared photo +5':'No photo — no photo points'} · ${m.completed?'Your questions +5':'Questions not completed'}</div>
      <div class="muted small" style="margin-top:4px">${m.otherCompleted?`${m.person.first} has finished their part too.`:`${m.person.first} hasn't finished their part yet.`}</div></div>
-   <div class="card"><b>The photo</b><div style="margin-top:10px">${sceneSquare(sc,'',mp)}</div>${mp?'':`<p class="muted small" style="margin-top:8px">No photo was added for this meetup.</p>`}</div>
+   <div class="card"><b>The photo</b><div style="margin-top:10px">${sceneSquare(sc,'',mp)}</div>${mp?'':`<p class="muted small" style="margin-top:8px">No photo was added for this meetup.</p>`}
+     <p class="muted small" style="margin:10px 0 8px">One photo per meetup — either of you can change it, and it updates on the community wall for both.</p>
+     <button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',16)} ${mp?'Change photo':'Add a photo'}</button></div>
    ${talkingPointsHTML(m)}
    <div class="card"><b>Your answers</b><p class="muted small" style="margin:6px 0 10px">Only you (and admins) can see these — never the other participant.</p>
      ${m.questions.map((q,i)=>`<div class="q"><div class="t">${q.t}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><div class="small" style="margin-top:6px;white-space:pre-wrap">${(m.answers[i]||'').trim()||'<span class="muted">Not answered</span>'}</div></div>`).join('')}</div>`;

@@ -288,6 +288,16 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("recap also shows the partner's talking points",
       /Talking points/.test(recap) && partnerIce.every(x => recap.indexOf(x.answer) > -1));
   chk("recap still labels my answers private", /Only you \(and admins\) can see these/.test(recap));
+  // BRIEF-013: the shared photo must be changeable after completion too, not only while active
+  chk("recap offers a change-photo action", /onclick="addPhoto\('/.test(recap)
+      && /Change photo|Add a photo/.test(recap)
+      && /either of you can change it/.test(recap));
+  const beforeRecap = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
+  await window.addPhoto(id);        // from the recap
+  const afterRecap = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
+  chk("changing the photo from the recap updates the same single post",
+      afterRecap.length === beforeRecap.length
+      && /^data:image\//.test(afterRecap[0].photo || ""));
   chk("the log instruction is not repeated in the recap", !/Log your meetup below/.test(recap));
   window.go("ranks");
   const ranks = scr();
