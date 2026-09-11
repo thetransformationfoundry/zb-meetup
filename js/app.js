@@ -110,7 +110,25 @@ function myLang(){
   return LANGS.indexOf(l)>-1?l:"en";
 }
 // t(key) — English is the fallback for a missing language and a missing key (never blank).
-function t(key){ return window.ZB_T?window.ZB_T(key,myLang()):key; }
+function t(key,params){ return window.ZB_T?window.ZB_T(key,myLang(),params):key; }
+// Notifications are stored with an English `text` at send time. Render from `type` + `name` in
+// the READER's language instead, and fall back to the stored English for anything older or of
+// an unknown type — so nothing ever renders blank.
+function notifText(n){
+  if(!n)return '';
+  const key={request:'notif_request',accept:'notif_accept',msg:'notif_msg',welcome:'notif_welcome'}[n.type];
+  if(!key)return n.text||'';
+  if(key==='notif_welcome')return t(key);
+  const name=n.name||notifNameFromText(n.text);
+  if(!name)return n.text||t(key,{name:''}).trim();
+  return t(key,{name:name});
+}
+// Old notifications carry no `name` field; recover it from the stored English sentence.
+function notifNameFromText(txt){
+  txt=(txt||'').trim(); if(!txt)return '';
+  const m=txt.match(/^(.+?) (?:wants to meet you|accepted your match|sent you a message)/);
+  return m?m[1]:'';
+}
 // A question in the viewer's language, falling back to the canonical English `text`.
 // Each side of a meetup therefore reads the same question in their own language.
 function qText(q,lang){
@@ -127,11 +145,29 @@ function qText(q,lang){
   return q.text||q.t||'';
 }
 // A small language cue on a colleague's card: "greet them in their language".
+// Inline SVG rather than emoji flags — emoji render differently on every platform (and Windows
+// shows letter pairs), whereas these are identical everywhere and need no font. Defined once
+// here; every call-site gets it through langBadge().
+const FLAG_SVG={
+  // Union Jack, simplified: at 20px the counterchanged diagonals are invisible anyway.
+  en:'<rect width="24" height="16" fill="#012169"/>'
+    +'<path d="M0 0 24 16M24 0 0 16" stroke="#fff" stroke-width="3.2"/>'
+    +'<path d="M0 0 24 16M24 0 0 16" stroke="#C8102E" stroke-width="1.8"/>'
+    +'<path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="5.2"/>'
+    +'<path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="3"/>',
+  nl:'<rect width="24" height="5.34" fill="#AE1C28"/><rect y="5.34" width="24" height="5.33" fill="#fff"/><rect y="10.67" width="24" height="5.33" fill="#21468B"/>',
+  ro:'<rect width="8" height="16" fill="#002B7F"/><rect x="8" width="8" height="16" fill="#FCD116"/><rect x="16" width="8" height="16" fill="#CE1126"/>',
+};
+const LANG_LABEL={en:'EN',nl:'NL',ro:'RO'};
+const LANG_TITLE={en:'Speaks English',nl:'Spreekt Nederlands',ro:'Vorbește română'};
 function langBadge(lang){
   const l=LANGS.indexOf(lang)>-1?lang:'en';
-  const label={en:'EN',nl:'NL',ro:'RO'}[l];
-  const title={en:'Speaks English',nl:'Spreekt Nederlands',ro:'Vorbește română'}[l];
-  return `<span class="langpill" title="${title}" aria-label="${title}">${label}</span>`;
+  const title=LANG_TITLE[l]||LANG_TITLE.en;
+  const flag=FLAG_SVG[l];
+  // Never render an empty badge: if a flag can't resolve, fall back to the text pill.
+  if(!flag)return `<span class="langpill" title="${title}" aria-label="${title}">${LANG_LABEL[l]||'EN'}</span>`;
+  return `<span class="langflag" title="${title}" aria-label="${title}" role="img">`
+    +`<svg viewBox="0 0 24 16" width="20" height="13" aria-hidden="true" focusable="false">${flag}</svg></span>`;
 }
 
 /* ---------------- go-live spin lock (BRIEF-019) ---------------- */
@@ -501,11 +537,11 @@ function welcomeHTML(){
 }
 function howItWorksHTML(inApp){
   const STEPS=[
-    {n:1,ic:spinnerIcon(19),title:"Get matched",body:"Each day, tap Spin to be paired with a colleague from a different part of the business. Matches are made so they work for on-site and remote people alike. You start with a 30-point welcome bonus, and your first spin each day is free — spinning again to swap colleague costs 1 point, so give whoever comes up a chance.",note:"First spin each day is free"},
-    {n:2,ic:icon('chat',19),title:"Say hi & plan",body:"When you both accept, a shared space opens with a chat. Agree a time and place together.",note:""},
-    {n:3,ic:icon('users',19),title:"Meet up",body:"A coffee, a walk, a shared break — or a quick Teams call if one of you is remote.",note:""},
-    {n:4,ic:icon('camera',19),title:"Log it for points",body:"Share a photo of your meetup and answer three quick discussion questions together to earn points. Photos go to the community wall; your answers stay private.",note:"Answers stay private"},
-    {n:5,ic:icon('trophy',19),title:"Climb & win",body:"Points climb the leaderboard. A panel of CB management judges picks the best idea shared in the discussions — €250 for that, €250 for topping the leaderboard and €150 for the runner-up. Winners announced end of October 2026.",note:"€250 best idea · €250 top of board · €150 runner-up"},
+    {n:1,ic:spinnerIcon(19),title:t('hiw_1_t'),body:t('hiw_1_b'),note:t('hiw_1_n')},
+    {n:2,ic:icon('chat',19),title:t('hiw_2_t'),body:t('hiw_2_b'),note:""},
+    {n:3,ic:icon('users',19),title:t('hiw_3_t'),body:t('hiw_3_b'),note:""},
+    {n:4,ic:icon('camera',19),title:t('hiw_4_t'),body:t('hiw_4_b'),note:t('hiw_4_n')},
+    {n:5,ic:icon('trophy',19),title:t('hiw_5_t'),body:t('hiw_5_b'),note:t('hiw_5_n')},
   ];
   const rows=STEPS.map((s,i)=>`<div style="position:relative;display:flex;gap:16px;padding-bottom:20px;">
     ${i<STEPS.length-1?`<div style="position:absolute;left:19px;top:44px;bottom:-2px;width:0;border-left:2px dashed #C6D8E6;"></div>`:''}
@@ -522,7 +558,7 @@ function howItWorksHTML(inApp){
     <div style="padding:22px 16px 0;">${rows}</div>
     <div style="flex:1;min-height:8px;"></div>
     <div style="position:sticky;bottom:0;padding:14px 16px 22px;background:linear-gradient(to top,#F5F7FA 55%,rgba(245,247,250,0));">
-      <button type="button" onclick="${inApp?`go('${hiwFrom}')`:`obGoCreate()`}" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">${inApp?'Back':'Got it — create my account'}</span></button>
+      <button type="button" onclick="${inApp?`go('${hiwFrom}')`:`obGoCreate()`}" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">${inApp?t('back'):t('hiw_cta')}</span></button>
       <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:12px;">For Zimmer Biomet colleagues only</div>
     </div>
   </div>`;
@@ -879,7 +915,7 @@ function viewMeetups(){
   if(!act.length&&!hist.length)return `<h2>My meetups</h2><p class="sub">Your matches will appear here.</p><div class="card center muted">No meetups yet — head to Spin to find your first match.</div>`;
   const totalUnread=act.reduce((s,m)=>s+(m.unread||0),0);
   let h=`<h2>My meetups</h2><p class="sub">Message, meet, then log it for points.</p>`;
-  if(act.some(m=>m.status==='active'))h+=`<div class="card mailbox" onclick="go('messages')"><div class="nicon">${icon('chat',20)}</div><div style="flex:1"><div style="font-weight:700">Messages</div><div class="muted small">Coordinate your meetups with your matches</div></div>${totalUnread?`<span class="badge">${totalUnread} new</span>`:`<span style="color:var(--muted);transform:rotate(180deg)">${icon('back',18)}</span>`}</div>`;
+  if(act.some(m=>m.status==='active'))h+=`<div class="card mailbox" onclick="go('messages')"><div class="nicon">${icon('chat',20)}</div><div style="flex:1"><div style="font-weight:700">${t('msgs_h')}</div><div class="muted small">${t('msgs_card_sub')}</div></div>${totalUnread?`<span class="badge">${t('msgs_new',{n:totalUnread})}</span>`:`<span style="color:var(--muted);transform:rotate(180deg)">${icon('back',18)}</span>`}</div>`;
   act.forEach(m=>{
     if(m.status==='requested'&&m.incoming)h+=`<div class="card"><div class="row"><div class="nicon" style="background:var(--zb-blue-soft)">${icon('users',20)}</div><div style="flex:1"><div style="font-weight:700">${m.person.name} wants to meet</div><div class="muted small">${m.person.role} · suggested ${m.type}</div></div></div><div class="row" style="gap:10px;margin-top:12px"><button class="btn sm" style="flex:1;justify-content:center" onclick="acceptReq('${m.id}')">${icon('check',16)} Accept</button><button class="btn ghost sm" style="flex:1;justify-content:center" onclick="declineReq('${m.id}')">${icon('x',16)} Decline</button></div></div>`;
     else if(m.status==='requested')h+=`<div class="card"><div class="row between"><div class="row">${av(m.person)}<div><div style="font-weight:700">${m.person.name}</div><div class="muted small">${m.person.role}</div></div></div><span class="chip grey">Waiting…</span></div></div>`;
@@ -897,7 +933,7 @@ function talkingPointsHTML(m){
   if(!ib.length)return '';
   return `<div class="card talk"><div class="row between"><div class="lead"><span class="nicon">${icon('chat',18)}</span><b>${t('meet_talking')}</b></div><span class="chip">${m.person.first} ${langBadge((fresh&&fresh.lang)||m.person.lang)}</span></div>
     <p class="muted small" style="margin:8px 0 2px">${m.person.first}'s icebreakers — a head start on the conversation.</p>
-    ${ib.map(x=>`<div class="q"><div class="t">${x.question||''}</div><div class="small ans">${x.answer}</div></div>`).join('')}</div>`;
+    ${ib.map(x=>`<div class="q"><div class="t">${qText({id:x.id,text:x.question},myLang())}</div><div class="small ans">${x.answer}</div></div>`).join('')}</div>`;
 }
 function viewMeet(id){
   const m=C.matches.find(x=>x.id===id&&!x.completed);if(!m)return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><div class="card muted">You've finished your part of this meetup.</div><button class="btn secondary" onclick="go('recap:${id}')">${icon('check',18)} View the recap</button>`;
@@ -908,10 +944,10 @@ function viewMeet(id){
    ${talkingPointsHTML(m)}
    <p class="muted small" style="margin:2px 2px 10px;line-height:1.5">${t('meet_log')}</p>
    <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.photo?`${mp?`<img src="${mp}" alt="Your meetup photo" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
-   <div class="card"><div class="row between"><b>${t('meet_q_h')}</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${qText(q)}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="Your answer…">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">${t('meet_q_private')}</p></div>
+   <div class="card"><div class="row between"><b>${t('meet_q_h')}</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${qText(q)}${q.tier===1?`<span class="tierpill">${t('key_idea')}</span>`:''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="${t('q_answer_ph')}">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">${t('meet_q_private')}</p></div>
    <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} ${t('meet_complete')}</button>
-   <p class="muted small center" style="margin-top:8px">${canComplete(m)?"That's your +5 for the questions — the photo earns its own +5.":t('meet_complete_hint')}</p>
-   <p class="muted small center" style="margin-top:6px">${m.otherCompleted?`${m.person.first} has finished their part.`:`Waiting on ${m.person.first} to finish their part — your points don't depend on it.`}</p>`;
+   <p class="muted small center" style="margin-top:8px">${canComplete(m)?t('meet_complete_ok'):t('meet_complete_hint')}</p>
+   <p class="muted small center" style="margin-top:6px">${m.otherCompleted?t('meet_partner_done',{name:m.person.first}):t('meet_waiting',{name:m.person.first})}</p>`;
 }
 function viewRecap(id){
   const m=C.matches.find(x=>x.id===id);
@@ -923,25 +959,25 @@ function viewRecap(id){
    <div class="card"><div class="row between"><div class="row">${av(m.person)}<div><div style="font-weight:700">${m.person.name}</div><div class="muted small">${m.person.role} · ${m.person.dept}</div></div></div><span class="chip good">+${myPoints(m)} pts</span></div>
      <div class="muted small" style="margin-top:10px">${m.photoAwarded?'Shared photo +5':'No photo — no photo points'} · ${m.completed?'Your questions +5':'Questions not completed'}</div>
      <div class="muted small" style="margin-top:4px">${m.otherCompleted?`${m.person.first} has finished their part too.`:`${m.person.first} hasn't finished their part yet.`}</div></div>
-   <div class="card"><b>The photo</b><div style="margin-top:10px">${sceneSquare(sc,'',mp)}</div>${mp?'':`<p class="muted small" style="margin-top:8px">No photo was added for this meetup.</p>`}
-     <p class="muted small" style="margin:10px 0 8px">One photo per meetup — either of you can change it, and it updates on the community wall for both.</p>
+   <div class="card"><b>${t('recap_photo')}</b><div style="margin-top:10px">${sceneSquare(sc,'',mp)}</div>${mp?'':`<p class="muted small" style="margin-top:8px">${t('recap_no_photo')}</p>`}
+     <p class="muted small" style="margin:10px 0 8px">${t('recap_photo_note')}</p>
      <button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',16)} ${mp?'Change photo':'Add a photo'}</button></div>
    ${talkingPointsHTML(m)}
-   <div class="card"><b>Your answers</b><p class="muted small" style="margin:6px 0 10px">Only you (and admins) can see these — never the other participant.</p>
-     ${m.questions.map((q,i)=>`<div class="q"><div class="t">${q.t}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><div class="small" style="margin-top:6px;white-space:pre-wrap">${(m.answers[i]||'').trim()||'<span class="muted">Not answered</span>'}</div></div>`).join('')}</div>`;
+   <div class="card"><b>${t('recap_your_answers')}</b><p class="muted small" style="margin:6px 0 10px">${t('recap_private')}</p>
+     ${m.questions.map((q,i)=>`<div class="q"><div class="t">${qText(q)}${q.tier===1?`<span class="tierpill">${t('key_idea')}</span>`:''}</div><div class="small" style="margin-top:6px;white-space:pre-wrap">${(m.answers[i]||'').trim()||('<span class="muted">'+t('recap_not_answered')+'</span>')}</div></div>`).join('')}</div>`;
 }
 function viewMessages(){
   const chats=activeMatches().filter(m=>m.status==='active');
-  if(!chats.length)return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Messages</h2><p class="sub">Your match chats appear here.</p><div class="card center muted">No chats yet — accept a match to start talking.</div>`;
-  let h=`<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Messages</h2><p class="sub">Your match conversations.</p><div class="card" style="padding:4px 14px">`;
-  chats.forEach(m=>{const last=m.messages.length?m.messages[m.messages.length-1]:null;h+=`<div class="notif" onclick="go('thread:${m.id}')">${av(m.person,'sm')}<div style="flex:1;min-width:0"><div class="row between"><b>${m.person.first}</b>${m.unread?`<span class="badge">${m.unread}</span>`:''}</div><div class="muted small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${last?(last.by==='me'?'You: ':'')+last.text:'Say hi and pick a time'}</div></div></div>`;});
+  if(!chats.length)return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><h2 style="margin-top:6px">${t('msgs_h')}</h2><p class="sub">${t('msgs_sub')}</p><div class="card center muted">${t('msgs_none')}</div>`;
+  let h=`<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><h2 style="margin-top:6px">${t('msgs_h')}</h2><p class="sub">${t('msgs_convos')}</p><div class="card" style="padding:4px 14px">`;
+  chats.forEach(m=>{const last=m.messages.length?m.messages[m.messages.length-1]:null;h+=`<div class="notif" onclick="go('thread:${m.id}')">${av(m.person,'sm')}<div style="flex:1;min-width:0"><div class="row between"><b>${m.person.first}</b>${m.unread?`<span class="badge">${m.unread}</span>`:''}</div><div class="muted small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${last?(last.by==='me'?'You: ':'')+last.text:t('msgs_say_hi')}</div></div></div>`;});
   return h+`</div>`;
 }
 function viewThread(id){
   const m=C.matches.find(x=>x.id===id);if(!m)return `<button class="btn ghost sm" onclick="go('messages')">${icon('back',16)} Back</button><div class="card muted">Chat unavailable.</div>`;
   if(m.unread){m.unread=0;S.clearMatchUnread&&S.clearMatchUnread(id);}
   const thread=m.messages.map(x=>`<div class="msg ${x.by}">${x.text}</div>`).join('')||`<div class="muted small center" style="padding:16px">Say hi and pick a time to meet.</div>`;
-  return `<button class="btn ghost sm" onclick="go('meet:${m.id}')">${icon('back',16)} Back to meetup</button><div class="row" style="margin:10px 2px 12px">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.type}</div></div></div><div class="card threadcard"><div class="thread">${thread}</div><div class="row" style="gap:8px;margin-top:12px"><input class="input" id="msgIn" placeholder="Message ${m.person.first}…" onkeydown="if(event.key==='Enter')sendMsg('${m.id}')"><button class="btn sm" onclick="sendMsg('${m.id}')">${icon('send',17)}</button></div></div>`;
+  return `<button class="btn ghost sm" onclick="go('meet:${m.id}')">${icon('back',16)} ${t('back_to_meetup')}</button><div class="row" style="margin:10px 2px 12px">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.type}</div></div></div><div class="card threadcard"><div class="thread">${thread}</div><div class="row" style="gap:8px;margin-top:12px"><input class="input" id="msgIn" placeholder="${t('msgs_ph',{name:m.person.first})}" onkeydown="if(event.key==='Enter')sendMsg('${m.id}')"><button class="btn sm" onclick="sendMsg('${m.id}')">${icon('send',17)}</button></div></div>`;
 }
 window.sendMsg=async function(id){const inp=$("#msgIn");const v=(inp.value||'').trim();if(!v)return;await S.sendMessage(id,v);await refresh();};
 function refreshCompleteBtn(m){const b=document.getElementById('completeBtn');if(b)b.disabled=!canComplete(m);}
@@ -959,8 +995,8 @@ function viewWall(){
   const real=C.posts.filter(w=>!w.seed),seeds=C.posts.filter(w=>w.seed);
   const posts=[...real,...seeds].slice(0,Math.max(6,real.length));
   const motd=posts[0]||C.posts[0];const ms=SCENES[motd.scene]||SCENES.coffee;
-  let h=`<h2>Community wall</h2><p class="sub">Celebrating meetups across ZB.</p><div class="card" style="background:linear-gradient(135deg,var(--zb-blue),var(--zb-blue-dark));color:#fff;border:none"><span class="chip gold" style="background:rgba(255,255,255,.2);color:#fff">${icon('trophy',14)} Match of the day</span><div style="font-weight:800;font-size:17px;margin-top:10px">${motd.names}</div><div class="small" style="opacity:.85">${ms.chip}</div></div>`;
-  posts.forEach(w=>{const s=SCENES[w.scene]||SCENES.coffee;h+=`<div class="card"><div class="row" style="margin-bottom:10px"><span class="avatar sm" style="background:${s.c1}">${initialsPair(w.names)}</span><div class="small"><b>${w.names}</b>${w.seed?'':' · <span style="color:var(--good);font-weight:700">just now</span>'}</div></div>${sceneSquare(w.scene,s.chip,w.photo)}<div class="row" style="gap:16px;margin-top:10px"><button class="iconbtn ${w.liked?'liked':''}" onclick="like('${w.id}')">${icon('heart',19,w.liked)} ${w.hearts}</button><span class="iconbtn">${icon('chat',18)} ${w.comments.length}</span></div>${w.comments.map(c=>`<div class="comment"><b>${commentAuthor(c)}</b> ${mention(c.text)}</div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="cin${w.id}" placeholder="Add a comment… use @ to mention" onkeydown="if(event.key==='Enter')addComment('${w.id}')"><button class="btn sm secondary" onclick="addComment('${w.id}')">${icon('send',16)}</button></div></div>`;});
+  let h=`<h2>${t('wall_h')}</h2><p class="sub">${t('wall_sub')}</p><div class="card" style="background:linear-gradient(135deg,var(--zb-blue),var(--zb-blue-dark));color:#fff;border:none"><span class="chip gold" style="background:rgba(255,255,255,.2);color:#fff">${icon('trophy',14)} ${t('wall_motd')}</span><div style="font-weight:800;font-size:17px;margin-top:10px">${motd.names}</div><div class="small" style="opacity:.85">${ms.chip}</div></div>`;
+  posts.forEach(w=>{const s=SCENES[w.scene]||SCENES.coffee;h+=`<div class="card"><div class="row" style="margin-bottom:10px"><span class="avatar sm" style="background:${s.c1}">${initialsPair(w.names)}</span><div class="small"><b>${w.names}</b>${w.seed?'':' · <span style="color:var(--good);font-weight:700">'+t('wall_just_now')+'</span>'}</div></div>${sceneSquare(w.scene,s.chip,w.photo)}<div class="row" style="gap:16px;margin-top:10px"><button class="iconbtn ${w.liked?'liked':''}" onclick="like('${w.id}')">${icon('heart',19,w.liked)} ${w.hearts}</button><span class="iconbtn">${icon('chat',18)} ${w.comments.length}</span></div>${w.comments.map(c=>`<div class="comment"><b>${commentAuthor(c)}</b> ${mention(c.text)}</div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="cin${w.id}" placeholder="${t('wall_comment_ph')}" onkeydown="if(event.key==='Enter')addComment('${w.id}')"><button class="btn sm secondary" onclick="addComment('${w.id}')">${icon('send',16)}</button></div></div>`;});
   return h;
 }
 window.like=async function(id){await S.heartPost(id);await refresh();};
@@ -968,7 +1004,7 @@ window.addComment=async function(id){const inp=$("#cin"+id);const v=(inp.value||
 
 /* ---------------- RANKS ---------------- */
 function viewRanks(){
-  let h=`<h2>Leaderboard</h2><p class="sub">Getting to know colleagues, one meetup at a time.</p><div class="card prize"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${icon('money',14)} Prizes · winners announced end of October 2026</span><p class="small" style="margin:11px 0 0;line-height:1.5;opacity:.96">Every meetup earns you points — but there's more. A panel of <b>CB management judges</b> will pick the best <b>idea</b> shared in the discussions. Win <b>€250 for the best idea</b>, <b>€250</b> for topping the leaderboard, or <b>€150</b> as runner-up. Get to know your colleagues, brainstorm some fun ideas — and help make an impact on people's lives.</p><div class="prizerow"><div class="prizecard"><div class="pk">BEST IDEA</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">TOP OF BOARD</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">RUNNER-UP</div><div class="pv">€150</div></div></div><button type="button" class="btn white sm" style="width:100%;justify-content:center;margin-top:12px" onclick="go('howitworks')">${icon('help',16)} How it works</button></div><div class="card">`;
+  let h=`<h2>${t('ranks_h')}</h2><p class="sub">${t('ranks_sub')}</p><div class="card prize"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${icon('money',14)} ${t('prize_chip')}</span><p class="small" style="margin:11px 0 0;line-height:1.5;opacity:.96">Every meetup earns you points — but there's more. A panel of <b>CB management judges</b> will pick the best <b>idea</b> shared in the discussions. Win <b>€250 for the best idea</b>, <b>€250</b> for topping the leaderboard, or <b>€150</b> as runner-up. Get to know your colleagues, brainstorm some fun ideas — and help make an impact on people's lives.</p><div class="prizerow"><div class="prizecard"><div class="pk">${t('prize_best')}</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">${t('prize_top')}</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">${t('prize_runner')}</div><div class="pv">€150</div></div></div><button type="button" class="btn white sm" style="width:100%;justify-content:center;margin-top:12px" onclick="go('howitworks')">${icon('help',16)} ${t('hiw_h')}</button></div><div class="card">`;
   C.leaderboard.slice(0,15).forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${r.photo?`<img src="${r.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(r.name)}</span><div class="nm">${r.name}</div><div class="p">${r.points}</div></div>`;});
   return h+`</div>`;
 }
@@ -1113,9 +1149,9 @@ window.addQ=async function(){const v=($("#newq").value||'').trim();if(!v)return;
 
 /* ---------------- NOTIFICATIONS ---------------- */
 function viewNotifs(){
-  let h=`<div class="row between"><h2>Notifications</h2>${C.notifs.length?`<button class="iconbtn" onclick="clearNotifs()">Clear all</button>`:''}</div><p class="sub">Tap one to jump to it.</p>`;
-  if(!C.notifs.length)return h+`<div class="card center muted">You're all caught up.</div>`;
-  C.notifs.forEach(n=>{h+=`<div class="ncard ${n.read?'':'unread'}" onclick="openNotif('${n.id}')"><div class="nicon">${icon(n.icon||'bell',18)}</div><div class="small" style="flex:1">${n.text}</div></div>`;});
+  let h=`<div class="row between"><h2>${t('notifs_h')}</h2>${C.notifs.length?`<button class="iconbtn" onclick="clearNotifs()">${t('notifs_clear')}</button>`:''}</div><p class="sub">${t('notifs_sub')}</p>`;
+  if(!C.notifs.length)return h+`<div class="card center muted">${t('notifs_none')}</div>`;
+  C.notifs.forEach(n=>{h+=`<div class="ncard ${n.read?'':'unread'}" onclick="openNotif('${n.id}')"><div class="nicon">${icon(n.icon||'bell',18)}</div><div class="small" style="flex:1">${notifText(n)}</div></div>`;});
   return h;
 }
 window.openNotif=async function(id){const n=C.notifs.find(x=>String(x.id)===String(id));if(!n)return;await S.markNotifRead(id);if(n.target){view=n.target;await refresh();}else await refresh();};

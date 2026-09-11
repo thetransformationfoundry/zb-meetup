@@ -1,6 +1,7 @@
 # ZB MeetUP — Question translations (EN / NL / RO)
-# MACHINE-TRANSLATION DRAFTS (Cowork, 2026-09-11) — PENDING NATIVE REVIEW.
-#   Dutch (nl): review with Donnae.  Romanian (ro): needs a native speaker to check tone/idiom.
+# MACHINE-TRANSLATION DRAFTS (Cowork, 2026-09-11).
+#   Dutch (nl): NATIVE-REVIEWED by Donnae 2026-09-11 (12 edits folded in — see BRIEF-023A). Considered final.
+#   Romanian (ro): still a machine draft — needs a native speaker to check tone/idiom.
 # Ids match the seeded question docs (BRIEF-020): t1q1..t1q34, t2q1..t2q34.
 # English (en) is canonical / the fallback and the admin-export text. NL/RO are display-only.
 # Admins can correct any wording later in the question bank (BRIEF-008 editor extended to nl/ro).
@@ -39,7 +40,7 @@ t1q6
 
 t1q7
 - en: Start / Stop / Continue: name one thing we should start doing, one we should stop, and one we should keep.
-- nl: Start / Stop / Doorgaan: noem één ding dat we moeten gaan doen, één dat we moeten stoppen en één dat we moeten behouden.
+- nl: Start / Stop / Doorgaan: noem één ding waar we mee moeten gaan beginnen, één waar we mee moeten stoppen en één wat we moeten behouden.
 - ro: Start / Stop / Continuă: numește un lucru pe care ar trebui să-l începem, unul pe care să-l oprim și unul pe care să-l păstrăm.
 
 t1q8
@@ -79,12 +80,12 @@ t1q14
 
 t1q15
 - en: Which report, check or admin step could be automated so you can focus on more valuable work?
-- nl: Welk rapport, welke controle of administratieve stap zou geautomatiseerd kunnen worden zodat je je op waardevoller werk kunt richten?
+- nl: Welk rapport, controle of administratieve stap zou geautomatiseerd kunnen worden zodat je je op waardevoller werk kunt richten?
 - ro: Ce raport, verificare sau pas administrativ ar putea fi automatizat ca să te poți concentra pe muncă mai valoroasă?
 
 t1q16
 - en: Have you used ZB AI Portal and what are your thoughts? How could it improve?
-- nl: Heb je het ZB AI Portal gebruikt en wat vind je ervan? Hoe kan het beter?
+- nl: Heb je de ZB AI Portal al gebruikt en wat vind je ervan? Hoe kan het verbeteren?
 - ro: Ai folosit ZB AI Portal și ce părere ai? Cum ar putea fi îmbunătățit?
 
 t1q17
@@ -94,7 +95,7 @@ t1q17
 
 t1q18
 - en: What's the one piece of technology or equipment that would make your job easier?
-- nl: Welk stuk technologie of gereedschap zou jouw werk makkelijker maken?
+- nl: Welke technologie of welk gereedschap zou jouw werk makkelijker maken?
 - ro: Ce tehnologie sau echipament ți-ar ușura munca?
 
 t1q19
@@ -109,7 +110,7 @@ t1q20
 
 t1q21
 - en: What do new colleagues struggle with most in their first weeks – how could onboarding be better?
-- nl: Waar worstelen nieuwe collega's het meest mee in hun eerste weken – hoe kan de onboarding beter?
+- nl: Waar worstelen nieuwe collega's het meeste mee in hun eerste weken – hoe kan de onboarding beter?
 - ro: Cu ce se confruntă cel mai mult colegii noi în primele săptămâni – cum ar putea fi mai bună integrarea?
 
 t1q22
@@ -139,17 +140,17 @@ t1q26
 
 t1q27
 - en: Imagine a new colleague from the year 2040 visits Hazeldonk. What would make them laugh at how we work today?
-- nl: Stel je voor dat een nieuwe collega uit het jaar 2040 Hazeldonk bezoekt. Waarom zouden ze lachen om hoe we vandaag werken?
+- nl: Stel je voor dat een nieuwe collega uit het jaar 2040 Hazeldonk bezoekt. Waar zouden ze om lachen als ze zien hoe we vandaag werken?
 - ro: Imaginează-ți că un coleg nou din anul 2040 vizitează Hazeldonk. Ce l-ar face să râdă de felul în care lucrăm azi?
 
 t1q28
 - en: If our biggest customer were a 12-year-old, how would you explain what we do – and what would they think is silly?
-- nl: Als onze grootste klant een 12-jarige was, hoe zou je uitleggen wat we doen – en wat zouden ze maar gek vinden?
+- nl: Als onze grootste klant een 12-jarige was, hoe zou je uitleggen wat we doen – en wat zouden ze maar raar vinden?
 - ro: Dacă cel mai mare client al nostru ar fi un copil de 12 ani, cum i-ai explica ce facem – și ce i s-ar părea caraghios?
 
 t1q29
 - en: Pitch a completely ridiculous product or service for ZB. Then tell us the one serious idea hiding inside it.
-- nl: Bedenk een compleet belachelijk product of dienst voor ZB. Vertel dan welk serieus idee erin verstopt zit.
+- nl: Bedenk een compleet belachelijk product of dienst voor ZB. Vertel dan welk serieus idee er achter verstopt zit.
 - ro: Propune un produs sau serviciu complet ridicol pentru ZB. Apoi spune-ne ideea serioasă ascunsă în el.
 
 t1q30
@@ -159,7 +160,7 @@ t1q30
 
 t1q31
 - en: You've been made Minister of Tuesdays. What's the one thing that would make every Tuesday at ZB better?
-- nl: Je bent benoemd tot Minister van Dinsdagen. Wat zou elke dinsdag bij ZB beter maken?
+- nl: Je bent benoemd tot Minister van Dinsdagen. Wat zou je doen om elke dinsdag bij ZB beter te maken?
 - ro: Ai fost numit Ministrul Marților. Ce lucru ar face fiecare marți la ZB mai bună?
 
 t1q32
@@ -169,7 +170,7 @@ t1q32
 
 t1q33
 - en: A robot starts on your team on Monday. Write its job description in three lines.
-- nl: Er begint maandag een robot in jouw team. Schrijf zijn functieomschrijving in drie regels.
+- nl: Er begint maandag een robot in jouw team. Beschrijf zijn functieomschrijving in drie regels.
 - ro: Un robot începe lucrul în echipa ta luni. Scrie-i fișa postului în trei rânduri.
 
 t1q34
@@ -201,7 +202,7 @@ t2q4
 
 t2q5
 - en: What would your colleagues be surprised to learn about you?
-- nl: Wat zouden je collega's verrast zijn om over je te weten te komen?
+- nl: Waarover zouden je collega's verrast zijn om over je te weten te komen?
 - ro: Ce ar surprinde colegii tăi să afle despre tine?
 
 t2q6
@@ -336,7 +337,7 @@ t2q31
 
 t2q32
 - en: If you won the lottery tomorrow, what's the first (sensible) thing and the first (not-so-sensible) thing you'd do?
-- nl: Als je morgen de loterij won, wat is het eerste (verstandige) en het eerste (minder verstandige) dat je zou doen?
+- nl: Als je morgen de loterij wint, wat is het eerste (verstandige) en het eerste (minder verstandige) dat je zou doen?
 - ro: Dacă ai câștiga la loterie mâine, care ar fi primul lucru (rezonabil) și primul (mai puțin rezonabil) pe care l-ai face?
 
 t2q33
