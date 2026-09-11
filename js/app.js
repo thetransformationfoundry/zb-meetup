@@ -307,9 +307,15 @@ window.checkUpdate=function(){
 let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],spin:{points:0,freeSpin:true},admin:false,leaderboard:[],bugs:[],build:null,adminData:null};
 let adminOpenQ=null,adminAnon=false;   // which question is expanded; whether to hide who said what
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
+// Pre-login screens have no profile to read, so seed the picker from the device language.
+// Only en/nl/ro are offered; anything else falls back to English.
+const browserLang=(function(){try{
+  const l=((navigator&&(navigator.language||(navigator.languages||[])[0]))||'').slice(0,2).toLowerCase();
+  return LANGS.indexOf(l)>-1?l:'en';
+}catch(e){return 'en';}})();
 let AWARD={first:"",points:30,bonus:0,balance:30};   // props for the Points Awarded screen
 let ICE={qs:[],answers:["","",""],from:"onboard"};   // the icebreaker step
-let OB={lang:"en",email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
+let OB={lang:(typeof browserLang!=="undefined"?browserLang:"en"),email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
 // The two matching-critical labels — keyed off by eligible(), so never inline these strings.
 const EMEA_ROLE='EMEA - QARA Commercial';
 const GSCC_QARA='GSCC - QARA';
@@ -572,7 +578,7 @@ function howItWorksHTML(inApp){
     </div>
   </div>`;
 }
-window.obGoCreate=function(){stopTagline();onboardStep=0;renderOnboard();};
+window.obGoCreate=function(){stopTagline();onboardStep='lang';renderOnboard();};   // language first (BRIEF-023A)
 window.obGoSignIn=function(){stopTagline();onboardStep='signin';renderOnboard();};
 window.obHow=function(){stopTagline();onboardStep='how';renderOnboard();};
 window.obBackWelcome=function(){onboardStep='welcome';renderOnboard();};
@@ -631,7 +637,7 @@ function renderOnboard(){
       <h2>${t('lang_q')}</h2><p class="sub">${t('lang_sub')}</p>
       <div class="card">${LANGS.map(l=>`<button type="button" class="btn ${OB.lang===l?'':'alt'}" style="margin-bottom:8px" onclick="obLang('${l}')">
         ${window.ZB_T('lang_'+l,l)}${OB.lang===l?` ${icon('check',16)}`:''}</button>`).join('')}</div>
-      </div><div class="ob-cta"><button class="btn" onclick="obStep(1)">${t('continue')}</button></div></div>`;
+      </div><div class="ob-cta"><button class="btn" onclick="obStep(0)">${t('continue')}</button></div></div>`;
     return;
   }
   if(onboardStep==='ice'){
@@ -657,18 +663,18 @@ function renderOnboard(){
       <div class="glow"></div>
       <div class="body">
         <div class="zb-medal"><div class="ring"></div><div class="ring-dashed"></div><div class="disc">${icon('trophy',46)}</div></div>
-        <div class="eyebrow">YOU'RE ALL SET</div>
-        <h1>${first?`Nice work, ${first},`:'Nice work,'}<br>your first MeetUP awaits</h1>
-        <p class="sub">Onboarding complete. Spin to get matched with a colleague and start earning.</p>
+        <div class="eyebrow">${t('aw_eyebrow')}</div>
+        <h1>${first?t('aw_h',{name:first}):t('aw_h_noname')}</h1>
+        <p class="sub">${t('aw_sub')}</p>
         <div class="zb-chip-award"><span class="puck">${icon('star',19)}</span>
-          <span style="display:flex;align-items:baseline;gap:6px"><span class="n">${AWARD.points} points</span><span class="t">awarded to you!</span></span></div>
+          <span style="display:flex;align-items:baseline;gap:6px"><span class="n">${t('aw_points',{n:AWARD.points})}</span><span class="t">${t('aw_awarded')}</span></span></div>
         ${AWARD.bonus?`<div class="zb-chip-award zb-chip-bonus"><span class="puck">${icon('chat',17)}</span>
-          <span style="display:flex;align-items:baseline;gap:6px"><span class="n">+${AWARD.bonus} points</span><span class="t">for your icebreakers</span></span></div>`:''}
-        <div class="balance">Balance: ${AWARD.balance} points</div>
+          <span style="display:flex;align-items:baseline;gap:6px"><span class="n">+${t('aw_points',{n:AWARD.bonus})}</span><span class="t">${t('aw_bonus')}</span></span></div>`:''}
+        <div class="balance">${t('aw_balance',{n:AWARD.balance})}</div>
       </div>
       <div class="foot">
-        <button type="button" class="zb-primary-btn" onclick="awardToSpin()">${icon('refresh',20)}<span>Take me to Spin</span></button>
-        <button type="button" class="zb-ghost-btn" onclick="zbCelebrate()">Celebrate again</button>
+        <button type="button" class="zb-primary-btn" onclick="awardToSpin()">${icon('refresh',20)}<span>${t('aw_spin')}</span></button>
+        <button type="button" class="zb-ghost-btn" onclick="zbCelebrate()">${t('aw_again')}</button>
       </div></div>`;
     confettiInit();
     return;
@@ -679,19 +685,17 @@ function renderOnboard(){
     sc.innerHTML=`<div class="ob"><div>
       <div class="center" style="padding-top:14px">
         <div class="avatar lg" style="margin:0 auto 18px;background:var(--zb-blue)">${icon('mail',54)}</div>
-        <h2>Check your email</h2>
-        <p class="sub">If we know that address, a password-reset link is on its way${OB.email?` to <b>${OB.email}</b>`:''}.</p>
+        <h2>${t('rs_h')}</h2>
+        <p class="sub">${t('rs_sub')}${OB.email?` to <b>${OB.email}</b>`:''}.</p>
       </div>
       <div class="card"><div class="row" style="gap:10px;align-items:flex-start">
         <div class="nicon" style="background:var(--zb-blue-soft);flex:none">${icon('mail',20)}</div>
-        <div class="small" style="line-height:1.5"><b>Can't see it?</b> Check your <b>junk</b> or <b>spam</b> folder — the
-        message comes from <i>noreply@zb-meetup.firebaseapp.com</i>, which Outlook often files there the first time.
-        Marking it "not junk" means the next one arrives properly.</div>
+        <div class="small" style="line-height:1.5"><b>${t('rs_junk_h')}</b> ${t('rs_junk')}</div>
       </div></div>
-      <p class="muted small center" style="margin-top:12px">Open the link, set a new password, then come back here and sign in.</p>
+      <p class="muted small center" style="margin-top:12px">${t('rs_then')}</p>
       </div><div class="ob-cta">
       <button class="btn" onclick="obGoSignIn()">${icon('check',18)} Sign in</button>
-      <button class="btn alt" style="margin-top:8px" onclick="obForgot('resend')">Send the email again</button>
+      <button class="btn alt" style="margin-top:8px" onclick="obForgot('resend')">${t('rs_again')}</button>
     </div></div>`;
     return;
   }
@@ -700,17 +704,17 @@ function renderOnboard(){
     ab.innerHTML=`<div class="brand" style="margin:0 auto">ZB <span>MeetUP</span></div>`;tb.innerHTML="";
     sc.innerHTML=`<div class="ob"><div>
       <button class="btn ghost sm" onclick="obBackWelcome()">${icon('back',16)} ${t('back')}</button>
-      <div class="center" style="padding-top:6px"><div class="avatar lg" style="margin:0 auto 16px;background:var(--zb-blue)">${icon('users',54)}</div><h2>Welcome back</h2><p class="sub">Sign in with your work email to pick up where you left off.</p></div>
-      <div class="card"><label class="small" style="font-weight:700">Work email</label>
+      <div class="center" style="padding-top:6px"><div class="avatar lg" style="margin:0 auto 16px;background:var(--zb-blue)">${icon('users',54)}</div><h2>${t('si_h')}</h2><p class="sub">${t('si_sub')}</p></div>
+      <div class="card"><label class="small" style="font-weight:700">${t('ob_email')}</label>
         <input class="input" id="ob-email" placeholder="you@zimmerbiomet.com" style="margin:6px 0 12px" value="${OB.email||''}">
-        <label class="small" style="font-weight:700">Password</label>
-        <input class="input" id="ob-pass" type="password" placeholder="Your password" style="margin-top:6px" onkeydown="if(event.key==='Enter')obSignIn()"></div>
+        <label class="small" style="font-weight:700">${t('ob_pass')}</label>
+        <input class="input" id="ob-pass" type="password" placeholder="${t('si_pass_ph')}" style="margin-top:6px" onkeydown="if(event.key==='Enter')obSignIn()"></div>
       </div><div class="ob-cta">
-      <button class="btn" onclick="obSignIn()">${icon('check',18)} Sign in</button>
-      <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">Forgot password?</button>
+      <button class="btn" onclick="obSignIn()">${icon('check',18)} ${t('si_btn')}</button>
+      <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">${t('ob_forgot')}</button>
       <div class="hr"></div>
-      <p class="muted small center" style="margin:0 0 8px">New to ZB MeetUP?</p>
-      <button class="btn alt" onclick="obGoCreate()">Create an account instead</button>
+      <p class="muted small center" style="margin:0 0 8px">${t('si_new')}</p>
+      <button class="btn alt" onclick="obGoCreate()">${t('si_create')}</button>
     </div></div>`;
     return;
   }
@@ -719,9 +723,9 @@ function renderOnboard(){
   const dots=`<div class="steps">${[0,1,2,3,4].map(i=>`<i class="${i<=onboardStep?'on':''}"></i>`).join('')}</div>`;
   let body="",cta="";
   if(onboardStep===0){
-    body=`<div class="center" style="padding-top:10px"><div class="avatar lg" style="margin:0 auto 16px;background:var(--zb-blue)">${icon('users',54)}</div><h2>Welcome to ZB MeetUP</h2><p class="sub">Meet a new colleague each day — coffee, a walk, or a quick call. Let's get you set up.</p></div>
-      <div class="card"><label class="small" style="font-weight:700">Work email</label><input class="input" id="ob-email" placeholder="you@zimmerbiomet.com" style="margin:6px 0 12px" value="${OB.email}"><label class="small" style="font-weight:700">Password</label><input class="input" id="ob-pass" type="password" placeholder="At least 6 characters" style="margin-top:6px"></div>`;
-    cta=`<button class="btn" onclick="obCreate()">Create account</button><button class="btn alt" style="margin-top:8px" onclick="obGoSignIn()">I already have an account — sign in</button><button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">Forgot password?</button>`;
+    body=`<div class="center" style="padding-top:10px"><div class="avatar lg" style="margin:0 auto 16px;background:var(--zb-blue)">${icon('users',54)}</div><h2>${t('ob_welcome_h')}</h2><p class="sub">${t('ob_welcome_sub')}</p></div>
+      <div class="card"><label class="small" style="font-weight:700">${t('ob_email')}</label><input class="input" id="ob-email" placeholder="you@zimmerbiomet.com" style="margin:6px 0 12px" value="${OB.email}"><label class="small" style="font-weight:700">${t('ob_pass')}</label><input class="input" id="ob-pass" type="password" placeholder="${t('ob_pass_hint')}" style="margin-top:6px"></div>`;
+    cta=`<button class="btn" onclick="obCreate()">${t('ob_create')}</button><button class="btn alt" style="margin-top:8px" onclick="obGoSignIn()">${t('ob_have_account')}</button><button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">${t('ob_forgot')}</button>`;
   } else if(onboardStep===1){
     body=`<h2>${t('ob_name_h')}</h2><p class="sub">${t('ob_name_sub')}</p><div class="card"><input class="input" id="ob-name" placeholder="${t('ob_name_ph')}" value="${OB.name||''}"></div>`;
     cta=`<button class="btn" onclick="obName()">${t('continue')}</button>`;
@@ -740,7 +744,7 @@ function renderOnboard(){
       <br>· ${t('consent_answers')}
       <br>· ${t('consent_ice')}
       <br><br>${t('consent_delete')}</div><label class="row" style="gap:10px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ob-consent" style="width:20px;height:20px"> <span class="small">${t('ob_consent_tick')}</span></label>`;
-    cta=`<button class="btn" onclick="finishOnboard()">Enter ZB MeetUP</button>`;
+    cta=`<button class="btn" onclick="finishOnboard()">${t('enter_app')}</button>`;
   }
   $("#screen").innerHTML=`<div class="ob"><div>${dots}${body}</div><div class="ob-cta">${cta}</div></div>`;
 }
@@ -753,7 +757,7 @@ window.obCreate=function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").v
   // ZB MeetUP is only for the two org domains — stop here rather than at the end of onboarding.
   if(!window.ZB_DOMAIN_OK(e)){toast("ZB MeetUP is for Zimmer Biomet colleagues — please use your "+window.ZB_DOMAIN_HINT()+" email");return;}
   if((p||'').length<6){toast("Password must be at least 6 characters");return;}
-  OB.email=e;OB.pass=p;onboardStep='lang';renderOnboard();};   // language first (BRIEF-023)
+  OB.email=e;OB.pass=p;onboardStep=1;renderOnboard();};
 window.obSignIn=async function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e||!p){toast("Enter your email and password");return;}try{await S.signIn(e,p);}catch(err){toast("Sign-in failed — check your details or tap Create account.");}};
 window.obForgot=async function(resend){
   const e=resend?(OB.email||''):(($("#ob-email")||{}).value||'').trim();

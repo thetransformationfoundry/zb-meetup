@@ -96,6 +96,22 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
 
   // only the two org domains may create an account
   window.obGoCreate();
+  /* ---- BRIEF-023A: language is the FIRST step, before the account screen ---- */
+  const langScr0 = scr();
+  chk("onboarding asks for a language before the account screen",
+      /What language would you like to use\?|Welke taal|Ce limb/.test(langScr0)
+      && /Nederlands/.test(langScr0) && /Rom[aâ]n[aă]/.test(langScr0) && /English/.test(langScr0));
+  window.obLang("nl"); window.obStep(0);
+  chk("the account screen itself renders in the chosen language",
+      /Welkom bij ZB MeetUP/.test(scr()) && /Werk-e-mail/.test(scr())
+      && /Account aanmaken/.test(scr()) && /Ik heb al een account/.test(scr()));
+  window.obLang("ro"); window.obStep(0);
+  chk("account screen in Romanian too",
+      /Bine ai venit la ZB MeetUP/.test(scr()) && /Creeaz[ăa] cont/.test(scr()));
+  window.obLang("en"); window.obStep(0);
+  chk("and back to English on the account screen",
+      /Welcome to ZB MeetUP/.test(scr()) && /Work email/.test(scr()));
+
   document.getElementById("ob-email").value = "someone@gmail.com";
   document.getElementById("ob-pass").value = "demo1234";
   window.obCreate();
@@ -116,15 +132,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   // onboard as an ADMIN address (allowed domain) so BRIEF-007's idea bank is exercised
   document.getElementById("ob-email").value = "sean.abbood@thetransformationfoundry.nl";
   document.getElementById("ob-pass").value = "demo1234"; window.obCreate();
-  /* ---- BRIEF-023: language step ---- */
-  const langScr = scr();
-  chk("onboarding asks for a language first", /What language would you like to use\?/.test(langScr)
-      && /Nederlands/.test(langScr) && /Rom[aâ]n[aă]/.test(langScr) && /English/.test(langScr));
   window.obLang("nl"); window.obStep(1);
-  chk("the rest of onboarding renders in the chosen language", /Wat is je naam\?/.test(scr()));
-  window.obLang("ro"); window.obStep(1);
-  chk("Romanian renders too", /Cum te nume[sș]ti\?/.test(scr()));
-  // back to English so the remaining ~140 assertions stay language-neutral
+  chk("the rest of onboarding follows the chosen language", /Wat is je naam\?/.test(scr()));
   window.obLang("en"); window.obStep(1);
   chk("switching back to English re-renders in English", /What's your name\?/.test(scr()));
   document.getElementById("ob-name").value = "Test User"; window.obName();
@@ -174,6 +183,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && /30 points/.test(award) && /awarded to you!/.test(award)
       && /Balance: 40 points/.test(award)          // 30 signup + 10 icebreakers
       && /Take me to Spin/.test(award) && /Celebrate again/.test(award));
+  chk("the award screen follows the chosen language too",
+      /YOU'RE ALL SET|JE BENT KLAAR|E[ȘS]TI GATA/.test(award));
   chk("award screen shows the +10 icebreaker chip under the 30",
       /zb-chip-bonus/.test(award) && /\+10 points/.test(award) && /for your icebreakers/.test(award));
   chk("award screen renders without a real canvas", /<canvas id="cfCanvas">/.test(award));
