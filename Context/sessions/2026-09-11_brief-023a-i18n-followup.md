@@ -193,3 +193,50 @@ Everyone else sees a plain **Save / Salvează / Opslaan**.
 The You-screen card was already correct on this — it swaps to the "+10 earned" variant once the bonus is
 granted — so only the button needed the gate. Two checks: a colleague who has not earned it is offered it,
 and one who has is not.
+
+## Round 9 — verify the skip-then-set path, then audit for every remaining English string (v=47)
+Sean asked to confirm that skipping the icebreakers during onboarding and setting them later from **You**
+still offers the bonus, and sent two screenshots: the empty form showing a plain **Save**, then the same form
+with all three boxes filled showing **Save — earn 10 points**.
+
+That is the intended behaviour and the code now has a test for it rather than an assurance. The label is tied
+to whether the save will *actually* pay: the bonus is granted only when all three are answered, so a form with
+gaps offers a plain Save. Five checks cover the path — empty offers plain Save, two-of-three offers plain
+Save, all three offers the bonus, saving grants the +10, and re-editing afterwards no longer offers it. The
+block restores the surrounding section's state so it does not disturb the checks that follow it.
+
+### The wider find: screenshots were never going to catch the rest
+Rounds 1–8 each fixed whatever a screenshot showed. So instead of waiting for the next one, this round audited
+`js/app.js` for **every string literal that reaches the DOM** — text between tags, `toast(...)` arguments, and
+`textContent=` assignments — and checked each against the dictionary. That found a large set of untranslated
+colleague-facing surfaces, most of which no screenshot had covered:
+
+- the **bottom tab bar** (Spin / Meetups / Wall / Ranks / You) and the points chip in the app bar
+- **You**, **Edit profile**, the **delete-account confirm**, and the **bug report** form
+- the **message thread** (empty-state and unavailable-chat lines) and the **meetup hero**
+- the **countdown** screen, the **Add to Home Screen** hint, and the stale-build **Update available** banner
+- ~20 toasts and inline errors across sign-in, onboarding, spin and the photo picker
+
+79 new keys in all three languages. The dictionary is now **250 keys, none missing a language**.
+
+**A latent trap worth recording:** three functions declared a local `const t` — `viewCountdown` and
+`cdTickOnce` (the countdown parts object) and `sendBug` (the textarea value). Each shadowed the `t()` translate
+helper inside its own body, so calling `t('key')` there would have thrown at runtime rather than failing
+quietly. The locals are renamed (`cd`, `txt`) with a comment saying why. Worth grepping for `const t=` before
+adding translations to any function.
+
+**Left in English deliberately:** the splash screen (Sean's call — he is happy for it to stay English) and the
+admin dashboard plus CSV export helpers, which only the two admins ever see.
+
+**Also fixed — a pre-existing harness flake.** "meetup type is translated for display" listed five of the six
+type labels, so a random litter-pick draw failed the run at random. It now derives the expected strings from
+the dictionary and additionally asserts that no English label leaks through. Six consecutive runs green.
+
+197 checks. The eight new language checks were each verified to **fail** when `ZB_T` is forced to English, so
+they assert something real — two earlier drafts passed vacuously because the completed match renders the recap
+rather than the hero or an empty thread, and were rewritten against a freshly created active match.
+
+### Still open
+`cd_opens` and `spin_locked_toast` carry the hardcoded launch date ("Wednesday 16 September at 09:00") in all
+three languages. Translating it did not change that it is hardcoded in three places now instead of one — if
+the launch date moves, all three need editing.
