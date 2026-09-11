@@ -1,6 +1,6 @@
 # Session — 2026-09-11 · BRIEF-023A · i18n follow-up (v=39)
 
-**Branch:** `feat/multilingual` (continues `acdf92d`) · **Status:** built, harness 175/175 green,
+**Branch:** `feat/multilingual` (continues `acdf92d`) · **Status:** built, harness 178/178 green,
 **awaiting Sean's test + merge + a reseed**. Presentation layer only.
 
 ## What we did
@@ -44,7 +44,7 @@ Admin dashboard, the question-bank editor labels and the **CSV export stay Engli
 points, countdown, rules untouched. Free-text **answers** are still not translated across languages — the flag
 remains the bridge; live answer translation is a later layer.
 
-## Harness (25 new checks, 175 total)
+## Harness (28 new checks, 178 total)
 Flags per language and the real pill-fallback branch; talking-points prompts follow the viewer; `t()`
 interpolation; notifications by type, with name recovery from old English text, unknown-type fallback and
 welcome; Wall / Leaderboard+prizes / Messages / Notifications / How-It-Works all render Romanian; **no raw
@@ -92,3 +92,31 @@ syncs `OB.lang` from the profile as belt and braces.
 Three regression checks added — the step follows the current language, follows a second change, and returns
 to English — because a stale-state bug like this returns the moment someone adds another screen that borrows
 the onboarding shell.
+
+## Round 4 — language first, and the pre-login screens (v=42)
+Sean asked whether the language step should come **before** the account screen. It should: as built, a Dutch
+or Romanian colleague met English on the very first screen they interact with — the worst possible place,
+since it is also where they decide whether the app is for them.
+
+- **Language is now the first onboarding step.** Welcome → *language* → create account → name → role → photo
+  → consent → icebreakers → award. The account screen, and everything after it, renders in the chosen
+  language.
+- **The pre-login screens are translated**: create-account (heading, standfirst, both field labels, password
+  hint, all three buttons), the sign-in screen, the forgot-password/"check your email" screen including the
+  junk-folder guidance, and the **award screen** (eyebrow, headline with the name interpolated, sub-copy,
+  both point chips, balance, both buttons). These were the last English islands in a Romanian session.
+- **The picker defaults to the device language.** `navigator.language`, narrowed to en/nl/ro with English as
+  the fallback. This matters for the screens that come *before* any choice — the splash and, for a returning
+  colleague, the sign-in screen — which have no profile to read. A Dutch colleague on a Dutch device now sees
+  Dutch from the first paint rather than after the picker.
+
+Those keys existed from round 1 but had never been wired — I defined `ob_email`, `ob_create`,
+`ob_have_account` and the rest and then translated only the later steps. The per-view "what English literals
+remain" audit is what caught it, again.
+
+Dictionary is now **195 keys**, all three languages complete.
+
+### Still English before login
+The **splash/welcome screen itself** (rotating taglines, the reel) stays English, since it renders before the
+picker and the device-language default only covers the common case. A small flag switcher there would close
+it — worth doing only if Sean wants it, as it adds a second place to choose a language.
