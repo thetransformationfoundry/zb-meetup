@@ -369,6 +369,19 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       /Update available/.test(scr()) && /abc1234/.test(scr()) && /remove the icon/.test(scr()));
   window.go("admin"); chk("admin dashboard", /Admin dashboard/.test(scr()));
 
+  /* ---- BRIEF-022: no backdrop-filter on a transformed element ---- */
+  const cssText = fs.readFileSync("css/styles.css", "utf8");
+  const tabbarRule = (cssText.match(/\.tabbar\{[^}]*\}/) || [""])[0];
+  chk("tabbar has no backdrop-filter (Android flicker guardrail)",
+      tabbarRule.indexOf("transform:") > -1 && tabbarRule.indexOf("backdrop-filter") === -1);
+  chk("tabbar background is solid, so scrolled content cannot bleed through",
+      /background:var\(--card\)|background:#(FFFFFF|fff)\b/i.test(tabbarRule));
+  // and nothing else pairs backdrop-filter with a transform
+  const offenders = (cssText.match(/\.[-\w.]+\{[^}]*\}/g) || [])
+    .filter(r => /backdrop-filter/.test(r) && /transform:/.test(r))
+    .map(r => r.slice(0, r.indexOf("{")));
+  chk("no rule pairs backdrop-filter with transform", offenders.length === 0);
+
   /* ---- BRIEF-007: the idea bank + export ---- */
   chk("runs as an admin", (await window.ZB_STORE.isAdmin()) === true);
   const agg = await window.ZB_STORE.adminAnswers();

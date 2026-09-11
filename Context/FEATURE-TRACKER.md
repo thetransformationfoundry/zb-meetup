@@ -42,7 +42,7 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 | Full GSCC/EMEA role list + QARA cross-site matching + onboarding reorder | ✅ | BRIEF-015 — merged 2026-09-10 (v=18); 108 roles, EMEA restricted to the QARA set, legacy roles normalised on read |
 | Purge real names from git history + seed-name CI guard | ✅ | BRIEF-016 — repo recreated + history scrubbed 2026-09-10 (0 real names across 28 commits; old commit URLs 404). `tools/check-seed-names.js` gates every push. Repo hygiene, not a formal GDPR incident (Sean). Caveat: can't un-publish 4–10 Sep window (0 forks/stars) |
 | Real ~50-question bank (Donnae) + tiering | 💡 | Feeds BRIEF-008 once list ready |
-| Tabbar Android flicker + CI actions @v5 | 📋 | BRIEF-022 (before Monday) — remove backdrop-filter from `.tabbar`; bump checkout/setup-node to @v5. Two tidies, one branch |
+| Tabbar Android flicker + CI actions @v5 | 🔨 | BRIEF-022 built (v=37) on `fix/tabbar-and-ci` — `backdrop-filter` off the transformed tab bar, now guarded in CI; actions bumped |
 | Version / build stamp in-app + Check-for-update | ✅ | BRIEF-014 — merged + live v=16 (2026-09-09, code SHA 26122d0; stamp commit 2573047). CI (harness + auto-stamp + Pages build) verified end-to-end on first run. Staleness *detected*, not just displayed |
 | CI: harness on every push/PR (GitHub Action) | ✅ | Rode along with BRIEF-014 — roadmap item done |
 | Bump CI actions checkout/setup-node → @v5 | 💡 | Silence GitHub's Node 20 deprecation notice; cosmetic, when convenient |
@@ -62,5 +62,6 @@ Legend: ✅ live · 🔨 in progress · 📋 briefed (ready for CC) · 💡 idea
 - [ ] **Donnae's total corrected** as expected after the BRIEF-005 fix.
 - [x] **Locked non-admin countdown experience** confirmed 2026-09-10 (throwaway account → full-screen countdown, locked out).
 - [x] **Test accounts cleaned up** (2026-09-10) — throwaway + `+testuser` removed; board/pills start clean.
+- [ ] **FULL DATA WIPE before launch** (planned Sat 2026-09-12, after testing) — clear all test users, meetups, posts, comments, points from Firestore so Monday's signups start from zero. Keep only Sean + Donnae admin accounts (and re-check the leaderboard/wall/pills are empty).
 - [x] **Question bank reseeded live** (2026-09-10) — 68 real questions, seedVersion:2.
 - [ ] Two-account live check of each merged feature as the backlog lands.
