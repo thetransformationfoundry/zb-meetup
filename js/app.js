@@ -90,16 +90,16 @@ function pickImage(cb,px){
           var c=document.createElement('canvas'); c.width=s; c.height=s; var ctx=c.getContext('2d');
           ctx.drawImage(img, sx,sy,min,min, 0,0,s,s);
           var data; try{ data=c.toDataURL('image/jpeg',0.82); }catch(e){ data=null; }
-          cleanup(); if(data) cb(data); else toast("Couldn't process that image");
+          cleanup(); if(data) cb(data); else toast(t('img_process_err'));
         };
-        img.onerror=function(){cleanup();toast("Couldn't read that image");};
+        img.onerror=function(){cleanup();toast(t('img_read_err'));};
         img.src=fr.result;
       };
-      fr.onerror=function(){cleanup();toast("Couldn't read that file");};
+      fr.onerror=function(){cleanup();toast(t('file_read_err'));};
       fr.readAsDataURL(f);
     };
     document.body.appendChild(inp); inp.click();
-  }catch(e){ toast("Photo picker unavailable"); }
+  }catch(e){ toast(t('picker_err')); }
 }
 
 /* ---------------- i18n (BRIEF-023) ---------------- */
@@ -288,9 +288,7 @@ function buildStampHTML(){
   return `<div class="center" style="margin-top:18px">
     ${buildIsStale()?`<div class="card" style="border-color:#cfe6f5;background:var(--zb-blue-soft);text-align:left">
       <div class="row" style="gap:10px;align-items:flex-start"><div class="nicon" style="flex:none">${icon('refresh',18)}</div>
-      <div class="small" style="line-height:1.5"><b>Update available</b> — this device is running ${running} but ${'v'+C.build.version} is live.
-      Tap Check for update. If it keeps showing the old version and you opened this from a home-screen icon,
-      remove the icon and add it again.</div></div></div>`:''}
+      <div class="small" style="line-height:1.5"><b>${t('stale_h')}</b> ${t('stale_body',{running:running,live:'v'+C.build.version})}</div></div></div>`:''}
     <div class="muted small" style="letter-spacing:.02em">${line}</div>
     <button class="btn ghost sm" style="margin-top:6px" onclick="checkUpdate()">${icon('refresh',16)} Check for update</button>
   </div>`;
@@ -421,12 +419,12 @@ window.adminToggleAnon=function(){adminAnon=!adminAnon;render();};
 // drift animation and the entry sequence, so only the digits change.
 let cdTimer=null;
 function cdTickOnce(){
-  const t=unlockParts();
+  const cd=unlockParts();                        // `cd`, not `t` — `t` is the translate helper
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
-  set('cdD',t.d);set('cdH',t.h);set('cdM',t.m);set('cdS',t.s);
+  set('cdD',cd.d);set('cdH',cd.h);set('cdM',cd.m);set('cdS',cd.s);
   const tz=document.getElementById('cdTz');
-  if(t.open&&tz)tz.textContent='Spinning is open — refresh';
-  return !t.open;
+  if(cd.open&&tz)tz.textContent=t('cd_open_now');
+  return !cd.open;
 }
 function cdStop(){ if(cdTimer){clearInterval(cdTimer);cdTimer=null;} }
 function cdStart(){
@@ -488,10 +486,10 @@ window.go=v=>{
   if(v!=="spin")cdStop();
   view=v;render();
 };
-function renderAppbar(){$("#appbar").innerHTML=`<div class="brand">ZB <span>MeetUP</span></div><div class="spacer"></div><div class="pts">${C.me?C.me.points:0} pts</div><button class="bell" onclick="go('notifs')">${icon('bell',24)}${unread()?`<span class="badge">${unread()}</span>`:''}</button>`;}
+function renderAppbar(){$("#appbar").innerHTML=`<div class="brand">ZB <span>MeetUP</span></div><div class="spacer"></div><div class="pts">${C.me?C.me.points:0} ${t('pts_short')}</div><button class="bell" onclick="go('notifs')">${icon('bell',24)}${unread()?`<span class="badge">${unread()}</span>`:''}</button>`;}
 function renderTabs(){
   const reqB=activeMatches().filter(m=>(m.status==='active'&&!myAnswersDone(m))||(m.status==='requested'&&m.incoming)).length;
-  const tabs=[["spin","spinner","Spin"],["meetups","users","Meetups"],["wall","image","Wall"],["ranks","trophy","Ranks"],["profile","user","You"]];
+  const tabs=[["spin","spinner",t('tab_spin')],["meetups","users",t('tab_meetups')],["wall","image",t('tab_wall')],["ranks","trophy",t('tab_ranks')],["profile","user",t('tab_you')]];
   const root=(view.startsWith("meet:")||view.startsWith("thread:")||view==="messages")?"meetups":(view==="admin"||view==="editprofile"||view==="bug")?"profile":view;
   $("#tabbar").innerHTML=tabs.map(([id,ic,lb])=>{const b=id==='meetups'&&reqB?`<span class="badge" style="margin-left:4px">${reqB}</span>`:'';const ico=ic==='spinner'?spinnerIcon(21):icon(ic,22);return `<button class="${root===id?'active':''}" onclick="go('${id}')">${ico}<span>${lb}${b}</span></button>`;}).join("");
 }
@@ -620,7 +618,7 @@ window.iceSave=async function(){
   const list=ICE.qs.map((q,i)=>({id:q.id,question:q.text,answer:(ICE.answers[i]||'').trim()}))
                    .filter(x=>x.answer);
   await S.saveIcebreakers(list);
-  if(list.length===3&&await S.claimIcebreakerBonus())toast("Nice — 10 points for your icebreakers!");
+  if(list.length===3&&await S.claimIcebreakerBonus())toast(t('ice_bonus_toast'));
   await refresh();
   iceDone();
 };
@@ -745,7 +743,7 @@ function renderOnboard(){
     cta=`<button class="btn" onclick="obName()">${t('continue')}</button>`;
   } else if(onboardStep===2){
     body=`<h2>${t('ob_role_h')}</h2><p class="sub">${t('ob_role_sub')}</p><div class="card"><label class="small" style="font-weight:700">${t('ob_role_label')}</label><select class="input" id="ob-role" style="margin:6px 0 14px"><option value="" selected disabled>${t('ob_role_ph')}</option>${ROLES.map(r=>`<option>${r}</option>`).join('')}</select><label class="small" style="font-weight:700">${t('ob_wc_label')}</label><select class="input" id="ob-wc" style="margin-top:6px"><option value="warehouse">${t('ob_wc_warehouse')}</option><option value="on-site">${t('ob_wc_onsite')}</option><option value="partial" selected>${t('ob_wc_partial')}</option><option value="remote">${t('ob_wc_remote')}</option></select></div>`;
-    cta=`<button class="btn" onclick="obWork()">${t('continue')}</button><p class="muted small center" style="margin-top:10px">Warehouse/floor colleagues are matched only with on-site colleagues.</p>`;
+    cta=`<button class="btn" onclick="obWork()">${t('continue')}</button><p class="muted small center" style="margin-top:10px">${t('ob_wc_hint')}</p>`;
   } else if(onboardStep===3){
     body=`<h2>${t('ob_photo_h')}</h2><p class="sub">${t('ob_photo_sub')}</p>
       <div class="center"><span class="avatar lg" style="margin:0 auto;background:${OB.color}">${OB.photo?`<img src="${OB.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(OB.name||'You')}</span></div>
@@ -767,25 +765,25 @@ window.obLang=function(l){OB.lang=LANGS.indexOf(l)>-1?l:'en';renderOnboard();};
 window.obColor=c=>{OB.color=c;OB.hasPhoto=false;OB.photo=null;renderOnboard();};
 window.obPickPhoto=function(){pickImage(function(d){OB.photo=d;OB.hasPhoto=true;renderOnboard();});};
 window.obCreate=function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;
-  if(!e){toast("Please enter your email");return;}
+  if(!e){toast(t('err_need_email'));return;}
   // ZB MeetUP is only for the two org domains — stop here rather than at the end of onboarding.
-  if(!window.ZB_DOMAIN_OK(e)){toast("ZB MeetUP is for Zimmer Biomet colleagues — please use your "+window.ZB_DOMAIN_HINT()+" email");return;}
-  if((p||'').length<6){toast("Password must be at least 6 characters");return;}
+  if(!window.ZB_DOMAIN_OK(e)){toast(t('err_domain',{domain:window.ZB_DOMAIN_HINT()}));return;}
+  if((p||'').length<6){toast(t('err_pass_short'));return;}
   OB.email=e;OB.pass=p;onboardStep=1;renderOnboard();};
-window.obSignIn=async function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e||!p){toast("Enter your email and password");return;}try{await S.signIn(e,p);}catch(err){toast("Sign-in failed — check your details or tap Create account.");}};
+window.obSignIn=async function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e||!p){toast(t('err_need_both'));return;}try{await S.signIn(e,p);}catch(err){toast(t('err_signin'));}};
 window.obForgot=async function(resend){
   const e=resend?(OB.email||''):(($("#ob-email")||{}).value||'').trim();
-  if(!e){toast("Enter your email first");return;}
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){toast("That doesn't look like an email address");return;}
+  if(!e){toast(t('err_email_first'));return;}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){toast(t('err_email_bad'));return;}
   OB.email=e;
   try{ await S.resetPassword(e); }
   catch(err){ /* never reveal whether the address is registered — show the same screen either way */ }
-  if(resend)toast("Sent again — check your junk folder too");
+  if(resend)toast(t('rs_sent_again'));
   onboardStep='resetsent';renderOnboard();
 };
-window.obName=function(){const n=$("#ob-name").value.trim();if(!n){toast("Please enter your name");return;}OB.name=n;onboardStep=2;renderOnboard();};
+window.obName=function(){const n=$("#ob-name").value.trim();if(!n){toast(t('err_need_name'));return;}OB.name=n;onboardStep=2;renderOnboard();};
 window.obWork=function(){const wc=$("#ob-wc").value,role=$("#ob-role").value;
-  if(!role){toast("Please choose your role");return;}   // 108 options and no sensible default
+  if(!role){toast(t('ob_role_required'));return;}   // 108 options and no sensible default
   OB.role=role;
   if(wc==='warehouse'){OB.workClass='on-site';OB.floor=true;OB.dept='Distribution';}
   else{OB.workClass=wc;OB.floor=false;OB.dept=deptForRole(role);}
@@ -807,7 +805,7 @@ function deptForRole(r){
   return 'Zimmer Biomet';
 }
 window.finishOnboard=async function(){
-  if(!$("#ob-consent").checked){toast("Please tick consent to continue");return;}
+  if(!$("#ob-consent").checked){toast(t('ob_consent_need'));return;}
   authBusy=true;
   try{ if(!S.currentUser()) await S.signUp(OB.email,OB.pass); }
   catch(err){ authBusy=false; const code=(err&&err.code)||'';
@@ -862,7 +860,7 @@ function laneBand(cls,laneIdx,people){
   }).join('')}</div>`;
 }
 function viewCountdown(){
-  const t=unlockParts(), people=pillPeople();
+  const cd=unlockParts(), people=pillPeople();   // `cd`, not `t` — `t` is the translate helper
   // fewer signups -> fewer lanes, rather than repeating a name within a lane
   const laneCount=people.length>=6?6:(people.length>=3?4:2);
   const top=[0,1,2].slice(0,Math.ceil(laneCount/2)), bot=[3,4,5].slice(0,Math.floor(laneCount/2));
@@ -874,19 +872,19 @@ function viewCountdown(){
       <div class="zb-cd-card">
         <img class="logo" src="assets/zimmer-biomet-logo.svg" alt="Zimmer Biomet">
         <div class="zb-clock"><div class="ring"></div><div class="ring-dashed"></div><div class="disc">${icon('clock',32)}</div></div>
-        <div class="zb-cd-eyebrow"><span class="dot"></span>COUNTDOWN TO LAUNCH</div>
-        <h1>Get ready to spin</h1>
-        <div class="zb-grid" role="timer" aria-live="off" aria-label="Time until spinning opens">
-          <div class="zb-tile"><div class="v" id="cdD">${t.d}</div><div class="l">Days</div></div>
-          <div class="zb-tile"><div class="v" id="cdH">${t.h}</div><div class="l">Hrs</div></div>
-          <div class="zb-tile"><div class="v" id="cdM">${t.m}</div><div class="l">Min</div></div>
-          <div class="zb-tile sec"><div class="v" id="cdS">${t.s}</div><div class="l">Sec</div></div>
+        <div class="zb-cd-eyebrow"><span class="dot"></span>${t('cd_eyebrow')}</div>
+        <h1>${t('cd_h')}</h1>
+        <div class="zb-grid" role="timer" aria-live="off" aria-label="${t('cd_aria')}">
+          <div class="zb-tile"><div class="v" id="cdD">${cd.d}</div><div class="l">${t('cd_days')}</div></div>
+          <div class="zb-tile"><div class="v" id="cdH">${cd.h}</div><div class="l">${t('cd_hrs')}</div></div>
+          <div class="zb-tile"><div class="v" id="cdM">${cd.m}</div><div class="l">${t('cd_min')}</div></div>
+          <div class="zb-tile sec"><div class="v" id="cdS">${cd.s}</div><div class="l">${t('cd_sec')}</div></div>
         </div>
-        <p class="zb-cd-sub"><b>Spinning opens Wednesday 16 September at 09:00.</b> You're all set — explore the app and we'll see you then.</p>
+        <p class="zb-cd-sub"><b>${t('cd_opens')}</b> ${t('cd_sub')}</p>
       </div>
       <div class="zb-cd-foot">
-        <button type="button" class="zb-how" onclick="go('howitworks')">${icon('help',17)}<span>How it works</span></button>
-        <div class="zb-tz" id="cdTz">${t.open?'Spinning is open — refresh':'Times shown for 09:00 Amsterdam'}</div>
+        <button type="button" class="zb-how" onclick="go('howitworks')">${icon('help',17)}<span>${t('hiw_h')}</span></button>
+        <div class="zb-tz" id="cdTz">${cd.open?t('cd_open_now'):t('cd_tz')}</div>
       </div>
     </div>
     ${laneBand('bot',bot,people)}
@@ -894,7 +892,7 @@ function viewCountdown(){
 }
 function spinScreenHTML(){
   const idle=!current;
-  const rule=C.me.floor?"You're a warehouse/floor colleague, so you'll match with other on-site colleagues.":"You're desk-based, so you can match with on-site and remote colleagues.";
+  const rule=C.me.floor?t('spin_rule_floor'):t('spin_rule_desk');
   const faceInner=idle?`<span style="display:inline-flex;animation:ringSpin 3.6s linear infinite">${spinnerIcon(54)}</span>`:(current.photo?`<img src="${current.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:999px">`:inits(current.name));
   const faceBg=idle?"#3E6EA8":current.color;
   return `<div style="display:flex;flex-direction:column;min-height:calc(100vh - 150px)">
@@ -912,29 +910,29 @@ function spinScreenHTML(){
 window.doSpin=async function(){
   // The gate belongs on the action too: the blurred spin screen behind the countdown is
   // decorative, but a keyboard user could otherwise still reach its button.
-  if(spinLocked()){toast("Spinning opens Wednesday 16 September at 09:00");return;}
-  const pool=eligible();if(!pool.length){toast("No one left to match!");return;}
+  if(spinLocked()){toast(t('spin_locked_toast'));return;}
+  const pool=eligible();if(!pool.length){toast(t('spin_nobody'));return;}
   // Every spin is priced by the store: a free spin (first of the day, or granted by sending a
   // request) costs nothing, otherwise 1 point. At 0 points it is blocked rather than going negative.
   const paid=await S.paySpin();
-  if(!paid.ok){toast("You're out of points for now — send a request, or earn points by meeting someone");await refresh();return;}
+  if(!paid.ok){toast(t('spin_out_toast'));await refresh();return;}
   C.spin=await S.spinState();if(C.me)C.me.points=paid.points;
   if(!paid.free)renderAppbar();
-  const face=$("#spinFace"),lbl=$("#spinLabel");if(lbl)lbl.textContent="Finding your match…";
+  const face=$("#spinFace"),lbl=$("#spinLabel");if(lbl)lbl.textContent=t('spin_finding');
   let ticks=0,total=18+Math.floor(Math.random()*6),delay=45;
   (function step(){const p=pool[Math.floor(Math.random()*pool.length)];if(face){face.textContent=inits(p.name);face.style.backgroundColor=p.color;}ticks++;if(ticks>=total){p._type=meetupType(p);current=p;render();return;}if(ticks>total-6)delay+=40;setTimeout(step,delay);})();
 };
 // skip() is gone with BRIEF-017: it returned to idle, which made the next spin look like a
 // first-of-day free spin. The only actions on a candidate are now Send request and Spin again.
-window.sendReq=async function(){if(spinLocked()){toast("Spinning opens Wednesday 16 September at 09:00");return;}
+window.sendReq=async function(){if(spinLocked()){toast(t('spin_locked_toast'));return;}
   const p=current;
   const qs=pickQuestions();
-  if(!qs.length){toast("No discussion questions in the bank yet — an admin needs to add some");return;}
+  if(!qs.length){toast(t('spin_no_questions'));return;}
   current=null;
   await S.createMatch(p,p._type,qs);
   await S.grantFreeSpin();                      // chaining real meetups costs nothing
-  toast("Request sent to "+p.first+" — your next spin is free");await refresh();};
-window.acceptReq=async function(id){await S.acceptMatch(id);toast("Matched! Plan your meetup");await refresh();};
+  toast(t('spin_req_sent',{name:p.first}));await refresh();};
+window.acceptReq=async function(id){await S.acceptMatch(id);toast(t('spin_matched_toast'));await refresh();};
 window.declineReq=async function(id){await S.declineMatch(id);await refresh();};
 
 /* ---------------- MEETUPS ---------------- */
@@ -968,10 +966,10 @@ function viewMeet(id){
   const last=m.messages.length?m.messages[m.messages.length-1]:null;
   const mp=typeof m.photo==='string'?m.photo:null;   // the shared meetup photo (base64), if set
   return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">${t('meet_with')} ${m.person.first}</h2><p class="sub">${t('meet_shared')}</p>
-   <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">You both accepted — suggested: <b>${typeLabel(m.type)}</b>. Plan a time and place together.</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} ${t('meet_plan')}${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Last message: ${(last.by==='me'?'You: ':'')+last.text}</div>`:''}</div>
+   <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">${t('meet_both_accepted',{type:`<b>${typeLabel(m.type)}</b>`})}</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} ${t('meet_plan')}${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t('meet_last_msg')} ${(last.by==='me'?t('meet_you_prefix')+' ':'')+last.text}</div>`:''}</div>
    ${talkingPointsHTML(m)}
    <p class="muted small" style="margin:2px 2px 10px;line-height:1.5">${t('meet_log')}</p>
-   <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.photo?`${mp?`<img src="${mp}" alt="Your meetup photo" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
+   <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.photo?`${mp?`<img src="${mp}" alt="${t('meet_your_photo')}" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
    <div class="card"><div class="row between"><b>${t('meet_q_h')}</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${qText(q)}${q.tier===1?`<span class="tierpill">${t('key_idea')}</span>`:''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="${t('q_answer_ph')}">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">${t('meet_q_private')}</p></div>
    <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} ${t('meet_complete')}</button>
    <p class="muted small center" style="margin-top:8px">${canComplete(m)?t('meet_complete_ok'):t('meet_complete_hint')}</p>
@@ -1002,9 +1000,9 @@ function viewMessages(){
   return h+`</div>`;
 }
 function viewThread(id){
-  const m=C.matches.find(x=>x.id===id);if(!m)return `<button class="btn ghost sm" onclick="go('messages')">${icon('back',16)} ${t('back')}</button><div class="card muted">Chat unavailable.</div>`;
+  const m=C.matches.find(x=>x.id===id);if(!m)return `<button class="btn ghost sm" onclick="go('messages')">${icon('back',16)} ${t('back')}</button><div class="card muted">${t('thread_unavailable')}</div>`;
   if(m.unread){m.unread=0;S.clearMatchUnread&&S.clearMatchUnread(id);}
-  const thread=m.messages.map(x=>`<div class="msg ${x.by}">${x.text}</div>`).join('')||`<div class="muted small center" style="padding:16px">Say hi and pick a time to meet.</div>`;
+  const thread=m.messages.map(x=>`<div class="msg ${x.by}">${x.text}</div>`).join('')||`<div class="muted small center" style="padding:16px">${t('thread_say_hi')}</div>`;
   return `<button class="btn ghost sm" onclick="go('meet:${m.id}')">${icon('back',16)} ${t('back_to_meetup')}</button><div class="row" style="margin:10px 2px 12px">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.type}</div></div></div><div class="card threadcard"><div class="thread">${thread}</div><div class="row" style="gap:8px;margin-top:12px"><input class="input" id="msgIn" placeholder="${t('msgs_ph',{name:m.person.first})}" onkeydown="if(event.key==='Enter')sendMsg('${m.id}')"><button class="btn sm" onclick="sendMsg('${m.id}')">${icon('send',17)}</button></div></div>`;
 }
 window.sendMsg=async function(id){const inp=$("#msgIn");const v=(inp.value||'').trim();if(!v)return;await S.sendMessage(id,v);await refresh();};
@@ -1040,16 +1038,16 @@ function viewRanks(){
 /* ---------------- PROFILE ---------------- */
 function viewProfile(){
   const me=C.me;
-  return `<h2>You</h2><p class="sub">Manage your profile and account.</p><div class="card center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span><div style="font-weight:800;font-size:18px;margin-top:12px">${me.name||'You'}</div><div class="muted small">${me.role} · ${me.dept}</div><div class="muted small">${me.email||''}</div><div style="margin-top:6px">${langBadge(me.lang)}</div><div style="margin-top:10px"><span class="chip">${me.points} pts</span> <span class="chip grey">${history().length} meetups</span></div></div>
-   <button class="btn secondary" onclick="go('editprofile')">${icon('pencil',18)} Edit profile &amp; avatar</button>
-   <button class="btn secondary" style="margin-top:10px" onclick="go('bug')">${icon('bug',18)} Report a bug</button>
-   ${C.admin?`<button class="btn secondary" style="margin-top:10px" onclick="go('admin')">${icon('chart',18)} Admin dashboard</button>`:''}
+  return `<h2>${t('prof_h')}</h2><p class="sub">${t('prof_sub')}</p><div class="card center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span><div style="font-weight:800;font-size:18px;margin-top:12px">${me.name||'You'}</div><div class="muted small">${me.role} · ${me.dept}</div><div class="muted small">${me.email||''}</div><div style="margin-top:6px">${langBadge(me.lang)}</div><div style="margin-top:10px"><span class="chip">${me.points} ${t('pts_short')}</span> <span class="chip grey">${history().length} ${t('prof_meetups_chip')}</span></div></div>
+   <button class="btn secondary" onclick="go('editprofile')">${icon('pencil',18)} ${t('prof_edit')}</button>
+   <button class="btn secondary" style="margin-top:10px" onclick="go('bug')">${icon('bug',18)} ${t('prof_bug')}</button>
+   ${C.admin?`<button class="btn secondary" style="margin-top:10px" onclick="go('admin')">${icon('chart',18)} ${t('prof_admin')}</button>`:''}
    ${(function(){
      const ib=(C.me&&C.me.icebreakers)||[];
      const top='style="margin-top:14px"';
      const answered=ib.filter(x=>x&&(x.answer||'').trim()).length;
      if(answered>=3&&C.me&&C.me.icebreakerBonusGranted)
-       return `<div class="card" ${top}><div class="row between"><b>${t('ice_yours')}</b><span class="chip good">+10 earned</span></div>
+       return `<div class="card" ${top}><div class="row between"><b>${t('ice_yours')}</b><span class="chip good">${t('ice_earned')}</span></div>
          <p class="muted small" style="margin:8px 0 10px">${t('ice_yours_sub')}</p>
          ${ib.map(x=>`<div class="q"><div class="t">${qText({id:x.id,text:x.question},myLang())}</div><div class="small" style="margin-top:4px;white-space:pre-wrap">${x.answer}</div></div>`).join('')}
          <button class="btn ghost sm" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('pencil',15)} ${t('ice_edit')}</button></div>`;
@@ -1058,26 +1056,26 @@ function viewProfile(){
        <button class="btn" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('chat',17)} ${answered?t('ice_finish'):t('ice_answer3')}</button></div>`;
    })()}
    ${buildStampHTML()}
-   <div class="hr"></div><button class="btn ghost" onclick="signOut()">${icon('signout',18)} Sign out</button><button class="btn danger" style="margin-top:10px" onclick="askDelete()">${icon('trash',18)} Delete my account</button><p class="muted small center" style="margin-top:8px">Deleting removes your profile, photos and answers (GDPR).</p>`;
+   <div class="hr"></div><button class="btn ghost" onclick="signOut()">${icon('signout',18)} ${t('prof_signout')}</button><button class="btn danger" style="margin-top:10px" onclick="askDelete()">${icon('trash',18)} ${t('prof_delete')}</button><p class="muted small center" style="margin-top:8px">${t('prof_delete_note')}</p>`;
 }
 function viewEditProfile(){
   const me=C.me;
-  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">Edit profile</h2><p class="sub">Update how colleagues see you.</p><div class="center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span></div><button class="btn secondary" style="margin-top:14px" onclick="epPickPhoto()">${icon('camera',18)} ${me.photo?'Change photo':'Add a photo'}</button><div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">${t('ob_colour')}</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="epColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${me.color===c?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div><div class="card"><label class="small" style="font-weight:700">Name</label><input class="input" id="ep-name" value="${me.name}" style="margin-top:6px">
+  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">${t('ep_h')}</h2><p class="sub">${t('ep_sub')}</p><div class="center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span></div><button class="btn secondary" style="margin-top:14px" onclick="epPickPhoto()">${icon('camera',18)} ${me.photo?t('ob_photo_change'):t('ob_photo_add')}</button><div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">${t('ob_colour')}</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="epColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${me.color===c?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div><div class="card"><label class="small" style="font-weight:700">Name</label><input class="input" id="ep-name" value="${me.name}" style="margin-top:6px">
    <label class="small" style="font-weight:700;display:block;margin-top:14px">${t('lang_label')}</label>
-   <select class="input" id="ep-lang" style="margin-top:6px" onchange="epLang(this.value)">${LANGS.map(l=>`<option value="${l}" ${(me.lang||'en')===l?'selected':''}>${window.ZB_T('lang_'+l,l)}</option>`).join('')}</select></div><button class="btn" onclick="saveProfile()">${icon('check',18)} Save changes</button>`;
+   <select class="input" id="ep-lang" style="margin-top:6px" onchange="epLang(this.value)">${LANGS.map(l=>`<option value="${l}" ${(me.lang||'en')===l?'selected':''}>${window.ZB_T('lang_'+l,l)}</option>`).join('')}</select></div><button class="btn" onclick="saveProfile()">${icon('check',18)} ${t('ep_save')}</button>`;
 }
 // Changing language re-renders the app immediately in the new one.
 window.epLang=async function(l){ await S.saveMe({lang:LANGS.indexOf(l)>-1?l:'en'}); await refresh(); toast(t('lang_label')); };
 window.epColor=async function(c){await S.saveMe({color:c,photo:null});await refresh();};
-window.epPickPhoto=function(){pickImage(async function(d){await S.saveMe({photo:d});await refresh();toast("Photo updated");});};
-window.saveProfile=async function(){const n=$("#ep-name").value.trim();await S.saveMe(n?{name:n}:{});toast("Profile saved");view='profile';await refresh();};
-window.signOut=async function(){toast("Signed out");await S.signOut();current=null;OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};onboardStep="welcome";mode="onboarding";renderOnboard();};
-window.askDelete=function(){$("#screen").innerHTML=`<h2>Delete your account?</h2><p class="sub">This permanently removes your profile, photos and answers. This can't be undone.</p><div class="card small" style="line-height:1.5">In line with GDPR this deletes your account and your data.</div><button class="btn danger" onclick="doDelete()">${icon('trash',18)} Yes, delete my account</button><button class="btn ghost" style="margin-top:10px" onclick="go('profile')">Cancel</button>`;};
-window.doDelete=async function(){toast("Account deleted");await (S.deleteAccount?S.deleteAccount():S.signOut());current=null;onboardStep="welcome";mode="onboarding";renderOnboard();};
+window.epPickPhoto=function(){pickImage(async function(d){await S.saveMe({photo:d});await refresh();toast(t('ep_photo_toast'));});};
+window.saveProfile=async function(){const n=$("#ep-name").value.trim();await S.saveMe(n?{name:n}:{});toast(t('ep_saved_toast'));view='profile';await refresh();};
+window.signOut=async function(){toast(t('signed_out_toast'));await S.signOut();current=null;OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};onboardStep="welcome";mode="onboarding";renderOnboard();};
+window.askDelete=function(){$("#screen").innerHTML=`<h2>${t('del_h')}</h2><p class="sub">${t('del_sub')}</p><div class="card small" style="line-height:1.5">${t('del_gdpr')}</div><button class="btn danger" onclick="doDelete()">${icon('trash',18)} ${t('del_confirm')}</button><button class="btn ghost" style="margin-top:10px" onclick="go('profile')">${t('cancel')}</button>`;};
+window.doDelete=async function(){toast(t('del_done_toast'));await (S.deleteAccount?S.deleteAccount():S.signOut());current=null;onboardStep="welcome";mode="onboarding";renderOnboard();};
 
 /* ---------------- BUG ---------------- */
-function viewBug(){return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">Report a bug</h2><p class="sub">Spotted something odd? Tell us — it goes straight to the admins.</p><div class="card"><label class="small" style="font-weight:700">What happened?</label><textarea class="input" id="bugtxt" rows="4" placeholder="Describe the issue…" style="margin-top:6px"></textarea></div><button class="btn" onclick="sendBug()">${icon('send',18)} Send report</button>`;}
-window.sendBug=async function(){const t=($("#bugtxt").value||'').trim();if(!t){toast("Please describe the issue");return;}await S.sendBug(t);toast("Bug report sent — thank you!");view='profile';await refresh();};
+function viewBug(){return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">${t('bug_h')}</h2><p class="sub">${t('bug_sub')}</p><div class="card"><label class="small" style="font-weight:700">${t('bug_label')}</label><textarea class="input" id="bugtxt" rows="4" placeholder="${t('bug_ph')}" style="margin-top:6px"></textarea></div><button class="btn" onclick="sendBug()">${icon('send',18)} ${t('bug_send')}</button>`;}
+window.sendBug=async function(){const txt=($("#bugtxt").value||'').trim();if(!txt){toast(t('bug_need'));return;}await S.sendBug(txt);toast(t('bug_sent'));view='profile';await refresh();};
 
 /* ---------------- ADMIN ---------------- */
 function viewAdmin(){
@@ -1202,12 +1200,12 @@ function initA2HS(){
       var b=document.createElement('div'); b.id='a2hs'; b.className='a2hs';
       var html='<div class="a2hs-ic"><img src="assets/icon-192.png" alt=""></div>';
       if(isIOS){
-        html+='<div class="a2hs-txt"><b>Add ZB MeetUP to your home screen</b><div class="a2hs-sub">Tap '+iosShare()+' in the toolbar, then <b>Add to Home Screen</b>.</div></div>';
+        html+='<div class="a2hs-txt"><b>'+t('a2hs_ios_h')+'</b><div class="a2hs-sub">'+t('a2hs_ios_sub',{icon:iosShare()})+'</div></div>';
         html+='<button class="a2hs-x" onclick="_a2hsClose()">'+icon('x',18)+'</button>';
         html+='<div class="a2hs-arrow"><svg width="20" height="12" viewBox="0 0 20 12" fill="currentColor"><path d="M10 12L0 0h20z"/></svg></div>';
       } else {
-        html+='<div class="a2hs-txt"><b>Install ZB MeetUP</b><div class="a2hs-sub">Add it to your home screen for quick access.</div></div>';
-        html+='<button class="btn sm" style="width:auto" onclick="_a2hsInstall()">Add</button><button class="a2hs-x" onclick="_a2hsClose()">'+icon('x',18)+'</button>';
+        html+='<div class="a2hs-txt"><b>'+t('a2hs_and_h')+'</b><div class="a2hs-sub">'+t('a2hs_and_sub')+'</div></div>';
+        html+='<button class="btn sm" style="width:auto" onclick="_a2hsInstall()">'+t('a2hs_add')+'</button><button class="a2hs-x" onclick="_a2hsClose()">'+icon('x',18)+'</button>';
       }
       b.innerHTML=html; document.body.appendChild(b);
     };

@@ -600,7 +600,11 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       /Întâlnirile mele/.test(mtRo)
       && /Scrie, întâlne[șs]te-te/.test(mtRo)        // subtitle
       && /Finalizate/.test(mtRo));                    // the Completed section header
-  chk("meetup type is translated for display", /o pauz[ăa] împreun|o cafea|o plimbare|discu[țt]ie virtual/.test(mtRo));
+  // all six types, not a sample: the reel picks one at random, and litter-pick used to slip through
+  const TYPE_KEYS = ["type_coffee","type_walk","type_break","type_litter","type_teams","type_virtual"];
+  chk("meetup type is translated for display, whichever type was drawn",
+      TYPE_KEYS.some(k => mtRo.indexOf(window.ZB_T(k, "ro")) > -1)
+      && !TYPE_KEYS.some(k => mtRo.indexOf(window.ZB_T(k, "en")) > -1));
   chk("recap header + points breakdown render in the viewer's language",
       /Întâlnire cu/.test(rcRo) && /R[ăa]spunsurile tale/.test(rcRo)
       && /(Poz[ăa] comun|F[ăa]r[ăa] poz[ăa])/.test(rcRo));
@@ -608,6 +612,45 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       /Întreb[ăa]rile de cunoa[șs]tere ale lui/.test(rcRo) || !/icebreakers — a head start/.test(rcRo));
   chk("How It Works hero renders in the viewer's language",
       /CINCI PA[ȘS]I SIMPLI/.test(hRo) && /Cum func[țt]ioneaz[ăa] ZB MeetUP/.test(hRo));
+  // The surfaces found still in English during the v=47 audit: tab bar, You, Edit profile,
+  // delete confirm, bug report, thread, and the meet hero.
+  window.go("profile");   const pRo = scr();
+  const tabsRo = document.querySelector("#tabbar").innerHTML;
+  chk("the bottom tab bar renders in the viewer's language",
+      /Învârte/.test(tabsRo) && /Clasament/.test(tabsRo) && /Tu/.test(tabsRo)
+      && !/>Spin</.test(tabsRo) && !/>Ranks</.test(tabsRo));
+  chk("the You screen renders in the viewer's language",
+      /Gestioneaz[ăa]-ți profilul/.test(pRo) && /Deconectare/.test(pRo)
+      && !/Manage your profile/.test(pRo) && !/Sign out/.test(pRo));
+  window.go("editprofile"); const epRo = scr();
+  chk("Edit profile renders in the viewer's language",
+      /Actualizeaz[ăa] felul/.test(epRo) && /Salveaz[ăa] modific/.test(epRo)
+      && !/Update how colleagues/.test(epRo));
+  window.askDelete();
+  chk("the delete-account confirm renders in the viewer's language",
+      /[ȘS]tergi contul\?/.test(scr()) && !/Delete your account/.test(scr()));
+  window.go("bug");
+  chk("the bug report form renders in the viewer's language",
+      /Ce s-a [îi]nt[âa]mplat\?/.test(scr()) && !/What happened/.test(scr()));
+  // the first match is completed by now, so it renders the recap, not the hero or an empty
+  // thread. Make a fresh active match so both actually render.
+  const heroMate = (await window.ZB_STORE.listUsers()).filter(u => u.id !== "me")[0];
+  const fresh = await window.ZB_STORE.createMatch(heroMate, "a coffee",
+      (await window.ZB_STORE.questionBank()).filter(q => q.tier !== 2).slice(0, 3));
+  const fid = fresh && fresh.id ? fresh.id : (await window.ZB_STORE.myMatches()).slice(-1)[0].id;
+  await window.ZB_STORE.acceptMatch(fid);
+  await refreshAndSettle();
+  window.go("meet:" + fid);
+  chk("the meetup hero renders in the viewer's language",
+      /Ați acceptat am[âa]ndoi/.test(scr()) && !/You both accepted/.test(scr()));
+  window.go("thread:" + fid);
+  chk("an empty message thread renders in the viewer's language",
+      /Salut[ăa] [șs]i alege/.test(scr()) && !/Say hi and pick a time/.test(scr()));
+  window.go("thread:no-such-match");
+  chk("the missing-chat message renders in the viewer's language",
+      /nu este disponibil/.test(scr()) && !/Chat unavailable/.test(scr()));
+  window.go("profile");
+
   chk("no raw i18n keys leak into the UI",
       ![wRo,rRo,mRo,nRo,hRo,mtRo,rcRo].some(x => /\b(notif_|meet_|wall_|ranks_|hiw_|msgs_)[a-z0-9_]+\b/.test(x)));
 
@@ -640,6 +683,36 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       document.querySelector(".ob-cta .btn").textContent === window.ZB_T("save", "ro"));
   window.iceSkip();
   window.go("profile");
+  // Sean's exact path: skip at onboarding, then set them later from You. The bonus is offered
+  // only once all three boxes have text — a save with gaps does not grant it, so must not promise it.
+  await window.ZB_STORE.saveIcebreakers([]);
+  await window.ZB_STORE.saveMe({ icebreakerBonusGranted: false });
+  await refreshAndSettle();
+  window.iceFromProfile();
+  chk("opening it empty offers a plain Save, not points it will not grant",
+      document.querySelector(".ob-cta .btn").textContent === window.ZB_T("save", "ro"));
+  window.iceAns(0, "one"); window.iceAns(1, "two");
+  chk("two of three answered still offers a plain Save",
+      document.querySelector(".ob-cta .btn").textContent === window.ZB_T("save", "ro"));
+  window.iceAns(2, "three");
+  chk("skipped at onboarding, then all three set from You: the button offers the 10 points",
+      document.querySelector(".ob-cta .btn").textContent === window.ZB_T("ice_save_bonus", "ro"));
+  await window.iceSave();
+  chk("and saving there actually grants the +10",
+      (await window.ZB_STORE.getMe()).icebreakerBonusGranted === true);
+  window.iceFromProfile();
+  window.iceAns(0, "changed");
+  chk("re-editing after the bonus is earned no longer offers it",
+      document.querySelector(".ob-cta .btn").textContent === window.ZB_T("save", "ro"));
+  window.iceSkip();
+  // put back what the surrounding section set up
+  await window.ZB_STORE.saveIcebreakers([
+    {id:"t2q23",question:"Beach, mountains or city?",answer:"Kept one"},
+    {id:"t2q11",question:"What's your most useless talent?",answer:"Kept two"},
+    {id:"t2q25",question:"What's a small thing that always makes your day better?",answer:"Kept three"}]);
+  await refreshAndSettle();
+  window.iceFromProfile();
+
   chk("the You card renders prompts in the viewer's language",
       /Plaj[ăa], munte sau ora[șs]\?/.test(scr()) && !/Beach, mountains or city\?/.test(scr()));
   await window.ZB_STORE.saveMe({ lang: "ro" });   // restore what this section found
