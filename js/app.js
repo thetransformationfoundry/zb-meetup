@@ -584,6 +584,9 @@ window.obHow=function(){stopTagline();onboardStep='how';renderOnboard();};
 window.obBackWelcome=function(){onboardStep='welcome';renderOnboard();};
 // Three random icebreakers. `from` decides where Save/Skip goes: the onboarding award screen,
 // or back to You when it's picked up later.
+// The +10 is once per colleague. Once it is granted, the Save button must stop promising it —
+// editing your answers later earns nothing more.
+const icebreakerBonusPending=()=>!(C.me&&C.me.icebreakerBonusGranted);
 function iceStart(from){
   if(C.me&&C.me.lang)OB.lang=C.me.lang;      // keep OB in step with the saved profile
   const bank=icebreakerQuestions();
@@ -606,7 +609,8 @@ window.iceAns=function(i,v){ICE.answers[i]=v;
   // Keep the label translated — this used to write hardcoded English over the rendered label
   // the moment the colleague typed, so a Romanian screen sprouted an English button.
   const b=document.querySelector('.ob-cta .btn');
-  if(b)b.textContent=ICE.answers.filter(a=>(a||'').trim()).length===3?t('ice_save_bonus'):t('save');
+  const all3=ICE.answers.filter(a=>(a||'').trim()).length===3;
+  if(b)b.textContent=(all3&&icebreakerBonusPending())?t('ice_save_bonus'):t('save');
 };
 function iceDone(){
   if(ICE.from==='profile'){mode="app";view="profile";refresh();return;}
@@ -660,7 +664,7 @@ function renderOnboard(){
         <textarea class="input" rows="2" placeholder="${t('ice_answer_ph')}" oninput="iceAns(${i},this.value)">${ICE.answers[i]||''}</textarea></div>`).join('')}
       <p class="muted small" style="line-height:1.5">${t('ice_note')}</p>
       </div><div class="ob-cta">
-      <button class="btn" onclick="iceSave()">${icon('check',18)} ${done===3?t('ice_save_bonus'):t('save')}</button>
+      <button class="btn" onclick="iceSave()">${icon('check',18)} ${(done===3&&icebreakerBonusPending())?t('ice_save_bonus'):t('save')}</button>
       <button class="btn alt" style="margin-top:8px" onclick="iceSkip()">${t('skip_now')}</button>
     </div></div>`;
     return;

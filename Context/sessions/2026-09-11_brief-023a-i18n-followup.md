@@ -180,3 +180,16 @@ English, the Save label stays translated while typing, and the You card renders 
 
 **Confirmed working in Sean's test:** the round-6 fix held (the three answered questions came back with their
 answers), editing one answer saved correctly, and the +10 did not re-award (points stayed at 40).
+
+## Round 8 — stop promising a bonus that was already paid (v=46)
+Sean: the Save button offered **"Salvează — primești 10 puncte"** when editing icebreakers he had already
+completed during onboarding. The +10 is once per colleague, so the label was promising points that would
+never arrive — the save succeeds, the balance does not move, and the app looks like it broke a promise.
+
+`icebreakerBonusPending()` is now the single source, used by both the render and the keystroke handler: the
+bonus label shows **only** when all three are answered **and** `icebreakerBonusGranted` is not yet set.
+Everyone else sees a plain **Save / Salvează / Opslaan**.
+
+The You-screen card was already correct on this — it swaps to the "+10 earned" variant once the bonus is
+granted — so only the button needed the gate. Two checks: a colleague who has not earned it is offered it,
+and one who has is not.
