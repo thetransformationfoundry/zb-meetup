@@ -475,6 +475,30 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("countdown screen renders", /COUNTDOWN TO LAUNCH/.test(cd) && /Get ready to spin/.test(cd)
       && /id="cdD"/.test(cd) && /id="cdS"/.test(cd) && /How it works/.test(cd));
   chk("countdown shows 3 days remaining", /id="cdD">03</.test(cd));
+  // Sean asked: does the countdown follow the colleague's language too? It runs before anyone
+  // can spin, so for many it is the first screen they ever see.
+  await window.ZB_STORE.saveMe({ lang: "nl" });
+  await refreshAndSettle();
+  window.go("spin");
+  const cdNl = scr();
+  chk("the countdown renders in Dutch for a Dutch colleague",
+      /AFTELLEN NAAR DE START/.test(cdNl) && /Maak je klaar om te draaien/.test(cdNl)
+      && /Dagen/.test(cdNl) && /woensdag 16 september/.test(cdNl) && /Hoe het werkt/.test(cdNl)
+      && !/COUNTDOWN TO LAUNCH/.test(cdNl) && !/Get ready to spin/.test(cdNl));
+  chk("the countdown clock still counts down in Dutch", /id="cdD">03</.test(cdNl));
+  await window.ZB_STORE.saveMe({ lang: "ro" });
+  await refreshAndSettle();
+  window.go("spin");
+  const cdRo = scr();
+  chk("the countdown renders in Romanian for a Romanian colleague",
+      /NUM[ĂA]R[ĂA]TOARE INVERS[ĂA]/.test(cdRo) && /Preg[ăa]te[șs]te-te s[ăa] [îi]nv[âa]r[țt]i/.test(cdRo)
+      && /Zile/.test(cdRo) && /miercuri, 16 septembrie/.test(cdRo)
+      && !/COUNTDOWN TO LAUNCH/.test(cdRo));
+  chk("the spin screen behind the countdown is translated too",
+      !/TODAY.S MATCH/.test(cdRo) && /POTRIVIREA DE AZI/.test(cdRo));
+  await window.ZB_STORE.saveMe({ lang: "en" });
+  await refreshAndSettle();
+  window.go("spin");
   chk("the real spin screen is behind it, blurred", /class="behind"/.test(cd) && /TODAY.S MATCH/.test(cd));
   chk("no invented colleagues in the pills", !/Priya Raman|Anna Kessler|Mandy Hill|Jonas Ott/.test(cd));
   chk("the decorative layer is inert, so it can't be tabbed into", /class="behind"[^>]*inert/.test(cd));
