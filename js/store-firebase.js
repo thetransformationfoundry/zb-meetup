@@ -326,11 +326,11 @@ const ZB_STORE = {
       // BRIEF-005), so the single wall post has to catch up.
       if (photo && completed) {
         if (existing) {
-          // Only the post's author may change its content (BRIEF-010). Attempting it as the
-          // other participant would be denied, so don't try — the photo still shows in the
-          // shared space and the recap. Letting either participant refresh a posted photo
-          // needs a rules change; see the session log.
-          if (existing.authorUid === uid) tx.update(existingRef, { photo });
+          // Either participant may refresh the shared photo on the one wall post: the rule
+          // allows a photo-ONLY diff from a participant of this post's match (BRIEF-013), so
+          // the non-author skip that used to live here is gone. Nothing else on the post is
+          // touched — that is what keeps the rule's narrow crack narrow.
+          tx.update(existingRef, { photo });
         } else if (post) {
           const pref = db.collection("posts").doc();
           tx.set(pref, { authorUid:uid, matchId:id, names:post.names, scene:post.scene, photo,
