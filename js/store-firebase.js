@@ -12,7 +12,7 @@ const FV = firebase.firestore.FieldValue;
 const nowTs = () => FV.serverTimestamp();
 const SIGNUP_BONUS = 30;
 const ICEBREAKER_BONUS = 10;
-const SEED_VERSION = 2;   // bump only with intent — it replaces the question bank
+const SEED_VERSION = 3;   // 3 = +NL/RO translations (BRIEF-023). Bumping replaces the bank.
 const todayStr = () => new Date().toISOString().slice(0,10);
 // A spin record from a previous day means today's free spin has not been used yet.
 const normSpin = sp => (sp && sp.date === todayStr()) ? { date:sp.date, freeAvailable: !!sp.freeAvailable }
@@ -25,74 +25,74 @@ const ADMINS = (window.ZB_CONFIG.ADMIN_EMAILS || []).map(e => e.toLowerCase());
 // idea-bank, and 34 Tier-2 ICEBREAKER questions asked once at onboarding, shown to meetup
 // partners as talking points, and NEVER exported (BRIEF-020). Verbatim from the source file.
 const DEFAULTS = [
-  { id:"t1q1", text:"If you were CEO of Zimmer Biomet for a day, what's the first thing you'd change?", tier:1, count:0 },
-  { id:"t1q2", text:"If you were site leader / departmental director for a week, what would you fix first?", tier:1, count:0 },
-  { id:"t1q3", text:"What's one thing another department is doing that we should be doing?", tier:1, count:0 },
-  { id:"t1q4", text:"What do you think other departments would say we do best – and worst?", tier:1, count:0 },
-  { id:"t1q5", text:"What's the most valuable thing your department does that the rest of the business doesn't know about?", tier:1, count:0 },
-  { id:"t1q6", text:"What's the one task in your week that feels like a waste of time – and how would you eliminate it?", tier:1, count:0 },
-  { id:"t1q7", text:"Start / Stop / Continue: name one thing we should start doing, one we should stop, and one we should keep.", tier:1, count:0 },
-  { id:"t1q8", text:"Where do things get \"stuck\" between your team and another team? What would unblock it?", tier:1, count:0 },
-  { id:"t1q9", text:"If you had €10,000 -  €100,000 to improve your workplace, what would you spend it on?", tier:1, count:0 },
-  { id:"t1q10", text:"What's one process you've seen at a previous employer that would work well here?", tier:1, count:0 },
-  { id:"t1q11", text:"What's the most common mistake or block do you see – and what causes it?", tier:1, count:0 },
-  { id:"t1q12", text:"What information do you need regularly that's hard to find or always arrives late?", tier:1, count:0 },
-  { id:"t1q13", text:"How would you bring AI into your daily work if it were available tomorrow?", tier:1, count:0 },
-  { id:"t1q14", text:"What's one repetitive task you'd hand over to a robot or AI without a second thought?", tier:1, count:0 },
-  { id:"t1q15", text:"Which report, check or admin step could be automated so you can focus on more valuable work?", tier:1, count:0 },
-  { id:"t1q16", text:"Have you used ZB AI Portal and what are your thoughts? How could it improve?", tier:1, count:0 },
-  { id:"t1q17", text:"What data do we collect that we're probably not using well enough?", tier:1, count:0 },
-  { id:"t1q18", text:"What's the one piece of technology or equipment that would make your job easier?", tier:1, count:0 },
-  { id:"t1q19", text:"What's one thing that would make you look forward to coming to work more often?", tier:1, count:0 },
-  { id:"t1q20", text:"Which two departments should talk to each other more, and about what?", tier:1, count:0 },
-  { id:"t1q21", text:"What do new colleagues struggle with most in their first weeks – how could onboarding be better?", tier:1, count:0 },
-  { id:"t1q22", text:"What skill would you love to learn that would also help the company?", tier:1, count:0 },
-  { id:"t1q23", text:"How can management communicate better with the shop floor and commercial teams?", tier:1, count:0 },
-  { id:"t1q24", text:"What's one small thing that would noticeably improve the experience for other departments?", tier:1, count:0 },
-  { id:"t1q25", text:"If we could launch one new product, service or initiative in your department next year, what should it be?", tier:1, count:0 },
-  { id:"t1q26", text:"A magic wand removes one rule, form or approval step tomorrow. Which one disappears, and what happens next?", tier:1, count:0 },
-  { id:"t1q27", text:"Imagine a new colleague from the year 2040 visits Hazeldonk. What would make them laugh at how we work today?", tier:1, count:0 },
-  { id:"t1q28", text:"If our biggest customer were a 12-year-old, how would you explain what we do – and what would they think is silly?", tier:1, count:0 },
-  { id:"t1q29", text:"Pitch a completely ridiculous product or service for ZB. Then tell us the one serious idea hiding inside it.", tier:1, count:0 },
-  { id:"t1q30", text:"If your department were a sports team, what position is unfilled and who should we sign?", tier:1, count:0 },
-  { id:"t1q31", text:"You've been made Minister of Tuesdays. What's the one thing that would make every Tuesday at ZB better?", tier:1, count:0 },
-  { id:"t1q32", text:"If we had to run the entire site with half the meetings, which ones survive and why?", tier:1, count:0 },
-  { id:"t1q33", text:"A robot starts on your team on Monday. Write its job description in three lines.", tier:1, count:0 },
-  { id:"t1q34", text:"What would you rename your job title to if it had to describe what you actually do?", tier:1, count:0 },
-  { id:"t2q1", text:"What did you want to be when you were 10 years old?", tier:2, count:0 },
-  { id:"t2q2", text:"What was your very first job, and what did it teach you?", tier:2, count:0 },
-  { id:"t2q3", text:"What's the best piece of career advice you've ever received?", tier:2, count:0 },
-  { id:"t2q4", text:"What's something you're surprisingly good at that has nothing to do with your job?", tier:2, count:0 },
-  { id:"t2q5", text:"What would your colleagues be surprised to learn about you?", tier:2, count:0 },
-  { id:"t2q6", text:"What's your go-to way to switch off after a long day?", tier:2, count:0 },
-  { id:"t2q7", text:"What's the best trip you've ever taken – and where's next on the list?", tier:2, count:0 },
-  { id:"t2q8", text:"What's a hobby you've picked up (or dropped) in the last few years?", tier:2, count:0 },
-  { id:"t2q9", text:"What's your favourite thing to cook or eat – and who makes it best?", tier:2, count:0 },
-  { id:"t2q10", text:"Are you a morning person or a night owl – and does your job agree with that?", tier:2, count:0 },
-  { id:"t2q11", text:"What's your most useless talent?", tier:2, count:0 },
-  { id:"t2q12", text:"If you could have any animal as a colleague, which would it be and what job would it do?", tier:2, count:0 },
-  { id:"t2q13", text:"What's the worst haircut or fashion choice you've ever made?", tier:2, count:0 },
-  { id:"t2q14", text:"If you had to eat one meal every day for the rest of your life, what would it be?", tier:2, count:0 },
-  { id:"t2q15", text:"What's a song you know every word to, even though you'd never admit it?", tier:2, count:0 },
-  { id:"t2q16", text:"What's the strangest thing in your fridge or desk drawer right now?", tier:2, count:0 },
-  { id:"t2q17", text:"Which fictional character would be the best (or worst) colleague?", tier:2, count:0 },
-  { id:"t2q18", text:"If your life were a film, who would play you and what would it be called?", tier:2, count:0 },
-  { id:"t2q19", text:"Which emoji do you overuse?", tier:2, count:0 },
-  { id:"t2q20", text:"Would you rather work four 10-hour days or five 8-hour days?", tier:2, count:0 },
-  { id:"t2q21", text:"Would you rather have unlimited coffee or unlimited holiday?", tier:2, count:0 },
-  { id:"t2q22", text:"Would you rather be able to speak every language or play every instrument?", tier:2, count:0 },
-  { id:"t2q23", text:"Beach, mountains or city?", tier:2, count:0 },
-  { id:"t2q24", text:"Team teleport or team invisibility – and how would you use it at work?", tier:2, count:0 },
-  { id:"t2q25", text:"What's a small thing that always makes your day better?", tier:2, count:0 },
-  { id:"t2q26", text:"Which skill or hobby have you always wanted to try but never got around to?", tier:2, count:0 },
-  { id:"t2q27", text:"What's the best concert, match or event you've ever been to?", tier:2, count:0 },
-  { id:"t2q28", text:"If you could have dinner with anyone – alive or historical – who's at the table?", tier:2, count:0 },
-  { id:"t2q29", text:"What's a tradition you love, and one you secretly don't get?", tier:2, count:0 },
-  { id:"t2q30", text:"Cats, dogs, or \"I have enough going on already\"?", tier:2, count:0 },
-  { id:"t2q31", text:"What's the last thing that made you laugh out loud?", tier:2, count:0 },
-  { id:"t2q32", text:"If you won the lottery tomorrow, what's the first (sensible) thing and the first (not-so-sensible) thing you'd do?", tier:2, count:0 },
-  { id:"t2q33", text:"What's your signature move at a party – dancing, DJ-ing, kitchen-hanging or early exit?", tier:2, count:0 },
-  { id:"t2q34", text:"Which three words would your best friend use to describe you?", tier:2, count:0 },
+  { id:"t1q1", text:"If you were CEO of Zimmer Biomet for a day, what's the first thing you'd change?", tier:1, count:0, text_nl:"Als je één dag CEO van Zimmer Biomet was, wat zou je dan als eerste veranderen?", text_ro:"Dacă ai fi CEO al Zimmer Biomet pentru o zi, care ar fi primul lucru pe care l-ai schimba?" },
+  { id:"t1q2", text:"If you were site leader / departmental director for a week, what would you fix first?", tier:1, count:0, text_nl:"Als je een week lang vestigingsleider / afdelingsdirecteur was, wat zou je dan als eerste aanpakken?", text_ro:"Dacă ai fi șef de sit / director de departament timp de o săptămână, ce ai rezolva mai întâi?" },
+  { id:"t1q3", text:"What's one thing another department is doing that we should be doing?", tier:1, count:0, text_nl:"Wat doet een andere afdeling dat wij ook zouden moeten doen?", text_ro:"Ce face un alt departament și ar trebui să facem și noi?" },
+  { id:"t1q4", text:"What do you think other departments would say we do best – and worst?", tier:1, count:0, text_nl:"Wat zouden andere afdelingen volgens jou zeggen dat wij het beste doen – en het slechtste?", text_ro:"Ce crezi că ar spune alte departamente că facem cel mai bine – și cel mai prost?" },
+  { id:"t1q5", text:"What's the most valuable thing your department does that the rest of the business doesn't know about?", tier:1, count:0, text_nl:"Wat is het meest waardevolle dat jouw afdeling doet, maar dat de rest van het bedrijf niet weet?", text_ro:"Care este cel mai valoros lucru pe care îl face departamentul tău, dar despre care restul companiei nu știe?" },
+  { id:"t1q6", text:"What's the one task in your week that feels like a waste of time – and how would you eliminate it?", tier:1, count:0, text_nl:"Welke taak in je week voelt als tijdverspilling – en hoe zou je die schrappen?", text_ro:"Care sarcină din săptămâna ta ți se pare o pierdere de timp – și cum ai elimina-o?" },
+  { id:"t1q7", text:"Start / Stop / Continue: name one thing we should start doing, one we should stop, and one we should keep.", tier:1, count:0, text_nl:"Start / Stop / Doorgaan: noem één ding dat we moeten gaan doen, één dat we moeten stoppen en één dat we moeten behouden.", text_ro:"Start / Stop / Continuă: numește un lucru pe care ar trebui să-l începem, unul pe care să-l oprim și unul pe care să-l păstrăm." },
+  { id:"t1q8", text:"Where do things get \"stuck\" between your team and another team? What would unblock it?", tier:1, count:0, text_nl:"Waar loopt het \"vast\" tussen jouw team en een ander team? Wat zou dat vlot trekken?", text_ro:"Unde se \"blochează\" lucrurile între echipa ta și altă echipă? Ce ar debloca situația?" },
+  { id:"t1q9", text:"If you had €10,000 -  €100,000 to improve your workplace, what would you spend it on?", tier:1, count:0, text_nl:"Als je €10.000 - €100.000 had om je werkplek te verbeteren, waar zou je het aan uitgeven?", text_ro:"Dacă ai avea €10.000 - €100.000 pentru a-ți îmbunătăți locul de muncă, pe ce i-ai cheltui?" },
+  { id:"t1q10", text:"What's one process you've seen at a previous employer that would work well here?", tier:1, count:0, text_nl:"Welk proces heb je bij een vorige werkgever gezien dat hier goed zou werken?", text_ro:"Ce proces ai văzut la un angajator anterior care ar funcționa bine aici?" },
+  { id:"t1q11", text:"What's the most common mistake or block do you see – and what causes it?", tier:1, count:0, text_nl:"Welke fout of blokkade zie je het vaakst – en wat is de oorzaak?", text_ro:"Care este cea mai frecventă greșeală sau blocaj pe care îl vezi – și ce îl cauzează?" },
+  { id:"t1q12", text:"What information do you need regularly that's hard to find or always arrives late?", tier:1, count:0, text_nl:"Welke informatie heb je regelmatig nodig die moeilijk te vinden is of altijd te laat komt?", text_ro:"De ce informații ai nevoie în mod regulat care sunt greu de găsit sau ajung mereu târziu?" },
+  { id:"t1q13", text:"How would you bring AI into your daily work if it were available tomorrow?", tier:1, count:0, text_nl:"Hoe zou je AI in je dagelijkse werk gebruiken als het morgen beschikbaar was?", text_ro:"Cum ai folosi inteligența artificială (AI) în munca ta zilnică dacă ar fi disponibilă mâine?" },
+  { id:"t1q14", text:"What's one repetitive task you'd hand over to a robot or AI without a second thought?", tier:1, count:0, text_nl:"Welke repetitieve taak zou je zonder aarzelen aan een robot of AI overlaten?", text_ro:"Ce sarcină repetitivă ai preda unui robot sau unei AI fără să stai pe gânduri?" },
+  { id:"t1q15", text:"Which report, check or admin step could be automated so you can focus on more valuable work?", tier:1, count:0, text_nl:"Welk rapport, welke controle of administratieve stap zou geautomatiseerd kunnen worden zodat je je op waardevoller werk kunt richten?", text_ro:"Ce raport, verificare sau pas administrativ ar putea fi automatizat ca să te poți concentra pe muncă mai valoroasă?" },
+  { id:"t1q16", text:"Have you used ZB AI Portal and what are your thoughts? How could it improve?", tier:1, count:0, text_nl:"Heb je het ZB AI Portal gebruikt en wat vind je ervan? Hoe kan het beter?", text_ro:"Ai folosit ZB AI Portal și ce părere ai? Cum ar putea fi îmbunătățit?" },
+  { id:"t1q17", text:"What data do we collect that we're probably not using well enough?", tier:1, count:0, text_nl:"Welke gegevens verzamelen we die we waarschijnlijk niet goed genoeg benutten?", text_ro:"Ce date colectăm pe care probabil nu le folosim suficient de bine?" },
+  { id:"t1q18", text:"What's the one piece of technology or equipment that would make your job easier?", tier:1, count:0, text_nl:"Welk stuk technologie of gereedschap zou jouw werk makkelijker maken?", text_ro:"Ce tehnologie sau echipament ți-ar ușura munca?" },
+  { id:"t1q19", text:"What's one thing that would make you look forward to coming to work more often?", tier:1, count:0, text_nl:"Wat zou ervoor zorgen dat je vaker met plezier naar je werk komt?", text_ro:"Ce lucru te-ar face să aștepți cu mai multă plăcere să vii la muncă?" },
+  { id:"t1q20", text:"Which two departments should talk to each other more, and about what?", tier:1, count:0, text_nl:"Welke twee afdelingen zouden meer met elkaar moeten praten, en waarover?", text_ro:"Care două departamente ar trebui să comunice mai mult și despre ce?" },
+  { id:"t1q21", text:"What do new colleagues struggle with most in their first weeks – how could onboarding be better?", tier:1, count:0, text_nl:"Waar worstelen nieuwe collega's het meest mee in hun eerste weken – hoe kan de onboarding beter?", text_ro:"Cu ce se confruntă cel mai mult colegii noi în primele săptămâni – cum ar putea fi mai bună integrarea?" },
+  { id:"t1q22", text:"What skill would you love to learn that would also help the company?", tier:1, count:0, text_nl:"Welke vaardigheid zou je graag leren die ook het bedrijf zou helpen?", text_ro:"Ce abilitate ți-ar plăcea să înveți și care ar ajuta și compania?" },
+  { id:"t1q23", text:"How can management communicate better with the shop floor and commercial teams?", tier:1, count:0, text_nl:"Hoe kan het management beter communiceren met de werkvloer en de commerciële teams?", text_ro:"Cum poate conducerea să comunice mai bine cu personalul din depozit și cu echipele comerciale?" },
+  { id:"t1q24", text:"What's one small thing that would noticeably improve the experience for other departments?", tier:1, count:0, text_nl:"Welk klein ding zou de ervaring voor andere afdelingen merkbaar verbeteren?", text_ro:"Ce lucru mic ar îmbunătăți vizibil experiența pentru alte departamente?" },
+  { id:"t1q25", text:"If we could launch one new product, service or initiative in your department next year, what should it be?", tier:1, count:0, text_nl:"Als we volgend jaar één nieuw product, dienst of initiatief in jouw afdeling konden lanceren, wat zou dat moeten zijn?", text_ro:"Dacă am putea lansa un nou produs, serviciu sau inițiativă în departamentul tău anul viitor, care ar trebui să fie?" },
+  { id:"t1q26", text:"A magic wand removes one rule, form or approval step tomorrow. Which one disappears, and what happens next?", tier:1, count:0, text_nl:"Een toverstok laat morgen één regel, formulier of goedkeuringsstap verdwijnen. Welke verdwijnt, en wat gebeurt er daarna?", text_ro:"O baghetă magică elimină mâine o regulă, un formular sau un pas de aprobare. Care dispare și ce se întâmplă apoi?" },
+  { id:"t1q27", text:"Imagine a new colleague from the year 2040 visits Hazeldonk. What would make them laugh at how we work today?", tier:1, count:0, text_nl:"Stel je voor dat een nieuwe collega uit het jaar 2040 Hazeldonk bezoekt. Waarom zouden ze lachen om hoe we vandaag werken?", text_ro:"Imaginează-ți că un coleg nou din anul 2040 vizitează Hazeldonk. Ce l-ar face să râdă de felul în care lucrăm azi?" },
+  { id:"t1q28", text:"If our biggest customer were a 12-year-old, how would you explain what we do – and what would they think is silly?", tier:1, count:0, text_nl:"Als onze grootste klant een 12-jarige was, hoe zou je uitleggen wat we doen – en wat zouden ze maar gek vinden?", text_ro:"Dacă cel mai mare client al nostru ar fi un copil de 12 ani, cum i-ai explica ce facem – și ce i s-ar părea caraghios?" },
+  { id:"t1q29", text:"Pitch a completely ridiculous product or service for ZB. Then tell us the one serious idea hiding inside it.", tier:1, count:0, text_nl:"Bedenk een compleet belachelijk product of dienst voor ZB. Vertel dan welk serieus idee erin verstopt zit.", text_ro:"Propune un produs sau serviciu complet ridicol pentru ZB. Apoi spune-ne ideea serioasă ascunsă în el." },
+  { id:"t1q30", text:"If your department were a sports team, what position is unfilled and who should we sign?", tier:1, count:0, text_nl:"Als jouw afdeling een sportteam was, welke positie is niet ingevuld en wie zouden we moeten aantrekken?", text_ro:"Dacă departamentul tău ar fi o echipă sportivă, ce poziție e neocupată și pe cine ar trebui să transferăm?" },
+  { id:"t1q31", text:"You've been made Minister of Tuesdays. What's the one thing that would make every Tuesday at ZB better?", tier:1, count:0, text_nl:"Je bent benoemd tot Minister van Dinsdagen. Wat zou elke dinsdag bij ZB beter maken?", text_ro:"Ai fost numit Ministrul Marților. Ce lucru ar face fiecare marți la ZB mai bună?" },
+  { id:"t1q32", text:"If we had to run the entire site with half the meetings, which ones survive and why?", tier:1, count:0, text_nl:"Als we de hele vestiging met de helft van de vergaderingen moesten runnen, welke blijven er over en waarom?", text_ro:"Dacă ar trebui să conducem întregul sit cu jumătate din ședințe, care ar supraviețui și de ce?" },
+  { id:"t1q33", text:"A robot starts on your team on Monday. Write its job description in three lines.", tier:1, count:0, text_nl:"Er begint maandag een robot in jouw team. Schrijf zijn functieomschrijving in drie regels.", text_ro:"Un robot începe lucrul în echipa ta luni. Scrie-i fișa postului în trei rânduri." },
+  { id:"t1q34", text:"What would you rename your job title to if it had to describe what you actually do?", tier:1, count:0, text_nl:"Hoe zou je je functietitel hernoemen als die moest beschrijven wat je écht doet?", text_ro:"Cum ți-ai redenumi funcția dacă ar trebui să descrie ce faci de fapt?" },
+  { id:"t2q1", text:"What did you want to be when you were 10 years old?", tier:2, count:0, text_nl:"Wat wilde je worden toen je 10 jaar oud was?", text_ro:"Ce voiai să te faci când aveai 10 ani?" },
+  { id:"t2q2", text:"What was your very first job, and what did it teach you?", tier:2, count:0, text_nl:"Wat was je allereerste baan, en wat heeft die je geleerd?", text_ro:"Care a fost prima ta slujbă și ce te-a învățat?" },
+  { id:"t2q3", text:"What's the best piece of career advice you've ever received?", tier:2, count:0, text_nl:"Wat is het beste carrièreadvies dat je ooit hebt gekregen?", text_ro:"Care este cel mai bun sfat de carieră pe care l-ai primit vreodată?" },
+  { id:"t2q4", text:"What's something you're surprisingly good at that has nothing to do with your job?", tier:2, count:0, text_nl:"Waar ben je verrassend goed in dat niets met je werk te maken heeft?", text_ro:"La ce te pricepi surprinzător de bine, deși nu are legătură cu jobul tău?" },
+  { id:"t2q5", text:"What would your colleagues be surprised to learn about you?", tier:2, count:0, text_nl:"Wat zouden je collega's verrast zijn om over je te weten te komen?", text_ro:"Ce ar surprinde colegii tăi să afle despre tine?" },
+  { id:"t2q6", text:"What's your go-to way to switch off after a long day?", tier:2, count:0, text_nl:"Hoe ontspan je het liefst na een lange dag?", text_ro:"Care e modul tău preferat de a te deconecta după o zi lungă?" },
+  { id:"t2q7", text:"What's the best trip you've ever taken – and where's next on the list?", tier:2, count:0, text_nl:"Wat is de mooiste reis die je ooit hebt gemaakt – en wat staat er als volgende op je lijst?", text_ro:"Care este cea mai frumoasă călătorie pe care ai făcut-o – și care urmează pe listă?" },
+  { id:"t2q8", text:"What's a hobby you've picked up (or dropped) in the last few years?", tier:2, count:0, text_nl:"Welke hobby heb je de afgelopen jaren opgepakt (of losgelaten)?", text_ro:"Ce hobby ai început (sau ai renunțat) în ultimii ani?" },
+  { id:"t2q9", text:"What's your favourite thing to cook or eat – and who makes it best?", tier:2, count:0, text_nl:"Wat kook of eet je het liefst – en wie maakt het het lekkerst?", text_ro:"Ce îți place cel mai mult să gătești sau să mănânci – și cine îl face cel mai bine?" },
+  { id:"t2q10", text:"Are you a morning person or a night owl – and does your job agree with that?", tier:2, count:0, text_nl:"Ben je een ochtendmens of een nachtbraker – en past je werk daarbij?", text_ro:"Ești o persoană matinală sau una de noapte – și jobul tău se potrivește cu asta?" },
+  { id:"t2q11", text:"What's your most useless talent?", tier:2, count:0, text_nl:"Wat is je meest nutteloze talent?", text_ro:"Care e cel mai inutil talent al tău?" },
+  { id:"t2q12", text:"If you could have any animal as a colleague, which would it be and what job would it do?", tier:2, count:0, text_nl:"Als je elk dier als collega kon hebben, welk dier zou het zijn en welk werk zou het doen?", text_ro:"Dacă ai putea avea orice animal drept coleg, care ar fi și ce muncă ar face?" },
+  { id:"t2q13", text:"What's the worst haircut or fashion choice you've ever made?", tier:2, count:0, text_nl:"Wat is het ergste kapsel of de ergste modekeuze die je ooit hebt gemaakt?", text_ro:"Care e cea mai proastă tunsoare sau alegere vestimentară pe care ai făcut-o vreodată?" },
+  { id:"t2q14", text:"If you had to eat one meal every day for the rest of your life, what would it be?", tier:2, count:0, text_nl:"Als je de rest van je leven elke dag hetzelfde gerecht moest eten, wat zou het zijn?", text_ro:"Dacă ar trebui să mănânci același fel de mâncare în fiecare zi pentru tot restul vieții, care ar fi?" },
+  { id:"t2q15", text:"What's a song you know every word to, even though you'd never admit it?", tier:2, count:0, text_nl:"Welk liedje ken je woord voor woord, ook al zou je het nooit toegeven?", text_ro:"Ce cântec știi cuvânt cu cuvânt, deși nu ai recunoaște niciodată?" },
+  { id:"t2q16", text:"What's the strangest thing in your fridge or desk drawer right now?", tier:2, count:0, text_nl:"Wat is het vreemdste dat nu in je koelkast of bureaula ligt?", text_ro:"Care e cel mai ciudat lucru din frigiderul sau sertarul tău chiar acum?" },
+  { id:"t2q17", text:"Which fictional character would be the best (or worst) colleague?", tier:2, count:0, text_nl:"Welk fictief personage zou de beste (of slechtste) collega zijn?", text_ro:"Ce personaj fictiv ar fi cel mai bun (sau cel mai rău) coleg?" },
+  { id:"t2q18", text:"If your life were a film, who would play you and what would it be called?", tier:2, count:0, text_nl:"Als je leven een film was, wie zou jou spelen en hoe zou de film heten?", text_ro:"Dacă viața ta ar fi un film, cine te-ar juca și cum s-ar numi?" },
+  { id:"t2q19", text:"Which emoji do you overuse?", tier:2, count:0, text_nl:"Welke emoji gebruik je te veel?", text_ro:"Ce emoji folosești în exces?" },
+  { id:"t2q20", text:"Would you rather work four 10-hour days or five 8-hour days?", tier:2, count:0, text_nl:"Werk je liever vier dagen van 10 uur of vijf dagen van 8 uur?", text_ro:"Ai prefera să lucrezi patru zile de 10 ore sau cinci zile de 8 ore?" },
+  { id:"t2q21", text:"Would you rather have unlimited coffee or unlimited holiday?", tier:2, count:0, text_nl:"Wat zou je liever hebben: onbeperkt koffie of onbeperkt vakantie?", text_ro:"Ai prefera cafea nelimitată sau concediu nelimitat?" },
+  { id:"t2q22", text:"Would you rather be able to speak every language or play every instrument?", tier:2, count:0, text_nl:"Zou je liever elke taal kunnen spreken of elk instrument kunnen bespelen?", text_ro:"Ai prefera să poți vorbi orice limbă sau să cânți la orice instrument?" },
+  { id:"t2q23", text:"Beach, mountains or city?", tier:2, count:0, text_nl:"Strand, bergen of stad?", text_ro:"Plajă, munte sau oraș?" },
+  { id:"t2q24", text:"Team teleport or team invisibility – and how would you use it at work?", tier:2, count:0, text_nl:"Team teleportatie of team onzichtbaarheid – en hoe zou je het op werk gebruiken?", text_ro:"Echipa teleportare sau echipa invizibilitate – și cum ai folosi-o la muncă?" },
+  { id:"t2q25", text:"What's a small thing that always makes your day better?", tier:2, count:0, text_nl:"Welk klein ding maakt je dag altijd beter?", text_ro:"Ce lucru mic îți face mereu ziua mai bună?" },
+  { id:"t2q26", text:"Which skill or hobby have you always wanted to try but never got around to?", tier:2, count:0, text_nl:"Welke vaardigheid of hobby wilde je altijd al proberen maar is er nooit van gekomen?", text_ro:"Ce abilitate sau hobby ai vrut mereu să încerci, dar nu ai apucat?" },
+  { id:"t2q27", text:"What's the best concert, match or event you've ever been to?", tier:2, count:0, text_nl:"Wat is het beste concert, de beste wedstrijd of het beste evenement waar je ooit bent geweest?", text_ro:"Care e cel mai bun concert, meci sau eveniment la care ai fost?" },
+  { id:"t2q28", text:"If you could have dinner with anyone – alive or historical – who's at the table?", tier:2, count:0, text_nl:"Als je met wie dan ook kon dineren – levend of historisch – wie zit er aan tafel?", text_ro:"Dacă ai putea lua cina cu oricine – în viață sau istoric – cine e la masă?" },
+  { id:"t2q29", text:"What's a tradition you love, and one you secretly don't get?", tier:2, count:0, text_nl:"Welke traditie vind je geweldig, en welke snap je stiekem niet?", text_ro:"Ce tradiție îți place și care e una pe care, în secret, nu o înțelegi?" },
+  { id:"t2q30", text:"Cats, dogs, or \"I have enough going on already\"?", tier:2, count:0, text_nl:"Katten, honden, of \"ik heb het al druk genoeg\"?", text_ro:"Pisici, câini sau „am deja destule pe cap\"?" },
+  { id:"t2q31", text:"What's the last thing that made you laugh out loud?", tier:2, count:0, text_nl:"Wat is het laatste waar je hardop om moest lachen?", text_ro:"Care e ultimul lucru care te-a făcut să râzi în hohote?" },
+  { id:"t2q32", text:"If you won the lottery tomorrow, what's the first (sensible) thing and the first (not-so-sensible) thing you'd do?", tier:2, count:0, text_nl:"Als je morgen de loterij won, wat is het eerste (verstandige) en het eerste (minder verstandige) dat je zou doen?", text_ro:"Dacă ai câștiga la loterie mâine, care ar fi primul lucru (rezonabil) și primul (mai puțin rezonabil) pe care l-ai face?" },
+  { id:"t2q33", text:"What's your signature move at a party – dancing, DJ-ing, kitchen-hanging or early exit?", tier:2, count:0, text_nl:"Wat is jouw kenmerkende move op een feest – dansen, dj'en, in de keuken hangen of vroeg vertrekken?", text_ro:"Care e specialitatea ta la o petrecere – dansul, mixatul, statul în bucătărie sau plecatul devreme?" },
+  { id:"t2q34", text:"Which three words would your best friend use to describe you?", tier:2, count:0, text_nl:"Welke drie woorden zou je beste vriend(in) gebruiken om je te beschrijven?", text_ro:"Ce trei cuvinte ar folosi cel mai bun prieten al tău ca să te descrie?" },
 ];
 const slug = n => (n||"").toLowerCase().replace(/\s*&\s*/g,"-and-").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
 const SEED_DEFS = [
@@ -114,7 +114,7 @@ function ttl(key, ms, loader) {
   return loader().then(v => { cache[key] = { t:Date.now(), v }; return v; });
 }
 const uidNow = () => auth.currentUser && auth.currentUser.uid;
-const profileToPublic = d => ({ uid:d.uid, name:d.name, first:d.first || (d.name||"").split(" ")[0], role:d.role, dept:d.dept, workClass:d.workClass, floor:!!d.floor, color:d.color, photo:d.photo||null, points:d.points||0, icebreakers:d.icebreakers||[] });
+const profileToPublic = d => ({ uid:d.uid, lang:d.lang || "en", name:d.name, first:d.first || (d.name||"").split(" ")[0], role:d.role, dept:d.dept, workClass:d.workClass, floor:!!d.floor, color:d.color, photo:d.photo||null, points:d.points||0, icebreakers:d.icebreakers||[] });
 
 // Writes into ANOTHER user's notifications/{uid}/items subtree, so it depends on the
 // published rule allowing a signed-in colleague to create (not read/edit) a notification
@@ -203,6 +203,7 @@ const ZB_STORE = {
     if (partial.name) data.first = partial.name.split(" ")[0];
     if (!existing.exists) {
       data.points = SIGNUP_BONUS; data.signupBonusGranted = true;   // BRIEF-017 signup bonus
+      if (!data.lang) data.lang = "en";                             // BRIEF-023
       data.createdAt = nowTs(); data.email = auth.currentUser.email;
     }
     await ref.set(data, { merge:true });
@@ -456,7 +457,8 @@ const ZB_STORE = {
     const batch = db.batch();
     existing.docs.forEach(d => batch.delete(d.ref));               // clear the previous set
     DEFAULTS.forEach(q => batch.set(db.collection("questionBank").doc(q.id),
-      { text:q.text, tier:q.tier, count:0, createdAt:nowTs() }));
+      { text:q.text, text_nl:q.text_nl || null, text_ro:q.text_ro || null,
+        tier:q.tier, count:0, createdAt:nowTs() }));
     batch.set(marker, { seeded:true, seedVersion:SEED_VERSION, at:nowTs() }, { merge:true });
     await batch.commit();
     cache["qbank"] = null; cache["qseed"] = null;
@@ -492,6 +494,8 @@ const ZB_STORE = {
   async updateQuestion(id, patch) {
     const upd = {};
     if (typeof patch.text === "string") upd.text = patch.text;
+    if (typeof patch.text_nl === "string") upd.text_nl = patch.text_nl;
+    if (typeof patch.text_ro === "string") upd.text_ro = patch.text_ro;
     if (patch.tier === 1 || patch.tier === 2) upd.tier = patch.tier;
     if (!Object.keys(upd).length) return false;
     await db.collection("questionBank").doc(id).set(upd, { merge:true });

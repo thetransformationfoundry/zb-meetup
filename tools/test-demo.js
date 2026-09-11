@@ -58,10 +58,11 @@ function load(f, inject){
   new Function("window", "document", src)(window, document);
 }
 load("js/firebase-config.js");
+load("js/i18n.js");                  // ZB_I18N + ZB_T
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__spinLocked=()=>spinLocked();window.__unlock=SPIN_UNLOCK;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__spinLocked=()=>spinLocked();window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -115,6 +116,17 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   // onboard as an ADMIN address (allowed domain) so BRIEF-007's idea bank is exercised
   document.getElementById("ob-email").value = "sean.abbood@thetransformationfoundry.nl";
   document.getElementById("ob-pass").value = "demo1234"; window.obCreate();
+  /* ---- BRIEF-023: language step ---- */
+  const langScr = scr();
+  chk("onboarding asks for a language first", /What language would you like to use\?/.test(langScr)
+      && /Nederlands/.test(langScr) && /Rom[aâ]n[aă]/.test(langScr) && /English/.test(langScr));
+  window.obLang("nl"); window.obStep(1);
+  chk("the rest of onboarding renders in the chosen language", /Wat is je naam\?/.test(scr()));
+  window.obLang("ro"); window.obStep(1);
+  chk("Romanian renders too", /Cum te nume[sș]ti\?/.test(scr()));
+  // back to English so the remaining ~140 assertions stay language-neutral
+  window.obLang("en"); window.obStep(1);
+  chk("switching back to English re-renders in English", /What's your name\?/.test(scr()));
   document.getElementById("ob-name").value = "Test User"; window.obName();
   document.getElementById("ob-wc").value = "partial";
   document.getElementById("ob-role").value = "";           // the 108-option list has no default
@@ -171,6 +183,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   /* ---- BRIEF-017: spin points economy ---- */
   chk("first spin of the day is free", (await window.ZB_STORE.spinState()).freeSpin === true);
   await window.doSpin(); chk("spins a match", /Send request/.test(scr()));
+  chk("the match card shows the colleague's language badge",
+      /class="langpill"[^>]*>(EN|NL|RO)</.test(scr()));
   chk("the free spin cost nothing", (await window.ZB_STORE.getMe()).points === 40   // 30 + 10 icebreakers
       && (await window.ZB_STORE.spinState()).freeSpin === false);
   await window.doSpin();
@@ -204,6 +218,8 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       partnerIce.length === 3 && /Talking points/.test(meetScr)
       && partnerIce.every(x => meetScr.indexOf(x.answer) > -1));
   chk("talking points card has the accent treatment", /class="card talk"/.test(meetScr));
+  chk("talking points header carries the partner's language badge",
+      /class="langpill"/.test(meetScr));
   chk("shared space explains how to log the meetup",
       /Log your meetup below/.test(meetScr) && /during or just after you meet/.test(meetScr)
       && meetScr.indexOf("Log your meetup below") < meetScr.indexOf("1 · Share a photo"));
@@ -327,6 +343,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   window.go("profile");
   const prof = scr();
   chk("profile", /Manage your profile/.test(prof));
+  chk("your own language badge shows on You", /class="langpill"/.test(prof));
   // BRIEF-021: one gradient primary per screen; secondaries keep the pale style
   const gradPrimaries = t => (t.match(/class="btn"(?![^>]*\bsm\b)/g)||[]).length;
   chk("the answered You screen shows no competing gradient primary", gradPrimaries(prof) === 0);
@@ -489,6 +506,35 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   window.go("wall"); chk("other tabs reachable again after unlock", /Community wall/.test(scr()));
   realNow();
   window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+  await refreshAndSettle();
+
+  /* ---- BRIEF-023: fallbacks, badges, export language ---- */
+  chk("t() falls back to English for a missing language",
+      window.ZB_T("back", "nl") === "Terug" && window.ZB_T("back", "xx") === "Back");
+  chk("t() returns the key rather than blank for an unknown key",
+      window.ZB_T("no_such_key", "nl") === "no_such_key");
+
+  // a question with no Romanian falls back to English for a `ro` viewer
+  const bankL = await window.ZB_STORE.questionBank();
+  const victim = bankL.filter(q => q.tier === 1)[0];
+  await window.ZB_STORE.updateQuestion(victim.id, { text_ro: "" });
+  await window.ZB_STORE.saveMe({ lang: "ro" });
+  await refreshAndSettle();
+  chk("a question with no Romanian falls back to English",
+      window.__qText({ id: victim.id, t: victim.text }, "ro") === victim.text);
+  chk("a question WITH Romanian shows Romanian",
+      (function(){ const q = bankL.filter(x => x.tier === 1 && x.text_ro)[1];
+        return window.__qText(q, "ro") === q.text_ro; })());
+
+  // the admin export stays canonical English regardless of the viewer's language
+  await window.reloadAdmin(); await tick(8);
+  window.exportData();
+  const csvLang = (global.__lastDownload || {}).text || "";
+  const anyNl = bankL.filter(q => q.text_nl)[0];
+  chk("CSV export stays English even for a non-English viewer",
+      csvLang.indexOf(anyNl.text_nl) === -1);
+
+  await window.ZB_STORE.saveMe({ lang: "en" });
   await refreshAndSettle();
 
   /* ---- BRIEF-008: editable question bank ---- */

@@ -102,6 +102,38 @@ function pickImage(cb,px){
   }catch(e){ toast("Photo picker unavailable"); }
 }
 
+/* ---------------- i18n (BRIEF-023) ---------------- */
+// The viewer's language. During onboarding the profile may not exist yet, so OB.lang leads.
+const LANGS=["en","nl","ro"];
+function myLang(){
+  const l=(mode==="onboarding"&&OB&&OB.lang)||(C.me&&C.me.lang)||"en";
+  return LANGS.indexOf(l)>-1?l:"en";
+}
+// t(key) — English is the fallback for a missing language and a missing key (never blank).
+function t(key){ return window.ZB_T?window.ZB_T(key,myLang()):key; }
+// A question in the viewer's language, falling back to the canonical English `text`.
+// Each side of a meetup therefore reads the same question in their own language.
+function qText(q,lang){
+  if(!q)return '';
+  const l=lang||myLang();
+  if(l!=='en'&&q['text_'+l])return q['text_'+l];
+  // A match stores a snapshot of its questions as {id,t} — English, and canonical for the
+  // admin export. So look the id up in the live bank to find the viewer's translation: both
+  // participants read the same question, each in their own language.
+  if(l!=='en'&&q.id){
+    const b=(C.questions||[]).filter(x=>x&&x.id===q.id)[0];
+    if(b&&b['text_'+l])return b['text_'+l];
+  }
+  return q.text||q.t||'';
+}
+// A small language cue on a colleague's card: "greet them in their language".
+function langBadge(lang){
+  const l=LANGS.indexOf(lang)>-1?lang:'en';
+  const label={en:'EN',nl:'NL',ro:'RO'}[l];
+  const title={en:'Speaks English',nl:'Spreekt Nederlands',ro:'Vorbește română'}[l];
+  return `<span class="langpill" title="${title}" aria-label="${title}">${label}</span>`;
+}
+
 /* ---------------- go-live spin lock (BRIEF-019) ---------------- */
 // Soft launch gate, deliberately client-side: a user with a wrong clock could spin early
 // against a near-empty pool, which is harmless. It auto-lifts at SPIN_UNLOCK with no redeploy
@@ -237,7 +269,7 @@ let adminOpenQ=null,adminAnon=false;   // which question is expanded; whether to
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
 let AWARD={first:"",points:30,bonus:0,balance:30};   // props for the Points Awarded screen
 let ICE={qs:[],answers:["","",""],from:"onboard"};   // the icebreaker step
-let OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
+let OB={lang:"en",email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
 // The two matching-critical labels — keyed off by eligible(), so never inline these strings.
 const EMEA_ROLE='EMEA - QARA Commercial';
 const GSCC_QARA='GSCC - QARA';
@@ -546,18 +578,28 @@ function renderOnboard(){
   const sc=$("#screen"),ab=$("#appbar"),tb=$("#tabbar");
   if(onboardStep==='welcome'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=welcomeHTML();startTagline();return; }
   if(onboardStep==='how'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=howItWorksHTML();return; }
+  if(onboardStep==='lang'){
+    ab.style.display='';tb.style.display='';sc.style.padding='';
+    ab.innerHTML=`<div class="brand" style="margin:0 auto">ZB <span>MeetUP</span></div>`;tb.innerHTML="";
+    sc.innerHTML=`<div class="ob"><div>
+      <h2>${t('lang_q')}</h2><p class="sub">${t('lang_sub')}</p>
+      <div class="card">${LANGS.map(l=>`<button type="button" class="btn ${OB.lang===l?'':'alt'}" style="margin-bottom:8px" onclick="obLang('${l}')">
+        ${window.ZB_T('lang_'+l,l)}${OB.lang===l?` ${icon('check',16)}`:''}</button>`).join('')}</div>
+      </div><div class="ob-cta"><button class="btn" onclick="obStep(1)">${t('continue')}</button></div></div>`;
+    return;
+  }
   if(onboardStep==='ice'){
     ab.style.display='none';tb.style.display='none';sc.style.padding='';
     const done=ICE.qs.filter((q,i)=>(ICE.answers[i]||'').trim()).length;
     sc.innerHTML=`<div class="ob"><div>
-      <h2>A little about you</h2>
-      <p class="sub">Three quick icebreakers so colleagues have something to talk about when you meet — answer all three and <b>earn 10 points</b>. Shared <b>only with the people you match with</b> — never on the wall, and not collected by admins.</p>
-      ${ICE.qs.map((q,i)=>`<div class="q"><div class="t">${q.text}</div>
-        <textarea class="input" rows="2" placeholder="Your answer…" oninput="iceAns(${i},this.value)">${ICE.answers[i]||''}</textarea></div>`).join('')}
-      <p class="muted small" style="line-height:1.5">Keep it work-appropriate — these are shown to colleagues you'll be meeting. You can change them later on the You screen.</p>
+      <h2>${t('ice_h')}</h2>
+      <p class="sub">${t('ice_sub')}</p>
+      ${ICE.qs.map((q,i)=>`<div class="q"><div class="t">${qText(q)}</div>
+        <textarea class="input" rows="2" placeholder="${t('ice_answer_ph')}" oninput="iceAns(${i},this.value)">${ICE.answers[i]||''}</textarea></div>`).join('')}
+      <p class="muted small" style="line-height:1.5">${t('ice_note')}</p>
       </div><div class="ob-cta">
-      <button class="btn" onclick="iceSave()">${icon('check',18)} ${done===3?'Save — earn 10 points':'Save'}</button>
-      <button class="btn alt" style="margin-top:8px" onclick="iceSkip()">Skip for now</button>
+      <button class="btn" onclick="iceSave()">${icon('check',18)} ${done===3?t('ice_save_bonus'):t('save')}</button>
+      <button class="btn alt" style="margin-top:8px" onclick="iceSkip()">${t('skip_now')}</button>
     </div></div>`;
     return;
   }
@@ -635,28 +677,29 @@ function renderOnboard(){
       <div class="card"><label class="small" style="font-weight:700">Work email</label><input class="input" id="ob-email" placeholder="you@zimmerbiomet.com" style="margin:6px 0 12px" value="${OB.email}"><label class="small" style="font-weight:700">Password</label><input class="input" id="ob-pass" type="password" placeholder="At least 6 characters" style="margin-top:6px"></div>`;
     cta=`<button class="btn" onclick="obCreate()">Create account</button><button class="btn alt" style="margin-top:8px" onclick="obGoSignIn()">I already have an account — sign in</button><button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">Forgot password?</button>`;
   } else if(onboardStep===1){
-    body=`<h2>What's your name?</h2><p class="sub">This is how colleagues will see you.</p><div class="card"><input class="input" id="ob-name" placeholder="First and last name" value="${OB.name||''}"></div>`;
-    cta=`<button class="btn" onclick="obName()">Continue</button>`;
+    body=`<h2>${t('ob_name_h')}</h2><p class="sub">${t('ob_name_sub')}</p><div class="card"><input class="input" id="ob-name" placeholder="${t('ob_name_ph')}" value="${OB.name||''}"></div>`;
+    cta=`<button class="btn" onclick="obName()">${t('continue')}</button>`;
   } else if(onboardStep===2){
-    body=`<h2>Your role</h2><p class="sub">Your role and work setup — this is how we match you with the right colleagues.</p><div class="card"><label class="small" style="font-weight:700">Your role</label><select class="input" id="ob-role" style="margin:6px 0 14px"><option value="" selected disabled>Select your role…</option>${ROLES.map(r=>`<option>${r}</option>`).join('')}</select><label class="small" style="font-weight:700">Work setup</label><select class="input" id="ob-wc" style="margin-top:6px"><option value="warehouse">GSCC Warehouse — On-site (floor)</option><option value="on-site">On-site (office / desk)</option><option value="partial" selected>Partially remote</option><option value="remote">Fully remote</option></select></div>`;
-    cta=`<button class="btn" onclick="obWork()">Continue</button><p class="muted small center" style="margin-top:10px">Warehouse/floor colleagues are matched only with on-site colleagues.</p>`;
+    body=`<h2>${t('ob_role_h')}</h2><p class="sub">${t('ob_role_sub')}</p><div class="card"><label class="small" style="font-weight:700">${t('ob_role_label')}</label><select class="input" id="ob-role" style="margin:6px 0 14px"><option value="" selected disabled>${t('ob_role_ph')}</option>${ROLES.map(r=>`<option>${r}</option>`).join('')}</select><label class="small" style="font-weight:700">${t('ob_wc_label')}</label><select class="input" id="ob-wc" style="margin-top:6px"><option value="warehouse">${t('ob_wc_warehouse')}</option><option value="on-site">${t('ob_wc_onsite')}</option><option value="partial" selected>${t('ob_wc_partial')}</option><option value="remote">${t('ob_wc_remote')}</option></select></div>`;
+    cta=`<button class="btn" onclick="obWork()">${t('continue')}</button><p class="muted small center" style="margin-top:10px">Warehouse/floor colleagues are matched only with on-site colleagues.</p>`;
   } else if(onboardStep===3){
-    body=`<h2>Add a photo</h2><p class="sub">Take a photo or choose one — or keep your initials.</p>
+    body=`<h2>${t('ob_photo_h')}</h2><p class="sub">${t('ob_photo_sub')}</p>
       <div class="center"><span class="avatar lg" style="margin:0 auto;background:${OB.color}">${OB.photo?`<img src="${OB.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(OB.name||'You')}</span></div>
-      <button class="btn secondary" style="margin-top:16px" onclick="obPickPhoto()">${icon('camera',18)} ${OB.photo?'Change photo':'Add a photo'}</button>
-      <div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">…or pick an avatar colour</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="obColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${(OB.color===c&&!OB.photo)?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div>`;
-    cta=`<button class="btn" onclick="obStep(4)">Continue</button>`;
+      <button class="btn secondary" style="margin-top:16px" onclick="obPickPhoto()">${icon('camera',18)} ${OB.photo?t('ob_photo_change'):t('ob_photo_add')}</button>
+      <div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">${t('ob_colour')}</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="obColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${(OB.color===c&&!OB.photo)?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div>`;
+    cta=`<button class="btn" onclick="obStep(4)">${t('continue')}</button>`;
   } else {
-    body=`<h2>One quick thing</h2><p class="sub">Your consent, so the app can work.</p><div class="card small" style="line-height:1.5">ZB MeetUP stores your profile, meetup <b>photos</b> and your answers so the app works.
-      <br><br>· Meetup <b>photos</b> appear on the community wall.
-      <br>· Your <b>meetup discussion answers</b> are private to you and are <b>reviewed by admins</b> — they form the idea bank behind the prize.
-      <br>· Your <b>icebreaker answers</b> are shown <b>only to colleagues you match with</b>, as talking points. They are not collected by admins and not exported.
-      <br><br>You can change or delete your answers, and delete your account, at any time.</div><label class="row" style="gap:10px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ob-consent" style="width:20px;height:20px"> <span class="small">I understand and consent (GDPR).</span></label>`;
+    body=`<h2>${t('ob_consent_h')}</h2><p class="sub">${t('ob_consent_sub')}</p><div class="card small" style="line-height:1.5">${t('consent_intro')}
+      <br><br>· ${t('consent_photos')}
+      <br>· ${t('consent_answers')}
+      <br>· ${t('consent_ice')}
+      <br><br>${t('consent_delete')}</div><label class="row" style="gap:10px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ob-consent" style="width:20px;height:20px"> <span class="small">${t('ob_consent_tick')}</span></label>`;
     cta=`<button class="btn" onclick="finishOnboard()">Enter ZB MeetUP</button>`;
   }
   $("#screen").innerHTML=`<div class="ob"><div>${dots}${body}</div><div class="ob-cta">${cta}</div></div>`;
 }
 window.obStep=n=>{onboardStep=n;renderOnboard();};
+window.obLang=function(l){OB.lang=LANGS.indexOf(l)>-1?l:'en';renderOnboard();};
 window.obColor=c=>{OB.color=c;OB.hasPhoto=false;OB.photo=null;renderOnboard();};
 window.obPickPhoto=function(){pickImage(function(d){OB.photo=d;OB.hasPhoto=true;renderOnboard();});};
 window.obCreate=function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;
@@ -664,7 +707,7 @@ window.obCreate=function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").v
   // ZB MeetUP is only for the two org domains — stop here rather than at the end of onboarding.
   if(!window.ZB_DOMAIN_OK(e)){toast("ZB MeetUP is for Zimmer Biomet colleagues — please use your "+window.ZB_DOMAIN_HINT()+" email");return;}
   if((p||'').length<6){toast("Password must be at least 6 characters");return;}
-  OB.email=e;OB.pass=p;onboardStep=1;renderOnboard();};
+  OB.email=e;OB.pass=p;onboardStep='lang';renderOnboard();};   // language first (BRIEF-023)
 window.obSignIn=async function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e||!p){toast("Enter your email and password");return;}try{await S.signIn(e,p);}catch(err){toast("Sign-in failed — check your details or tap Create account.");}};
 window.obForgot=async function(resend){
   const e=resend?(OB.email||''):(($("#ob-email")||{}).value||'').trim();
@@ -706,7 +749,7 @@ window.finishOnboard=async function(){
   catch(err){ authBusy=false; const code=(err&&err.code)||'';
     toast(/domain-not-allowed/.test(code)?"ZB MeetUP is for Zimmer Biomet colleagues — please use your "+window.ZB_DOMAIN_HINT()+" email"
       :/in-use/.test(code)?"That email already has an account — tap sign in.":"Couldn't create the account."); return; }
-  await S.saveMe({name:OB.name,email:OB.email,color:OB.color,photo:OB.photo||null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now()});
+  await S.saveMe({name:OB.name,email:OB.email,lang:OB.lang||'en',color:OB.color,photo:OB.photo||null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now()});
   await S.welcome();
   authBusy=false;
   // The award screen is the last step of onboarding. It REPORTS the bonus the store already
@@ -791,14 +834,14 @@ function spinScreenHTML(){
   const faceInner=idle?`<span style="display:inline-flex;animation:ringSpin 3.6s linear infinite">${spinnerIcon(54)}</span>`:(current.photo?`<img src="${current.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:999px">`:inits(current.name));
   const faceBg=idle?"#3E6EA8":current.color;
   return `<div style="display:flex;flex-direction:column;min-height:calc(100vh - 150px)">
-    <div style="text-align:center;font-size:11.5px;font-weight:700;letter-spacing:1.6px;color:#7C8798;">TODAY'S MATCH</div>
-    <div style="text-align:center;font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-.5px;margin-top:8px;">${idle?'Spin to meet someone new':'You matched!'}</div>
+    <div style="text-align:center;font-size:11.5px;font-weight:700;letter-spacing:1.6px;color:#7C8798;">${t('spin_today')}</div>
+    <div style="text-align:center;font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-.5px;margin-top:8px;">${idle?t('spin_idle_h'):t('spin_matched_h')}</div>
     <div style="display:flex;justify-content:center;margin:22px 0 -86px;position:relative;z-index:5;"><div style="position:relative;width:172px;height:172px;display:flex;align-items:center;justify-content:center;"><div style="position:absolute;inset:0;border-radius:999px;border:2px dashed #A9C6DC;animation:ringSpin 26s linear infinite;"></div><div id="spinFace" style="width:112px;height:112px;border-radius:999px;border:3px solid #F5F7FA;box-shadow:0 6px 20px rgba(16,24,40,.18);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:700;color:#fff;background-color:${faceBg};">${faceInner}</div></div></div>
     <div style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;border-radius:20px;padding:100px 20px 18px;background:linear-gradient(170deg,#3E6EA8 0%,#2F5F9E 42%,#20416F 100%);box-shadow:var(--shadow-lg);color:#fff;min-height:520px;">
-      ${idle?`<div style="text-align:center;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.82);margin:0 auto;max-width:300px;">Tap the button below and we'll find you a colleague to grab a coffee or a call with.</div>`:`<div style="margin-top:18px;background:#fff;color:var(--ink);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(16,24,40,.18);animation:popIn .34s cubic-bezier(.2,.9,.3,1.2) both;"><div style="display:flex;align-items:center;gap:12px;"><div style="width:44px;height:44px;flex:none;border-radius:999px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;background:${current.color};">${current.photo?`<img src="${current.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(current.name)}</div><div style="min-width:0;"><div style="font-size:16px;font-weight:650;">${current.name}</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px;">${current.role} · ${current.dept}</div></div><div style="margin-left:auto;flex:none;padding:4px 9px;border-radius:999px;background:#F5F7FA;border:1px solid #ECEFF3;font-size:11px;font-weight:600;color:var(--muted);">${wcLabel(current.workClass)}</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #ECEFF3;font-size:13.5px;font-weight:600;color:var(--zb-blue);">Suggested: ${current._type}</div></div>`}
+      ${idle?`<div style="text-align:center;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.82);margin:0 auto;max-width:300px;">${t('spin_idle_sub')}</div>`:`<div style="margin-top:18px;background:#fff;color:var(--ink);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(16,24,40,.18);animation:popIn .34s cubic-bezier(.2,.9,.3,1.2) both;"><div style="display:flex;align-items:center;gap:12px;"><div style="width:44px;height:44px;flex:none;border-radius:999px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;background:${current.color};">${current.photo?`<img src="${current.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(current.name)}</div><div style="min-width:0;"><div style="font-size:16px;font-weight:650;">${current.name}</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px;">${current.role} · ${current.dept}</div><div style="margin-top:4px">${langBadge(current.lang)}</div></div><div style="margin-left:auto;flex:none;padding:4px 9px;border-radius:999px;background:#F5F7FA;border:1px solid #ECEFF3;font-size:11px;font-weight:600;color:var(--muted);">${wcLabel(current.workClass)}</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #ECEFF3;font-size:13.5px;font-weight:600;color:var(--zb-blue);">${t('spin_suggested')} ${current._type}</div></div>`}
       <div style="flex:1;min-height:14px;"></div>${reelHTML()}
     </div>
-    ${idle?`<button type="button" onclick="doSpin()" style="position:relative;overflow:hidden;margin-top:14px;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span id="spinLabel" style="position:relative;">Spin the wheel${C.spin.freeSpin?'':` (−1 pt)`}</span></button>`:`<div style="margin-top:14px;display:flex;flex-direction:column;gap:9px;"><button type="button" onclick="sendReq()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">Send request to ${current.first}</span></button><button type="button" onclick="doSpin()" ${(!C.spin.freeSpin&&C.spin.points<1)?'disabled':''} style="width:100%;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px;border-radius:12px;background:#fff;border:1px solid #ECEFF3;color:var(--muted);font-family:inherit;font-size:14px;font-weight:600;${(!C.spin.freeSpin&&C.spin.points<1)?'opacity:.5;cursor:not-allowed;':''}">${icon('refresh',15)}<span>${C.spin.freeSpin?'Spin again (free)':'Spin again (−1 pt)'}</span></button><div class="muted small center">${C.spin.freeSpin?'This spin is free.':(C.spin.points<1?"You're out of points — send a request, or earn points by meeting someone.":`You have ${C.spin.points} point${C.spin.points===1?'':'s'}. Meeting someone earns them back.`)}</div></div>`}
+    ${idle?`<button type="button" onclick="doSpin()" style="position:relative;overflow:hidden;margin-top:14px;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span id="spinLabel" style="position:relative;">${t('spin_btn')}${C.spin.freeSpin?'':` (−1 pt)`}</span></button>`:`<div style="margin-top:14px;display:flex;flex-direction:column;gap:9px;"><button type="button" onclick="sendReq()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">${t('spin_send_to')} ${current.first}</span></button><button type="button" onclick="doSpin()" ${(!C.spin.freeSpin&&C.spin.points<1)?'disabled':''} style="width:100%;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px;border-radius:12px;background:#fff;border:1px solid #ECEFF3;color:var(--muted);font-family:inherit;font-size:14px;font-weight:600;${(!C.spin.freeSpin&&C.spin.points<1)?'opacity:.5;cursor:not-allowed;':''}">${icon('refresh',15)}<span>${C.spin.freeSpin?t('spin_again_free'):t('spin_again_cost')}</span></button><div class="muted small center">${C.spin.freeSpin?t('spin_free_line'):(C.spin.points<1?t('spin_out'):`You have ${C.spin.points} point${C.spin.points===1?'':'s'}. Meeting someone earns them back.`)}</div></div>`}
     <div style="margin:14px 2px 4px;display:flex;align-items:flex-start;gap:9px;color:var(--muted);font-size:12.5px;line-height:1.45;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9AA3AF" stroke-width="1.9" stroke-linecap="round" style="flex:none;margin-top:1px;"><circle cx="12" cy="12" r="8.6"></circle><path d="M12 11v5.2M12 7.9v.1"></path></svg><span>${rule}</span></div>
   </div>`;
 }
@@ -852,7 +895,7 @@ function talkingPointsHTML(m){
   const fresh=(C.users||[]).filter(u=>u&&u.uid===m.person.uid)[0];
   const ib=((fresh&&fresh.icebreakers)||m.person.icebreakers||[]).filter(x=>x&&(x.answer||'').trim());
   if(!ib.length)return '';
-  return `<div class="card talk"><div class="row between"><div class="lead"><span class="nicon">${icon('chat',18)}</span><b>Talking points</b></div><span class="chip">${m.person.first}</span></div>
+  return `<div class="card talk"><div class="row between"><div class="lead"><span class="nicon">${icon('chat',18)}</span><b>${t('meet_talking')}</b></div><span class="chip">${m.person.first} ${langBadge((fresh&&fresh.lang)||m.person.lang)}</span></div>
     <p class="muted small" style="margin:8px 0 2px">${m.person.first}'s icebreakers — a head start on the conversation.</p>
     ${ib.map(x=>`<div class="q"><div class="t">${x.question||''}</div><div class="small ans">${x.answer}</div></div>`).join('')}</div>`;
 }
@@ -860,14 +903,14 @@ function viewMeet(id){
   const m=C.matches.find(x=>x.id===id&&!x.completed);if(!m)return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><div class="card muted">You've finished your part of this meetup.</div><button class="btn secondary" onclick="go('recap:${id}')">${icon('check',18)} View the recap</button>`;
   const last=m.messages.length?m.messages[m.messages.length-1]:null;
   const mp=typeof m.photo==='string'?m.photo:null;   // the shared meetup photo (base64), if set
-  return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Meetup with ${m.person.first}</h2><p class="sub">A shared space you both fill in</p>
-   <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">You both accepted — suggested: <b>${m.type}</b>. Plan a time and place together.</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} Plan your meetup${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Last message: ${(last.by==='me'?'You: ':'')+last.text}</div>`:''}</div>
+  return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} Back</button><h2 style="margin-top:6px">${t('meet_with')} ${m.person.first}</h2><p class="sub">${t('meet_shared')}</p>
+   <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">You both accepted — suggested: <b>${m.type}</b>. Plan a time and place together.</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} ${t('meet_plan')}${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Last message: ${(last.by==='me'?'You: ':'')+last.text}</div>`:''}</div>
    ${talkingPointsHTML(m)}
-   <p class="muted small" style="margin:2px 2px 10px;line-height:1.5">Log your meetup below — add a photo and answer the questions together, during or just after you meet, to earn your points.</p>
-   <div class="card"><div class="row between"><b>1 · Share a photo</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">A quick pic of the two of you — or a Teams screenshot. One photo per meetup: either of you can add it, and you both see it.</p>${m.photo?`${mp?`<img src="${mp}" alt="Your meetup photo" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} Add meetup photo</button>`}</div>
-   <div class="card"><div class="row between"><b>2 · Discussion questions</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${q.t}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="Your answer…">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">Your answers stay private (admins only). The photo goes to the community wall.</p></div>
-   <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} Complete my part</button>
-   <p class="muted small center" style="margin-top:8px">${canComplete(m)?"That's your +5 for the questions — the photo earns its own +5.":'Answer all 3 questions to complete your part.'}</p>
+   <p class="muted small" style="margin:2px 2px 10px;line-height:1.5">${t('meet_log')}</p>
+   <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.photo?`${mp?`<img src="${mp}" alt="Your meetup photo" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
+   <div class="card"><div class="row between"><b>${t('meet_q_h')}</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${qText(q)}${q.tier===1?'<span class="tierpill">key idea</span>':''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="Your answer…">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">${t('meet_q_private')}</p></div>
+   <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} ${t('meet_complete')}</button>
+   <p class="muted small center" style="margin-top:8px">${canComplete(m)?"That's your +5 for the questions — the photo earns its own +5.":t('meet_complete_hint')}</p>
    <p class="muted small center" style="margin-top:6px">${m.otherCompleted?`${m.person.first} has finished their part.`:`Waiting on ${m.person.first} to finish their part — your points don't depend on it.`}</p>`;
 }
 function viewRecap(id){
@@ -933,7 +976,7 @@ function viewRanks(){
 /* ---------------- PROFILE ---------------- */
 function viewProfile(){
   const me=C.me;
-  return `<h2>You</h2><p class="sub">Manage your profile and account.</p><div class="card center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span><div style="font-weight:800;font-size:18px;margin-top:12px">${me.name||'You'}</div><div class="muted small">${me.role} · ${me.dept}</div><div class="muted small">${me.email||''}</div><div style="margin-top:10px"><span class="chip">${me.points} pts</span> <span class="chip grey">${history().length} meetups</span></div></div>
+  return `<h2>You</h2><p class="sub">Manage your profile and account.</p><div class="card center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span><div style="font-weight:800;font-size:18px;margin-top:12px">${me.name||'You'}</div><div class="muted small">${me.role} · ${me.dept}</div><div class="muted small">${me.email||''}</div><div style="margin-top:6px">${langBadge(me.lang)}</div><div style="margin-top:10px"><span class="chip">${me.points} pts</span> <span class="chip grey">${history().length} meetups</span></div></div>
    <button class="btn secondary" onclick="go('editprofile')">${icon('pencil',18)} Edit profile &amp; avatar</button>
    <button class="btn secondary" style="margin-top:10px" onclick="go('bug')">${icon('bug',18)} Report a bug</button>
    ${C.admin?`<button class="btn secondary" style="margin-top:10px" onclick="go('admin')">${icon('chart',18)} Admin dashboard</button>`:''}
@@ -942,21 +985,25 @@ function viewProfile(){
      const top='style="margin-top:14px"';
      const answered=ib.filter(x=>x&&(x.answer||'').trim()).length;
      if(answered>=3&&C.me&&C.me.icebreakerBonusGranted)
-       return `<div class="card" ${top}><div class="row between"><b>Your icebreakers</b><span class="chip good">+10 earned</span></div>
-         <p class="muted small" style="margin:8px 0 10px">Shown to colleagues you match with, as talking points.</p>
+       return `<div class="card" ${top}><div class="row between"><b>${t('ice_yours')}</b><span class="chip good">+10 earned</span></div>
+         <p class="muted small" style="margin:8px 0 10px">${t('ice_yours_sub')}</p>
          ${ib.map(x=>`<div class="q"><div class="t">${x.question||''}</div><div class="small" style="margin-top:4px;white-space:pre-wrap">${x.answer}</div></div>`).join('')}
-         <button class="btn ghost sm" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('pencil',15)} Edit answers</button></div>`;
-     return `<div class="card" ${top}><div class="row between"><b>Break the ice</b><span class="chip">+10 pts</span></div>
-       <p class="muted small" style="margin:8px 0 10px">Answer 3 quick questions about yourself and earn 10 points. They're shown only to colleagues you match with — a head start on the conversation.</p>
-       <button class="btn" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('chat',17)} ${answered?'Finish your icebreakers':'Answer 3 questions'}</button></div>`;
+         <button class="btn ghost sm" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('pencil',15)} ${t('ice_edit')}</button></div>`;
+     return `<div class="card" ${top}><div class="row between"><b>${t('ice_break_h')}</b><span class="chip">+10 pts</span></div>
+       <p class="muted small" style="margin:8px 0 10px">${t('ice_break_sub')}</p>
+       <button class="btn" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('chat',17)} ${answered?t('ice_finish'):t('ice_answer3')}</button></div>`;
    })()}
    ${buildStampHTML()}
    <div class="hr"></div><button class="btn ghost" onclick="signOut()">${icon('signout',18)} Sign out</button><button class="btn danger" style="margin-top:10px" onclick="askDelete()">${icon('trash',18)} Delete my account</button><p class="muted small center" style="margin-top:8px">Deleting removes your profile, photos and answers (GDPR).</p>`;
 }
 function viewEditProfile(){
   const me=C.me;
-  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Edit profile</h2><p class="sub">Update how colleagues see you.</p><div class="center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span></div><button class="btn secondary" style="margin-top:14px" onclick="epPickPhoto()">${icon('camera',18)} ${me.photo?'Change photo':'Add a photo'}</button><div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">…or pick an avatar colour</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="epColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${me.color===c?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div><div class="card"><label class="small" style="font-weight:700">Name</label><input class="input" id="ep-name" value="${me.name}" style="margin-top:6px"></div><button class="btn" onclick="saveProfile()">${icon('check',18)} Save changes</button>`;
+  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} Back</button><h2 style="margin-top:6px">Edit profile</h2><p class="sub">Update how colleagues see you.</p><div class="center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span></div><button class="btn secondary" style="margin-top:14px" onclick="epPickPhoto()">${icon('camera',18)} ${me.photo?'Change photo':'Add a photo'}</button><div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">${t('ob_colour')}</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="epColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${me.color===c?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div><div class="card"><label class="small" style="font-weight:700">Name</label><input class="input" id="ep-name" value="${me.name}" style="margin-top:6px">
+   <label class="small" style="font-weight:700;display:block;margin-top:14px">${t('lang_label')}</label>
+   <select class="input" id="ep-lang" style="margin-top:6px" onchange="epLang(this.value)">${LANGS.map(l=>`<option value="${l}" ${(me.lang||'en')===l?'selected':''}>${window.ZB_T('lang_'+l,l)}</option>`).join('')}</select></div><button class="btn" onclick="saveProfile()">${icon('check',18)} Save changes</button>`;
 }
+// Changing language re-renders the app immediately in the new one.
+window.epLang=async function(l){ await S.saveMe({lang:LANGS.indexOf(l)>-1?l:'en'}); await refresh(); toast(t('lang_label')); };
 window.epColor=async function(c){await S.saveMe({color:c,photo:null});await refresh();};
 window.epPickPhoto=function(){pickImage(async function(d){await S.saveMe({photo:d});await refresh();toast("Photo updated");});};
 window.saveProfile=async function(){const n=$("#ep-name").value.trim();await S.saveMe(n?{name:n}:{});toast("Profile saved");view='profile';await refresh();};
@@ -999,11 +1046,17 @@ function viewAdmin(){
    <div class="card"><div class="row between" style="margin-bottom:6px"><b>Question bank</b><span class="chip grey">${C.questions.length}</span></div>
      <p class="muted small" style="margin:0 0 10px"><b>Idea</b> questions are asked in meetups and collected for the idea bank. <b>Icebreakers</b> are asked once at onboarding, shown only to a colleague's meetup partners, and never exported. Tap the pill to switch. Editing a question doesn't change answers already given.</p>
      ${C.questions.map(q=>qEditId===q.id
-       ? `<div class="q" style="margin:10px 0"><textarea class="input" rows="2" id="qedit-${q.id}">${q.text}</textarea>
+       ? `<div class="q" style="margin:10px 0">
+            <label class="small" style="font-weight:700">English (canonical — used in the export)</label>
+            <textarea class="input" rows="2" id="qedit-${q.id}" style="margin-top:4px">${q.text||''}</textarea>
+            <label class="small" style="font-weight:700;display:block;margin-top:8px">Nederlands</label>
+            <textarea class="input" rows="2" id="qedit-nl-${q.id}" style="margin-top:4px" placeholder="(falls back to English)">${q.text_nl||''}</textarea>
+            <label class="small" style="font-weight:700;display:block;margin-top:8px">Română</label>
+            <textarea class="input" rows="2" id="qedit-ro-${q.id}" style="margin-top:4px" placeholder="(falls back to English)">${q.text_ro||''}</textarea>
             <div class="row" style="gap:8px;margin-top:8px"><button class="btn sm" onclick="qSave('${q.id}')">${icon('check',15)} Save</button>
             <button class="btn ghost sm" onclick="qEdit(null)">Cancel</button></div></div>`
        : `<div class="row between" style="gap:10px;border-top:1px solid var(--line);padding:9px 0">
-            <span class="small" style="flex:1;min-width:0">${q.text}</span>
+            <span class="small" style="flex:1;min-width:0">${q.text}${(q.text_nl||q.text_ro)?` <span class="muted" style="font-size:10px">${q.text_nl?'NL':''}${(q.text_nl&&q.text_ro)?'·':''}${q.text_ro?'RO':''}</span>`:''}</span>
             <button class="iconbtn" title="Tier" onclick="qTier('${q.id}',${q.tier===1?2:1})"><span class="tierpill" style="margin-left:0;cursor:pointer;${q.tier===1?'':'opacity:.45'}">${q.tier===1?'Idea':'Icebreaker'}</span></button>
             <button class="iconbtn" title="Edit" onclick="qEdit('${q.id}')">${icon('pencil',16)}</button>
             <button class="iconbtn" title="Delete" onclick="qDel('${q.id}')">${icon('trash',16)}</button>
@@ -1044,9 +1097,11 @@ window.exportData=function(){
 let qEditId=null;   // which question is open for inline editing
 window.qEdit=function(id){qEditId=id;render();};
 window.qSave=async function(id){
-  const el=document.getElementById('qedit-'+id); const v=((el&&el.value)||'').trim();
-  if(!v){toast("A question can't be empty");return;}
-  await S.updateQuestion(id,{text:v}); qEditId=null; toast("Question updated"); await refresh();
+  const val=x=>{const el=document.getElementById(x);return ((el&&el.value)||'').trim();};
+  const v=val('qedit-'+id);
+  if(!v){toast("A question can't be empty");return;}   // English is canonical, so it is required
+  await S.updateQuestion(id,{text:v,text_nl:val('qedit-nl-'+id),text_ro:val('qedit-ro-'+id)});
+  qEditId=null; toast("Question updated"); await refresh();
 };
 window.qTier=async function(id,tier){await S.updateQuestion(id,{tier:tier});await refresh();};
 window.qDel=async function(id){
