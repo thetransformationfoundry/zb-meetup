@@ -2,6 +2,13 @@
 
 **Branch:** `feat/push-notifications`  ·  **Status:** ready for CC — **Blaze ACTIVE** (2026-09-08)  ·  **From:** live feedback #2 (push half)
 
+> **PRIORITY (Sean, 2026-09-11): pulled to PRE-LAUNCH, FULL scope** (all of §Scope 1–5, incl. the 3-day reminder
+> and the instant shared-photo-award Function). **Real deadline = Wed 16 Sep 09:00 spin-unlock**, not Monday
+> signups — push only fires once people match. **Sequence: merge `feat/multilingual` (BRIEF-023/023A) to `main`
+> FIRST**, then branch `feat/push-notifications` off the updated `main` (keeps the languages merge and the
+> server-side push work as separate, clean diffs). Sean must: (a) generate the Web Push VAPID key now (§Sean's
+> console step), (b) be ready to `firebase deploy --only functions` and publish the token rule when CC hands off.
+
 ## Precondition (satisfied)
 Cloud Functions need the Firebase **Blaze** plan. **Done** — Sean upgraded the `zb-meetup` project to Blaze on
 2026-09-08 (ZB Cup already runs on Blaze at ~zero cost when idle; same billing account). No blocker remaining;

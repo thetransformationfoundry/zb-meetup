@@ -83,8 +83,15 @@ reader's language:
 - When rendering the notifications list, if a notif has a known `type` (`accept`, `msg`, `welcome`), build its text
   from a `t()` template + the actor's name (e.g. `notif_accept` → `"{name} accepted your match! Open the shared
   space to coordinate."`, `notif_msg` → `"{name} sent you a message"`, `notif_welcome` → `"Welcome to ZB MeetUP!
-  Tap Spin to find your first match."`). Pull the name from the stored text or, cleaner, store a `name` field on
-  the notif going forward.
+  Tap Spin to find your first match."`). Recover the name **from the stored English text** at render time.
+
+> **RESOLVED (CC, 2026-09-11 · `2568b8d`):** the brief also floated storing a `name` field as "cleaner" — that
+> CONTRADICTS the no-rules-change guardrail and is WRONG. The published notifications rule uses a `hasOnly` field
+> allowlist, so a notif carrying `name` is DENIED, and since `addNotif` is deliberately non-fatal, cross-user
+> notifications would silently stop appearing (the BRIEF-003 bug). CC added the field, hit the allowlist, and
+> reverted it. `notifText()` recovers the name from the stored English sentence — no rules change. If we ever want
+> the structured field, it's one word added to the rule allowlist + a Sean publish; revisit only alongside BRIEF-004
+> (push) if the notif shape is being reworked anyway. **For launch: keep the text-recovery approach as built.**
 - **Back-compat:** old notifs (already in Firestore from testing) may lack a clean `name` field — fall back to the
   **stored English `text`** if the type is unknown or the name can't be recovered. Never render blank. (The Sat
   data wipe clears the test notifs anyway, so this is belt-and-braces.)

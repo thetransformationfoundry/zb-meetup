@@ -578,8 +578,22 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("Notifications chrome renders in the viewer's language", /Notific/.test(nRo));
   chk("How It Works step content renders in the viewer's language",
       /Fii pus în leg/.test(hRo) && /Urcă și câștigă/.test(hRo));
+  window.go("meetups");   const mtRo = scr();
+  window.go("recap:"+id); const rcRo = scr();
+  chk("My meetups renders in the viewer's language",
+      /Întâlnirile mele/.test(mtRo)
+      && /Scrie, întâlne[șs]te-te/.test(mtRo)        // subtitle
+      && /Finalizate/.test(mtRo));                    // the Completed section header
+  chk("meetup type is translated for display", /o pauz[ăa] împreun|o cafea|o plimbare|discu[țt]ie virtual/.test(mtRo));
+  chk("recap header + points breakdown render in the viewer's language",
+      /Întâlnire cu/.test(rcRo) && /R[ăa]spunsurile tale/.test(rcRo)
+      && /(Poz[ăa] comun|F[ăa]r[ăa] poz[ăa])/.test(rcRo));
+  chk("talking-points subline renders in the viewer's language",
+      /Întreb[ăa]rile de cunoa[șs]tere ale lui/.test(rcRo) || !/icebreakers — a head start/.test(rcRo));
+  chk("How It Works hero renders in the viewer's language",
+      /CINCI PA[ȘS]I SIMPLI/.test(hRo) && /Cum func[țt]ioneaz[ăa] ZB MeetUP/.test(hRo));
   chk("no raw i18n keys leak into the UI",
-      ![wRo,rRo,mRo,nRo,hRo].some(x => /\b(notif_|meet_|wall_|ranks_|hiw_|msgs_)[a-z0-9_]+\b/.test(x)));
+      ![wRo,rRo,mRo,nRo,hRo,mtRo,rcRo].some(x => /\b(notif_|meet_|wall_|ranks_|hiw_|msgs_)[a-z0-9_]+\b/.test(x)));
 
   await window.ZB_STORE.saveMe({ lang: "en" });
   await refreshAndSettle();
