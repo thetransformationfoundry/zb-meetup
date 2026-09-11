@@ -603,8 +603,10 @@ function iceStart(from){
   mode="onboarding";onboardStep='ice';renderOnboard();
 }
 window.iceAns=function(i,v){ICE.answers[i]=v;
+  // Keep the label translated — this used to write hardcoded English over the rendered label
+  // the moment the colleague typed, so a Romanian screen sprouted an English button.
   const b=document.querySelector('.ob-cta .btn');
-  if(b)b.textContent=ICE.answers.filter(a=>(a||'').trim()).length===3?'Save — earn 10 points':'Save';
+  if(b)b.textContent=ICE.answers.filter(a=>(a||'').trim()).length===3?t('ice_save_bonus'):t('save');
 };
 function iceDone(){
   if(ICE.from==='profile'){mode="app";view="profile";refresh();return;}
@@ -1045,7 +1047,7 @@ function viewProfile(){
      if(answered>=3&&C.me&&C.me.icebreakerBonusGranted)
        return `<div class="card" ${top}><div class="row between"><b>${t('ice_yours')}</b><span class="chip good">+10 earned</span></div>
          <p class="muted small" style="margin:8px 0 10px">${t('ice_yours_sub')}</p>
-         ${ib.map(x=>`<div class="q"><div class="t">${x.question||''}</div><div class="small" style="margin-top:4px;white-space:pre-wrap">${x.answer}</div></div>`).join('')}
+         ${ib.map(x=>`<div class="q"><div class="t">${qText({id:x.id,text:x.question},myLang())}</div><div class="small" style="margin-top:4px;white-space:pre-wrap">${x.answer}</div></div>`).join('')}
          <button class="btn ghost sm" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('pencil',15)} ${t('ice_edit')}</button></div>`;
      return `<div class="card" ${top}><div class="row between"><b>${t('ice_break_h')}</b><span class="chip">+10 pts</span></div>
        <p class="muted small" style="margin:8px 0 10px">${t('ice_break_sub')}</p>

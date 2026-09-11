@@ -622,6 +622,24 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   const reopened = scr();
   chk("re-opening shows the answered questions, not a new random set",
       /Kept one/.test(reopened) && /Kept two/.test(reopened) && /Kept three/.test(reopened));
+  // the stored question snapshot is English — the screen must render the viewer's language
+  await window.ZB_STORE.saveMe({ lang: "ro" });
+  await refreshAndSettle();
+  window.iceFromProfile();
+  chk("re-opened icebreaker prompts render in the viewer's language, not the stored English",
+      /Plaj[ăa], munte sau ora[șs]\?/.test(scr())
+      && !/Beach, mountains or city\?/.test(scr()));
+  // typing must not overwrite the translated Save label with English
+  window.iceAns(0, "x"); window.iceAns(1, "y"); window.iceAns(2, "z");
+  chk("the Save label stays translated while typing",
+      document.querySelector(".ob-cta .btn").textContent === window.ZB_T("ice_save_bonus", "ro"));
+  window.iceSkip();
+  window.go("profile");
+  chk("the You card renders prompts in the viewer's language",
+      /Plaj[ăa], munte sau ora[șs]\?/.test(scr()) && !/Beach, mountains or city\?/.test(scr()));
+  await window.ZB_STORE.saveMe({ lang: "ro" });   // restore what this section found
+  await refreshAndSettle();
+  window.iceFromProfile();
   await window.iceSave();
   const kept = (await window.ZB_STORE.getMe()).icebreakers || [];
   chk("saving after a re-open preserves the answers",
