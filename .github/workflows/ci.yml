@@ -20,8 +20,8 @@ jobs:
     name: Demo-path harness
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
       # Nothing to install: the app has no build step and the harness is plain Node.
@@ -44,7 +44,7 @@ jobs:
       contents: write                   # to commit version.json
       pages: write                      # to request the Pages rebuild (see below)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Write version.json
         run: |
