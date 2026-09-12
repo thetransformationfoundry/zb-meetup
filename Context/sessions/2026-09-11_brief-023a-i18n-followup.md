@@ -267,3 +267,28 @@ committed. `localhost:8001` now serves v=47 and the Dutch countdown, verified ov
 before touching the code. Grepping the source for the exact string in the screenshot settles it immediately —
 if the string is not in the file, the file is not what ran. Re-run `sh tools/refresh-demo.sh <dir>` before
 every local test pass.
+
+## Round 11 — Sean's two pre-merge notes, and a near-miss (v=48)
+Sean passed both Dutch and Romanian and approved the merge, with two changes:
+
+1. **"CB management judges" should be "ZB".** Six strings — `prize_body` and `hiw_5_b` across all three
+   languages. No `CB` remains in shipped code. An older harness check asserted the *typo* (`/CB management
+   judges/`), so it was corrected rather than left to pass green on the wrong string. The briefs
+   (`BRIEF-018`) and the 3 Sep kickoff log still say CB; those are Cowork's record to correct, not ours to
+   rewrite.
+2. **`EMEA - QARA Commercial` should lead the role dropdown.** It is the only non-GSCC role in the list of
+   108 and sat at index 70, buried mid-way through the GSCC block. Now first, `Other` still last. Verified
+   against HEAD that the GSCC ordering and the full set are otherwise byte-identical — only one entry moved.
+
+### The near-miss worth recording
+Refreshing the demo copy after these changes, `cp` hit a permission error on `assets/app-icon.svg`. Because
+the script ran `set -e` and appended the `ZB_LIVE = false` override **last**, it aborted after copying the JS
+but before re-applying the override — leaving the demo copy configured to talk to **live Firestore**. Had
+that gone unnoticed, a "local" test pass would have written real data into the production project.
+
+Caught by checking the served config over HTTP rather than trusting the script's exit. The script now builds
+into a staging directory, applies the override, **refuses to swap in a copy that lacks it**, and only then
+replaces the old one — so a failure leaves the previous demo untouched instead of a half-updated, live-wired
+one. The general shape of the bug: the safety step ran last, so every failure mode removed the safety.
+
+203 checks green. Merged to `main` and deployed at v=48.
