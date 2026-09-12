@@ -44,7 +44,7 @@ window.ZB_CONFIG = {
   // Web Push (BRIEF-004). PUBLIC key from Firebase Console -> Project Settings ->
   // Cloud Messaging -> Web Push certificates. Public by design, like the apiKey.
   // Empty = push stays off everywhere: no prompts, no toggle, no errors.
-  VAPID_PUBLIC_KEY: "",
+  VAPID_PUBLIC_KEY: "BLKfta0lc2uk7fjphtHt5f_uq-rN8CMk9sJJpa0-3uuAsTGkc8WZOYXHdJnTEohPE5o83A8NbaOEbvERCmP3ymo",
 
   appName: "ZB MeetUP"
 };
