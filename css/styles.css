@@ -281,3 +281,8 @@ select.input{appearance:none;-webkit-appearance:none;background:#fff url("data:i
 /* The deep-linked post. No backdrop-filter and no transform — this sits on the animated
    wall list, which is exactly the combination that flickers on Android Chrome. */
 .card.focus{box-shadow:0 0 0 2px var(--zb-blue),var(--shadow);transition:box-shadow .5s ease}
+
+/* ---- BRIEF-026: busy buttons ---- */
+.btn[aria-busy="true"]{opacity:.82;cursor:default}
+.btn-spin{display:inline-flex;animation:btnSpin .9s linear infinite;transform-origin:50% 50%}
+@keyframes btnSpin{to{transform:rotate(360deg)}}

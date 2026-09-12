@@ -4,6 +4,15 @@
 **Depends on:** BRIEF-004 (push) — now live. New notification types get device push + translation **for free** via the
 existing `onNotificationCreated` → FCM path; no Functions change needed beyond the shared dictionary.
 
+> **BUILT (v=50, 233 checks, `feat/wall-social`, unmerged, 2026-09-12). Three brief inaccuracies CC corrected — noted so this doc isn't misleading:**
+> 1. **The rule change is a hardening, not an unblock.** The brief claimed the comment write would be *denied* without allowing `mentions`. Wrong — `commentAppendOk()` had **no field allowlist** on the comment map at all, so `mentions` (and any arbitrary field) would have written happily. CC *added* the allowlist (`hasOnly(['byUid','text','at','mentions'])`). So publish it for the **security hardening** (stops arbitrary fields being smuggled onto a comment), not to make the feature work.
+> 2. **The picker can't use `leaderboard()`** — it returns `{name,points,color,photo,me}`, **no uid**, which is the one field a mention must resolve to. CC used **`C.users` (from `listUsers()`)** instead: already loaded, already readable under the existing `users` rule, excludes the signed-in user (can't mention yourself). Same "exposes nothing new" guarantee, via the list that actually carries a uid.
+> 3. **Functions DID need a change.** `onNotificationCreated` maps `type → dictionary key`, falling back to stored English for unknown types — so without adding `mention` + `wallcomment` to that map, both push types would arrive **English-only for everyone**. Two entries added → **Functions redeploy required.**
+>
+> **Also fixed in passing — STORED XSS (pre-existing, live since the wall shipped, not from this brief):** `mention()` ran a regex over **raw** comment text and the result went straight into `innerHTML`, so a comment containing `<img src=x onerror=…>` executed in every other colleague's browser — reachable by any signed-in colleague. Comment text + author names are now **escaped before** the mention chips are applied, with two harness checks locking it. This closes a real vulnerability; it's a reason to merge BRIEF-025 before real colleagues use the wall.
+>
+> **Data-model note:** wall posts now store **`participants:[a,b]`** so a `wallcomment` can reach both people without the commenter needing to read the `matches` doc (the matches rule limits reads to its two participants — resolving from the match would have meant loosening it). Older posts fall back to `authorUid`.
+
 ## Why
 On the wall today: (1) `@mentions` are **cosmetic only** — `mention()` (app.js:71) wraps `@Name` in a styled span
 via `/@([A-Za-z]+)/`, with no picker, no resolution to a real colleague, no link, no notification; (2) posting a
