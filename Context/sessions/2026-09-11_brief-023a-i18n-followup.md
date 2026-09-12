@@ -217,7 +217,7 @@ colleague-facing surfaces, most of which no screenshot had covered:
 - the **countdown** screen, the **Add to Home Screen** hint, and the stale-build **Update available** banner
 - ~20 toasts and inline errors across sign-in, onboarding, spin and the photo picker
 
-79 new keys in all three languages. The dictionary is now **250 keys, none missing a language**.
+79 new keys in all three languages. The dictionary is now **277 keys, none missing a language**.
 
 **A latent trap worth recording:** three functions declared a local `const t` — `viewCountdown` and
 `cdTickOnce` (the countdown parts object) and `sendBug` (the textarea value). Each shadowed the `t()` translate
