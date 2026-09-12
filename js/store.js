@@ -352,6 +352,19 @@
     deleteAccount() { return this.signOut(); },
 
     // app registers callbacks so async demo events (accept/reply) can trigger a re-render
+    /* ---- Web push (BRIEF-004) ----
+       The demo store runs with no Firebase at all, so push is permanently
+       off here. These exist ONLY to keep the two stores' API in lockstep: the
+       UI asks pushSupported() first and hides the whole feature on false, so
+       the harness never touches FCM and never prompts. */
+    pushSupported() { return P(false); },
+    pushNeedsInstall() { return false; },
+    pushState() { return P({ supported:false, enabled:false, needsInstall:false, blocked:false, configured:false }); },
+    pushEnable() { return P({ ok:false, reason:"unsupported" }); },
+    pushDisable() { return P(true); },
+    savePushConsent(on) { return this.saveMe({ pushConsent: !!on }); },
+    onPush() { /* no push in demo */ },
+
     onChange(cb) { this._change = cb; },
     setViewing(v) { this._viewing = v; },
   };

@@ -41,6 +41,11 @@ window.ZB_CONFIG = {
   // timezone. This is a soft launch gate, not security: the check is client-side by design.
   SPIN_UNLOCK: "2026-09-16T09:00:00+02:00",
 
+  // Web Push (BRIEF-004). PUBLIC key from Firebase Console -> Project Settings ->
+  // Cloud Messaging -> Web Push certificates. Public by design, like the apiKey.
+  // Empty = push stays off everywhere: no prompts, no toggle, no errors.
+  VAPID_PUBLIC_KEY: "",
+
   appName: "ZB MeetUP"
 };
 

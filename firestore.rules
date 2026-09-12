@@ -21,6 +21,17 @@ service cloud.firestore {
       allow create: if isMe(uid) && allowedDomain();
       allow update, delete: if isMe(uid) || isAdmin();
     }
+    // Push tokens (BRIEF-004). Rules do NOT cascade into subcollections, so
+    // users/{uid} above does not cover these — without this match every read
+    // and write here is denied and push silently never registers.
+    // Deliberately stricter than the parent: users/{uid} is readable by any
+    // signed-in colleague, but a device token is not. Only the owner may see
+    // or change their own, so no one can enumerate or hijack another
+    // colleague's devices. The Cloud Functions use the Admin SDK and bypass
+    // rules, so sending and dead-token cleanup are unaffected.
+    match /users/{uid}/fcmTokens/{token} {
+      allow read, write: if isMe(uid);
+    }
     match /matches/{id} {
       allow read, update, delete: if isAdmin()
         || (signedIn() && (request.auth.uid == resource.data.a || request.auth.uid == resource.data.b));
