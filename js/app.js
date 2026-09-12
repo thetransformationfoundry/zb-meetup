@@ -68,7 +68,27 @@ function commentAuthor(c){
   }
   return ((c&&c.by)||'').split(' ')[0]||'A colleague';   // legacy comment
 }
-function mention(txt){return (txt||'').replace(/@([A-Za-z]+)/g,'<span class="ment">@$1</span>');}
+const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// Mentions render from the uids the commenter actually picked. The old regex
+// (/@([A-Za-z]+)/) silently missed accented and multi-word names — "@José" chipped
+// as "@Jos" and "@Anna Kessler" as "@Anna". Seeds and pre-BRIEF-025 comments carry
+// no `mentions`, so they keep the regex as a fallback.
+function nameForUid(uid){
+  if(C.me&&(uid==='me'||uid===C.me.uid))return C.me.name||'';
+  const u=(C.users||[]).filter(x=>x&&x.uid===uid)[0];
+  return u?(u.name||''):'';
+}
+function mention(txt){return esc(txt).replace(/@([A-Za-z]+)/g,'<span class="ment">@$1</span>');}
+function commentBody(c){
+  const list=(c&&c.mentions)||[];
+  if(!list.length)return mention(c&&c.text);
+  let out=esc(c.text);
+  // Longest first, so "@Anna Kessler" is not eaten by "@Anna".
+  list.map(nameForUid).filter(Boolean).sort((a,b)=>b.length-a.length).forEach(n=>{
+    out=out.split('@'+esc(n)).join('<span class="ment">@'+esc(n)+'</span>');
+  });
+  return out;
+}
 // Capture sizes: avatars only ever render small, but a meetup photo fills a wall card
 // (~400px+ CSS, so 2x on a phone), and 256px upscaled is what made it look soft.
 var AVATAR_PX=256, MEETUP_PX=960;   // 960 square @ q0.82 ~= 120-250KB base64, well under the 1MB doc limit
@@ -120,7 +140,8 @@ function t(key,params){ return window.ZB_T?window.ZB_T(key,myLang(),params):key;
 // an unknown type — so nothing ever renders blank.
 function notifText(n){
   if(!n)return '';
-  const key={request:'notif_request',accept:'notif_accept',msg:'notif_msg',welcome:'notif_welcome'}[n.type];
+  const key={request:'notif_request',accept:'notif_accept',msg:'notif_msg',welcome:'notif_welcome',
+             mention:'notif_mention',wallcomment:'notif_wallcomment'}[n.type];
   if(!key)return n.text||'';
   if(key==='notif_welcome')return t(key);
   const name=n.name||notifNameFromText(n.text);
@@ -130,7 +151,7 @@ function notifText(n){
 // Old notifications carry no `name` field; recover it from the stored English sentence.
 function notifNameFromText(txt){
   txt=(txt||'').trim(); if(!txt)return '';
-  const m=txt.match(/^(.+?) (?:wants to meet you|accepted your match|sent you a message)/);
+  const m=txt.match(/^(.+?) (?:wants to meet you|accepted your match|sent you a message|mentioned you in a comment|commented on your meetup)/);
   return m?m[1]:'';
 }
 // A question in the viewer's language, falling back to the canonical English `text`.
@@ -475,7 +496,7 @@ function render(){
   else if(view.startsWith("meet:"))s.innerHTML=viewMeet(view.slice(5));
   else if(view.startsWith("recap:"))s.innerHTML=viewRecap(view.slice(6));
   else if(view==="howitworks")s.innerHTML=howItWorksHTML(true);
-  else if(view==="wall")s.innerHTML=viewWall();
+  else if(view==="wall"){s.innerHTML=viewWall();focusWallPost();}
   else if(view==="ranks")s.innerHTML=viewRanks();
   else if(view==="profile")s.innerHTML=viewProfile();
   else if(view==="editprofile")s.innerHTML=viewEditProfile();
@@ -484,7 +505,29 @@ function render(){
   else if(view==="notifs")s.innerHTML=viewNotifs();
   s.scrollTop=0;
 }
+// After a wall: deep-link, bring the post into view. render() resets scrollTop, so this
+// has to run after it, and the highlight clears itself so a later visit is not still lit.
+function focusWallPost(){
+  if(!wallFocus)return;
+  const id=wallFocus;wallFocus="";
+  setTimeout(()=>{
+    const el=document.getElementById("post"+id);
+    if(!el)return;
+    try{el.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){el.scrollIntoView();}
+    setTimeout(()=>el.classList&&el.classList.remove("focus"),2600);
+  },40);
+}
 let hiwFrom="spin";   // where the in-app How It Works was opened from, so Back returns there
+let wallFocus="";     // post to scroll to and highlight after a wall: deep-link
+// THE target router — shared by the in-app bell tap and the service worker's
+// notificationclick. Every notification target passes through here and nowhere else.
+function routeTarget(target){
+  if(!target)return;
+  if(String(target).indexOf('wall:')===0){ wallFocus=String(target).slice(5); go('wall'); return; }
+  wallFocus="";
+  go(target);
+}
+window.routeTarget=routeTarget;
 window.go=v=>{
   // While locked the only routes are the countdown and How It Works — a deep-linked
   // notification must not drop a held user into an empty app.
@@ -497,7 +540,7 @@ function renderAppbar(){$("#appbar").innerHTML=`<div class="brand">ZB <span>Meet
 function renderTabs(){
   const reqB=activeMatches().filter(m=>(m.status==='active'&&!myAnswersDone(m))||(m.status==='requested'&&m.incoming)).length;
   const tabs=[["spin","spinner",t('tab_spin')],["meetups","users",t('tab_meetups')],["wall","image",t('tab_wall')],["ranks","trophy",t('tab_ranks')],["profile","user",t('tab_you')]];
-  const root=(view.startsWith("meet:")||view.startsWith("thread:")||view==="messages")?"meetups":(view==="admin"||view==="editprofile"||view==="bug")?"profile":view;
+  const root=(view.startsWith("meet:")||view.startsWith("thread:")||view==="messages")?"meetups":(view==="admin"||view==="editprofile"||view==="bug")?"profile":view.startsWith("wall:")?"wall":view;
   $("#tabbar").innerHTML=tabs.map(([id,ic,lb])=>{const b=id==='meetups'&&reqB?`<span class="badge" style="margin-left:4px">${reqB}</span>`:'';const ico=ic==='spinner'?spinnerIcon(21):icon(ic,22);return `<button class="${root===id?'active':''}" onclick="go('${id}')">${ico}<span>${lb}${b}</span></button>`;}).join("");
 }
 
@@ -1044,11 +1087,65 @@ function viewWall(){
   const posts=[...real,...seeds].slice(0,Math.max(6,real.length));
   const motd=posts[0]||C.posts[0];const ms=SCENES[motd.scene]||SCENES.coffee;
   let h=`<h2>${t('wall_h')}</h2><p class="sub">${t('wall_sub')}</p><div class="card" style="background:linear-gradient(135deg,var(--zb-blue),var(--zb-blue-dark));color:#fff;border:none"><span class="chip gold" style="background:rgba(255,255,255,.2);color:#fff">${icon('trophy',14)} ${t('wall_motd')}</span><div style="font-weight:800;font-size:17px;margin-top:10px">${motd.names}</div><div class="small" style="opacity:.85">${ms.chip}</div></div>`;
-  posts.forEach(w=>{const s=SCENES[w.scene]||SCENES.coffee;h+=`<div class="card"><div class="row" style="margin-bottom:10px"><span class="avatar sm" style="background:${s.c1}">${initialsPair(w.names)}</span><div class="small"><b>${w.names}</b>${w.seed?'':' · <span style="color:var(--good);font-weight:700">'+t('wall_just_now')+'</span>'}</div></div>${sceneSquare(w.scene,s.chip,w.photo)}<div class="row" style="gap:16px;margin-top:10px"><button class="iconbtn ${w.liked?'liked':''}" onclick="like('${w.id}')">${icon('heart',19,w.liked)} ${w.hearts}</button><span class="iconbtn">${icon('chat',18)} ${w.comments.length}</span></div>${w.comments.map(c=>`<div class="comment"><b>${commentAuthor(c)}</b> ${mention(c.text)}</div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="cin${w.id}" placeholder="${t('wall_comment_ph')}" onkeydown="if(event.key==='Enter')addComment('${w.id}')"><button class="btn sm secondary" onclick="addComment('${w.id}')">${icon('send',16)}</button></div></div>`;});
+  posts.forEach(w=>{const s=SCENES[w.scene]||SCENES.coffee;h+=`<div class="card${wallFocus===w.id?' focus':''}" id="post${w.id}"><div class="row" style="margin-bottom:10px"><span class="avatar sm" style="background:${s.c1}">${initialsPair(w.names)}</span><div class="small"><b>${w.names}</b>${w.seed?'':' · <span style="color:var(--good);font-weight:700">'+t('wall_just_now')+'</span>'}</div></div>${sceneSquare(w.scene,s.chip,w.photo)}<div class="row" style="gap:16px;margin-top:10px"><button class="iconbtn ${w.liked?'liked':''}" onclick="like('${w.id}')">${icon('heart',19,w.liked)} ${w.hearts}</button><span class="iconbtn">${icon('chat',18)} ${w.comments.length}</span></div>${w.comments.map(c=>`<div class="comment"><b>${esc(commentAuthor(c))}</b> ${commentBody(c)}</div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="cin${w.id}" autocomplete="off" placeholder="${t('wall_comment_ph')}" oninput="mentionType('${w.id}')" onkeydown="if(event.key==='Enter')addComment('${w.id}')"><button class="btn sm secondary" onclick="addComment('${w.id}')">${icon('send',16)}</button></div><div class="mentbox" id="mb${w.id}" hidden></div></div>`;});
   return h;
 }
 window.like=async function(id){await S.heartPost(id);await refresh();};
-window.addComment=async function(id){const inp=$("#cin"+id);const v=(inp.value||'').trim();if(!v)return;await S.commentPost(id,v);await refresh();};
+
+/* ---- @mentions ----
+   The picker reads C.users, which listUsers() already loads for every screen: it carries
+   the uid a mention has to resolve to, and it excludes the signed-in colleague, so you
+   cannot mention yourself. No new read surface and no rule change. */
+let MENT={};            // postId -> [{uid,name}] picked while typing this comment
+function mentionCandidates(q){
+  const s=(q||'').toLowerCase();
+  return (C.users||[]).filter(u=>u&&u.uid&&u.name)
+    .filter(u=>!s||u.name.toLowerCase().indexOf(s)>-1)
+    .slice(0,6);
+}
+// The @token being typed: from the last "@" up to the caret, letters/marks/spaces only.
+function mentionToken(el){
+  const pos=(el.selectionStart==null)?el.value.length:el.selectionStart;
+  const before=el.value.slice(0,pos);
+  const m=before.match(/@([^@]*)$/);
+  if(!m)return null;
+  if(/[.,!?;:]/.test(m[1]))return null;       // sentence moved on — stop offering
+  return {q:m[1],start:pos-m[1].length-1,end:pos};
+}
+window.mentionType=function(id){
+  const el=$("#cin"+id),box=$("#mb"+id); if(!el||!box)return;
+  const tok=mentionToken(el);
+  if(!tok){box.hidden=true;box.innerHTML='';return;}
+  const list=mentionCandidates(tok.q);
+  box.innerHTML=list.length
+    ? list.map(u=>`<button type="button" class="mentopt" onclick="mentionPick('${id}','${u.uid}')">
+        <span class="avatar sm" style="background:${u.color||'#0079BD'}">${u.photo?`<img src="${u.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(u.name)}</span>
+        <span>${esc(u.name)}</span></button>`).join('')
+    : `<div class="muted small" style="padding:8px 10px">${t('wall_mention_none')}</div>`;
+  box.hidden=false;
+};
+window.mentionPick=function(id,uid){
+  const el=$("#cin"+id),box=$("#mb"+id); if(!el)return;
+  const u=(C.users||[]).filter(x=>x&&x.uid===uid)[0]; if(!u)return;
+  const tok=mentionToken(el);
+  const start=tok?tok.start:el.value.length, end=tok?tok.end:el.value.length;
+  el.value=el.value.slice(0,start)+'@'+u.name+' '+el.value.slice(end);
+  (MENT[id]=MENT[id]||[]).push({uid:u.uid,name:u.name});
+  if(box){box.hidden=true;box.innerHTML='';}
+  el.focus();
+  const caret=start+u.name.length+2;
+  try{el.setSelectionRange(caret,caret);}catch(e){}
+};
+window.addComment=async function(id){
+  const inp=$("#cin"+id);const v=(inp.value||'').trim();if(!v)return;
+  // Only count a mention whose "@Name" actually survived in the text — the colleague may
+  // have picked someone then deleted it again.
+  const picked=(MENT[id]||[]).filter(m=>v.indexOf('@'+m.name)>-1).map(m=>m.uid);
+  const mentions=picked.filter((u,i)=>picked.indexOf(u)===i);
+  delete MENT[id];
+  await S.commentPost(id,v,mentions);
+  await refresh();
+};
 
 /* ---------------- RANKS ---------------- */
 function viewRanks(){
@@ -1228,7 +1325,12 @@ function viewNotifs(){
   C.notifs.forEach(n=>{h+=`<div class="ncard ${n.read?'':'unread'}" onclick="openNotif('${n.id}')"><div class="nicon">${icon(n.icon||'bell',18)}</div><div class="small" style="flex:1">${notifText(n)}</div></div>`;});
   return h;
 }
-window.openNotif=async function(id){const n=C.notifs.find(x=>String(x.id)===String(id));if(!n)return;await S.markNotifRead(id);if(n.target){view=n.target;await refresh();}else await refresh();};
+window.openNotif=async function(id){
+  const n=C.notifs.find(x=>String(x.id)===String(id));if(!n)return;
+  await S.markNotifRead(id);
+  await refresh();
+  if(n.target)routeTarget(n.target);
+};
 window.clearNotifs=async function(){await S.markNotifsRead();await refresh();};
 
 /* ---------------- Add to Home Screen hint ---------------- */
@@ -1283,7 +1385,7 @@ function clearPushParam(){
 function routeToPushTarget(target){
   if(!target)return;
   if(mode!=='app')return;                     // still onboarding: don't jump out of it
-  go(target);
+  routeTarget(target);
 }
 function initPushRouting(){
   try{

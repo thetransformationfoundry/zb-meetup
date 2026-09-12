@@ -269,3 +269,15 @@ select.input{appearance:none;-webkit-appearance:none;background:#fff url("data:i
 .steps{display:flex;gap:6px;justify-content:center;margin-bottom:18px}
 .steps i{width:8px;height:8px;border-radius:50%;background:var(--line)}
 .steps i.on{background:var(--zb-blue)}
+
+/* ---- BRIEF-025: mentions, picker, and the deep-link highlight ---- */
+.ment{color:var(--zb-blue);font-weight:700}
+.mentbox{margin-top:6px;border:1px solid #ECEFF3;border-radius:14px;background:#fff;
+  box-shadow:var(--shadow);overflow:hidden;max-height:232px;overflow-y:auto}
+.mentopt{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border:0;
+  background:none;font-family:inherit;font-size:14px;color:var(--ink);text-align:left;cursor:pointer}
+.mentopt+.mentopt{border-top:1px solid #F2F4F7}
+.mentopt:hover,.mentopt:focus{background:#F5F7FA}
+/* The deep-linked post. No backdrop-filter and no transform — this sits on the animated
+   wall list, which is exactly the combination that flickers on Android Chrome. */
+.card.focus{box-shadow:0 0 0 2px var(--zb-blue),var(--shadow);transition:box-shadow .5s ease}

@@ -25,6 +25,16 @@ const T = {
     nl: "{name} heeft je een bericht gestuurd",
     ro: "{name} ți-a trimis un mesaj"
   },
+  notif_mention: {
+    en: "{name} mentioned you in a comment",
+    nl: "{name} heeft je genoemd in een reactie",
+    ro: "{name} te-a menționat într-un comentariu"
+  },
+  notif_wallcomment: {
+    en: "{name} commented on your meetup",
+    nl: "{name} heeft op je meetup gereageerd",
+    ro: "{name} a comentat la întâlnirea ta"
+  },
   push_reminder: {
     en: "You still have a meetup to finish with {name} — add a photo and your answers to earn your points.",
     nl: "Je moet je meetup met {name} nog afronden — voeg een foto en je antwoorden toe om punten te verdienen.",

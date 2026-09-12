@@ -370,7 +370,8 @@ const ZB_STORE = {
           tx.update(existingRef, { photo });
         } else if (post) {
           const pref = db.collection("posts").doc();
-          tx.set(pref, { authorUid:uid, matchId:id, names:post.names, scene:post.scene, photo,
+          tx.set(pref, { authorUid:uid, matchId:id, participants:[d.a, d.b].filter(Boolean),
+                         names:post.names, scene:post.scene, photo,
                          hearts:0, heartedBy:[], comments:[], createdAt:nowTs() });
           upd.postId = pref.id;
         }
@@ -414,7 +415,7 @@ const ZB_STORE = {
       const photo = post.photo || shared || null;
       if (!d.postId && photo) {                           // ONE wall post per meetup
         const pref = db.collection("posts").doc();
-        tx.set(pref, { authorUid:uid, matchId:id, names:post.names, scene:post.scene, photo, hearts:0, heartedBy:[], comments:[], createdAt:nowTs() });
+        tx.set(pref, { authorUid:uid, matchId:id, participants:[d.a, d.b].filter(Boolean), names:post.names, scene:post.scene, photo, hearts:0, heartedBy:[], comments:[], createdAt:nowTs() });
         upd.postId = pref.id;
       }
       tx.update(ref, upd);
@@ -439,11 +440,42 @@ const ZB_STORE = {
   // BRIEF-011A: the author is byUid = the caller's own uid, which the published rule enforces.
   // The display name is NOT stored — it is rendered from users/{byUid} — so a direct write can
   // no longer post a comment under another colleague's name.
-  async commentPost(id, text) {
+  // `mentions` holds the uids the commenter actually picked, so rendering never has to
+  // guess a name out of the text. Notifications ride the SAME addNotif path as request /
+  // accept / message, so they become translated device push with no new Function.
+  async commentPost(id, text, mentions) {
     const uid = uidNow();
-    const c = { byUid:uid, text, at:Date.now() };
+    const picked = (mentions || []).filter(Boolean).filter(m => m !== uid);
+    const c = { byUid:uid, text, at:Date.now(), mentions:picked };
     if (String(id).startsWith("s")) { const w = SEEDS.find(x => x.id === id); if (w) w.comments.push(c); return true; }
-    await db.collection("posts").doc(id).update({ comments: FV.arrayUnion(c) }); cache["posts"] = null; return true;
+
+    const ref = db.collection("posts").doc(id);
+    // Read the post BEFORE appending so we know who the meetup belonged to.
+    let post = null;
+    try { const snap = await ref.get(); post = snap.exists ? snap.data() : null; } catch (e) { post = null; }
+    await ref.update({ comments: FV.arrayUnion(c) });
+    cache["posts"] = null;
+
+    const me = cachedMe || (await this.getMe());
+    const name = (me && me.name) || "A colleague";
+    const target = "wall:" + id;
+    const done = {};
+    done[uid] = true;                                   // never notify yourself
+
+    // A mention beats a comment notification for the same person — one ping per comment.
+    for (const to of picked) {
+      if (done[to]) continue; done[to] = true;
+      await addNotif(to, { type:"mention", icon:"chat", text:name + " mentioned you in a comment", target });
+    }
+    // Older posts predate `participants`; fall back to the author so they still notify someone.
+    const parts = (post && Array.isArray(post.participants) && post.participants.length)
+      ? post.participants
+      : (post && post.authorUid ? [post.authorUid] : []);
+    for (const to of parts) {
+      if (!to || done[to]) continue; done[to] = true;
+      await addNotif(to, { type:"wallcomment", icon:"chat", text:name + " commented on your meetup", target });
+    }
+    return true;
   },
 
   // ---- notifications ----

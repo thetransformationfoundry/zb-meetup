@@ -132,6 +132,7 @@
   let ME = null;                 // profile once onboarded
   let MATCHES = [];              // {id,a,b,person,status,type,questionIds,questions,answers,photo,messages,createdAt}
   let NOTIFS = [];
+  const SENT = [];        // notifications this demo would have delivered to other colleagues
   let POSTS = SEED_POSTS.map((p,i) => ({ id:"s"+(i+1), seed:true, names:p.names, scene:p.scene, photo:"assets/holding-demo-photos/"+slug(p.names)+".jpg", hearts:p.hearts, liked:false, comments:p.comments.map(c=>({...c})) }));
   const SIGNUP_BONUS = 30;
   const todayStr = () => new Date().toISOString().slice(0,10);
@@ -237,7 +238,7 @@
         if (existing) existing.photo = photo;
         else if (post) {
           const pid = "p"+(wid++);
-          POSTS.unshift({ id:pid, seed:false, matchId:id, names:post.names, scene:post.scene, photo, hearts:0, liked:false, comments:[] });
+          POSTS.unshift({ id:pid, seed:false, matchId:id, participants:["me", m.person && m.person.uid].filter(Boolean), names:post.names, scene:post.scene, photo, hearts:0, liked:false, comments:[] });
           m.postId = pid;
         }
       }
@@ -270,7 +271,7 @@
       const photo = post.photo || shared || null;
       if (!m.postId && photo) {                            // ONE wall post per meetup
         const pid = "p"+(wid++);
-        POSTS.unshift({ id:pid, seed:false, matchId:id, names:post.names, scene:post.scene, photo, hearts:0, liked:false, comments:[] });
+        POSTS.unshift({ id:pid, seed:false, matchId:id, participants:["me", m.person && m.person.uid].filter(Boolean), names:post.names, scene:post.scene, photo, hearts:0, liked:false, comments:[] });
         m.postId = pid;
       }
       return P(true);
@@ -280,7 +281,32 @@
     listPosts() { return P(POSTS.map(p => ({ ...p }))); },
     heartPost(id) { const w = POSTS.find(x=>x.id===id); if (w) { w.liked = !w.liked; w.hearts += w.liked ? 1 : -1; } return P(true); },
     // byUid, not a display name — see the live store. "me" is the demo store's own uid.
-    commentPost(id, text) { const w = POSTS.find(x=>x.id===id); if (w) w.comments.push({ byUid:"me", text, at:now() }); return P(true); },
+    // Mirrors the live store's logic exactly (mentions stored, one ping per recipient,
+    // mention beats wallcomment). The demo has a single signed-in user, so notifications
+    // addressed to someone else are recorded in SENT rather than delivered — that is what
+    // the harness asserts against.
+    commentPost(id, text, mentions) {
+      const meUid = "me";      // the demo signs in as the literal uid "me"
+      const picked = (mentions || []).filter(Boolean).filter(m => m !== meUid);
+      const w = POSTS.find(x => x.id === id);
+      if (w) w.comments.push({ byUid:meUid, text, at:now(), mentions:picked });
+      const name = (ME && ME.name) || "A colleague";
+      const target = "wall:" + id;
+      const done = {}; done[meUid] = true;
+      const deliver = (to, type, text) => {
+        SENT.push({ to, type, target });
+        if (to === meUid) this._notify({ type, icon:"chat", text, target });
+      };
+      picked.forEach(to => { if (done[to]) return; done[to] = true;
+        deliver(to, "mention", name + " mentioned you in a comment"); });
+      const parts = (w && Array.isArray(w.participants) && w.participants.length)
+        ? w.participants : (w && w.authorUid ? [w.authorUid] : []);
+      parts.forEach(to => { if (!to || done[to]) return; done[to] = true;
+        deliver(to, "wallcomment", name + " commented on your meetup"); });
+      return P(true);
+    },
+    _sentNotifs() { return SENT.slice(); },
+    _resetSent() { SENT.length = 0; },
 
     // ---- notifications ----
     listNotifs() { return P(NOTIFS.map(n => ({ ...n }))); },

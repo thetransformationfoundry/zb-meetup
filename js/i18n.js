@@ -175,6 +175,10 @@ window.ZB_I18N = {
   notif_request:{en:"{name} wants to meet you — open Meetups to accept.",nl:"{name} wil je ontmoeten — open Meetups om te accepteren.",ro:"{name} vrea să te cunoască — deschide Întâlniri pentru a accepta."},
   notif_accept:{en:"{name} accepted your match! Open the shared space to coordinate.",nl:"{name} heeft je match geaccepteerd! Open de gedeelde ruimte om af te stemmen.",ro:"{name} a acceptat potrivirea! Deschide spațiul comun ca să vă puneți de acord."},
   notif_msg:{en:"{name} sent you a message",nl:"{name} heeft je een bericht gestuurd",ro:"{name} ți-a trimis un mesaj"},
+  notif_mention:{en:"{name} mentioned you in a comment",nl:"{name} heeft je genoemd in een reactie",ro:"{name} te-a menționat într-un comentariu"},
+  notif_wallcomment:{en:"{name} commented on your meetup",nl:"{name} heeft op je meetup gereageerd",ro:"{name} a comentat la întâlnirea ta"},
+  wall_mention_hint:{en:"Type @ to mention a colleague",nl:"Typ @ om een collega te noemen",ro:"Scrie @ pentru a menționa un coleg"},
+  wall_mention_none:{en:"No colleague found",nl:"Geen collega gevonden",ro:"Niciun coleg găsit"},
   notif_welcome:{en:"Welcome to ZB MeetUP! Tap Spin to find your first match.",nl:"Welkom bij ZB MeetUP! Tik op Spin om je eerste match te vinden.",ro:"Bine ai venit la ZB MeetUP! Apasă Învârte pentru prima potrivire."},
 
   /* --- how it works (step bodies) --- */
