@@ -240,3 +240,30 @@ rather than the hero or an empty thread, and were rewritten against a freshly cr
 `cd_opens` and `spin_locked_toast` carry the hardcoded launch date ("Wednesday 16 September at 09:00") in all
 three languages. Translating it did not change that it is hardcoded in three places now instead of one — if
 the launch date moves, all three need editing.
+
+## Round 10 — a test failure that was not a code failure (2026-09-12)
+Sean signed up as a Dutch colleague and the countdown screen came back in English — screenshot attached to
+the thread. The harness said otherwise, so one of the two was wrong.
+
+The deciding check took one command: `grep -c "COUNTDOWN TO LAUNCH" js/app.js` returns **0**. The string in
+Sean's screenshot does not exist anywhere in the app any more. So the page under test was not running the
+app — it was running an older copy of it.
+
+`lsof` on the two local servers found both rooted in **scratchpad snapshot directories**, not the repo:
+
+- `localhost:8001` → `scratchpad/demo`, frozen at **v=46** (11 Sep 17:51), still holding the English literal
+- `localhost:8002` → `scratchpad/demo-stale`, **v=16**, deliberately old (it exists to exercise the v=14
+  build-stamp staleness banner — leave it alone)
+
+The copy is not a mistake in itself: it exists so that `window.ZB_LIVE = false` can be forced, keeping local
+testing away from live Firestore. The mistake is that it is a **snapshot**, so it drifts silently every time
+the repo changes, and the drift presents as a product bug.
+
+`tools/refresh-demo.sh` now re-copies the tree and re-applies the one-line demo override, and `_demo/` is
+gitignored so a copy — which would contain no secrets but would duplicate the whole app — can never be
+committed. `localhost:8001` now serves v=47 and the Dutch countdown, verified over HTTP rather than on disk.
+
+**The lesson worth keeping:** when a local test contradicts a green harness, confirm *what is being served*
+before touching the code. Grepping the source for the exact string in the screenshot settles it immediately —
+if the string is not in the file, the file is not what ran. Re-run `sh tools/refresh-demo.sh <dir>` before
+every local test pass.
