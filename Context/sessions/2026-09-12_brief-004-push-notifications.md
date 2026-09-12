@@ -1,5 +1,5 @@
 # 2026-09-12 · BRIEF-004 — real push notifications (FCM + SW + Cloud Functions)
-Branch `feat/push-notifications` off `main` (v=48) · built to **v=49** · harness **215 checks green** ·
+Branch `feat/push-notifications` off `main` (v=48) · built to **v=49** · harness **216 checks green** ·
 **not merged, nothing deployed** — Functions and rules are Sean's to publish.
 
 Full §Scope 1–5. Identity Platform untouched, per the brief.
@@ -58,7 +58,7 @@ to spin" push before the 16th would deep-link into the countdown. The date is no
 `functions/index.js`; if it moves, both places change.
 
 ## Testing
-215 checks. The push checks were verified to **fail** when the regression they guard is introduced:
+216 checks. The push checks were verified to **fail** when the regression they guard is introduced:
 drifting the service worker's copy of the Firebase config, adding a `notification` block (the
 duplicate-push bug), weakening the token rule to any signed-in user, and drifting the Functions' copy of
 the push copy were each caught. The demo path asserts `firebase`, `navigator.serviceWorker` and
