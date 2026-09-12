@@ -333,7 +333,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("the log instruction is not repeated in the recap", !/Log your meetup below/.test(recap));
   window.go("ranks");
   const ranks = scr();
-  chk("leaderboard + prizes", /CB management judges/.test(ranks));
+  chk("leaderboard + prizes", /ZB management judges/.test(ranks) && !/CB management/.test(ranks));
   chk("prize card shows the real amounts",
       (ranks.match(/€250/g)||[]).length >= 2 && /€150/.test(ranks)
       && /winners announced end of October 2026/.test(ranks));
@@ -612,6 +612,11 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   window.go("notifs");    const nRo = scr();
   window.go("howitworks");const hRo = scr();
   chk("Wall renders in the viewer's language", /Peretele comunit/.test(wRo));
+  chk("the prize copy credits ZB management, never CB",
+      ["en","nl","ro"].every(l => window.ZB_T("prize_body", l).indexOf("ZB management") > -1
+                               && window.ZB_T("prize_body", l).indexOf("CB management") === -1
+                               && window.ZB_T("hiw_5_b", l).indexOf("ZB management") > -1
+                               && window.ZB_T("hiw_5_b", l).indexOf("CB management") === -1));
   chk("Leaderboard + prize banner render in the viewer's language",
       /Clasament/.test(rRo) && /CEA MAI BUN/.test(rRo) && /€250/.test(rRo));
   chk("Messages renders in the viewer's language", /Mesaje/.test(mRo));
@@ -838,6 +843,11 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       window.__ROLES.length === 108 && window.__ROLES.includes(EMEA) && window.__ROLES.includes(QARA)
       && window.__ROLES[window.__ROLES.length - 1] === "Other"
       && !window.__ROLES.some(r => r.startsWith("GSCC GSCC")));
+  // EMEA is the only non-GSCC role, so it led the list rather than sitting at position 70
+  chk("EMEA leads the list, every other role is GSCC, Other stays last",
+      window.__ROLES[0] === EMEA
+      && window.__ROLES.slice(1, -1).every(r => r.indexOf("GSCC") === 0)
+      && new Set(window.__ROLES).size === 108);
   chk("legacy roles normalise", window.__normalizeRole("QARA Manager") === QARA
       && window.__normalizeRole("Quality Specialist") === QARA
       && window.__normalizeRole("Warehouse Clerk") === "GSCC Warehouse Clerk"
