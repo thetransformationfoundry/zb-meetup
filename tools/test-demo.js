@@ -62,7 +62,7 @@ load("js/i18n.js");                  // ZB_I18N + ZB_T
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__unlock=SPIN_UNLOCK;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -298,6 +298,91 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("legacy comments still render", !!seedWithComment
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
+
+  /* ---- BRIEF-025: mentions, comment notifications, wall deep-link ---- */
+  const allUsers = await window.ZB_STORE.listUsers();
+  const nameOfUid = u => (allUsers.filter(x => x.uid === u)[0] || {}).name || "";
+  const wp = (await window.ZB_STORE.listPosts()).filter(p => !p.seed)[0];
+  const mate = wp.participants.filter(u => u !== "me")[0];
+  const others = (await window.ZB_STORE.listUsers()).filter(u => u.uid !== mate);
+  const outsider = others[0];
+  chk("a wall post records both participants, so a commenter can tell who to notify",
+      Array.isArray(wp.participants) && wp.participants.length === 2 && wp.participants.indexOf("me") > -1);
+
+  // mention one participant: they get the mention, nobody gets a second ping
+  window.ZB_STORE._resetSent();
+  await window.ZB_STORE.commentPost(wp.id, "Nice one @" + nameOfUid(mate) + "!", [mate]);
+  let sent = window.ZB_STORE._sentNotifs();
+  chk("mentioning a participant sends exactly one notification, of type mention",
+      sent.length === 1 && sent[0].to === mate && sent[0].type === "mention");
+  chk("a mention beats the comment notification — no double ping",
+      sent.filter(x => x.to === mate).length === 1);
+  chk("the notification deep-links back to the post",
+      sent[0].target === "wall:" + wp.id);
+
+  // comment with no mention: the other participant still hears about it
+  window.ZB_STORE._resetSent();
+  await window.ZB_STORE.commentPost(wp.id, "Looks great", []);
+  sent = window.ZB_STORE._sentNotifs();
+  chk("commenting without a mention notifies the other participant",
+      sent.length === 1 && sent[0].to === mate && sent[0].type === "wallcomment");
+  chk("the commenter never notifies themselves",
+      !window.ZB_STORE._sentNotifs().some(x => x.to === "me"));
+
+  // mentioning someone outside the meetup reaches them AND the participant
+  window.ZB_STORE._resetSent();
+  await window.ZB_STORE.commentPost(wp.id, "@" + outsider.name + " look at this", [outsider.uid]);
+  sent = window.ZB_STORE._sentNotifs();
+  chk("mentioning an outsider notifies them and still notifies the participant",
+      sent.length === 2
+      && sent.filter(x => x.to === outsider.uid && x.type === "mention").length === 1
+      && sent.filter(x => x.to === mate && x.type === "wallcomment").length === 1);
+
+  chk("mentions are stored on the comment itself",
+      (await window.ZB_STORE.listPosts()).find(p => p.id === wp.id)
+        .comments.filter(c => (c.mentions || []).indexOf(outsider.uid) > -1).length === 1);
+
+  // rendering comes from the stored uids, not the old /@([A-Za-z]+)/ regex
+  window.go("wall");
+  chk("a multi-word mention renders as one chip, which the old regex could not do",
+      scr().indexOf('<span class="ment">@' + outsider.name + '</span>') > -1);
+  chk("seed comments with no mentions array still chip via the fallback",
+      /<span class="ment">@Anna<\/span>/.test(scr()));
+
+  // Comment text used to go into innerHTML raw (mention() only ran a regex over it), so a
+  // comment containing markup executed in every other colleague's browser. Stored XSS on
+  // the wall, fixed by escaping before the mention chips are applied.
+  window.ZB_STORE._resetSent();
+  await window.ZB_STORE.commentPost(wp.id, '<img src=x onerror=alert(1)> and <b>bold</b>', []);
+  window.go("wall");
+  chk("comment text is escaped, so markup in a comment cannot execute",
+      scr().indexOf("<img src=x onerror=") === -1
+      && scr().indexOf("&lt;img src=x onerror=") > -1
+      && scr().indexOf("and &lt;b&gt;bold&lt;/b&gt;") > -1);
+  chk("a hostile display name cannot inject either",
+      !/<b><img|<b><script/.test(scr()));
+
+  // the shared target router handles wall:<postId>
+  window.routeTarget("wall:" + wp.id);
+  chk("wall:<postId> routes to the wall and highlights that post",
+      window.__view() === "wall" && new RegExp('id="post' + wp.id + '"[^>]*class="card focus"|class="card focus" id="post' + wp.id + '"').test(scr()));
+  chk("the Wall tab is the active tab for a wall deep-link",
+      /class="active"[^>]*onclick="go\('wall'\)"|onclick="go\('wall'\)"/.test(document.querySelector("#tabbar").innerHTML));
+
+  // the two dictionaries must agree, or the bell and the push say different things
+  const fnT2 = require("../functions/i18n.js");
+  chk("the new notification copy matches across app and Functions dictionaries",
+      ["notif_mention", "notif_wallcomment"].every(k =>
+        ["en", "nl", "ro"].every(l => fnT2.t(k, l, { name: "X" }) === window.ZB_T(k, l, { name: "X" }))));
+  chk("the bell renders the new types from the key, in the viewer's language",
+      window.__notifText({ type:"mention", text:"Ana mentioned you in a comment" }).indexOf("Ana") === 0
+      && window.__notifText({ type:"wallcomment", text:"Ana commented on your meetup" }).indexOf("Ana") === 0);
+
+  // the rule must allow `mentions` while still pinning the author
+  const rulesSrc = require("fs").readFileSync("firestore.rules", "utf8");
+  chk("the comment rule allows mentions and still pins byUid to the caller",
+      /hasOnly\(\['byUid', 'text', 'at', 'mentions'\]\)/.test(rulesSrc)
+      && /last\.byUid == request\.auth\.uid/.test(rulesSrc));
   const real = (await window.ZB_STORE.listPosts()).filter(p => !p.seed);
   chk("one wall post, carrying the real photo", real.length === 1 && /^data:image\//.test(real[0].photo || ""));
   // a photo arriving after completion must still reach the one wall post

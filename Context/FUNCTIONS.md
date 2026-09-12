@@ -27,6 +27,10 @@ Trigger: `notifications/{uid}/items/{id}` **onCreate**.
 Every in-app notification becomes a device push, so **request / accept / message are one code path**.
 The bell (BRIEF-003) and push can never disagree, because the notification document *is* the trigger.
 
+Types handled: `request`, `accept`, `msg`, and (BRIEF-025) `mention` and `wallcomment`. **Adding a
+type means adding it to the map in `functions/index.js` and redeploying** — an unknown type still
+delivers, but falls back to the stored English `text` instead of the recipient's language.
+
 - `type: "welcome"` is skipped — it is written during signup, before a token can exist, and pushing
   "welcome" to someone already looking at the app is noise. The bell still shows it.
 - Respects `users/{uid}.pushConsent`. **Absent counts as consent**: accounts created before this brief
@@ -65,6 +69,26 @@ the moment the photo lands.
 the setter's own in-transaction claim and the client fallback can all race without double-paying. The
 **client self-claim stays** as the fallback. Writing `photoAwarded` re-triggers the function once more,
 which then exits on the unchanged-photo guard.
+
+## Notification types and targets
+| type | written when | target |
+|---|---|---|
+| `request` | someone sends a match request | `meetups` |
+| `accept` | a request is accepted | `meet:<matchId>` |
+| `msg` | a thread message is sent | `thread:<matchId>` |
+| `mention` | a wall comment mentions you (BRIEF-025) | `wall:<postId>` |
+| `wallcomment` | someone comments on your meetup's post (BRIEF-025) | `wall:<postId>` |
+| `welcome` | signup (bell only, never pushed) | `spin` |
+
+`target` is resolved by **one** router in `js/app.js` (`routeTarget`), used by both the in-app bell and
+the service worker's `notificationclick`. `wall:<postId>` opens the Wall, scrolls to that post and
+highlights it briefly.
+
+**Why wall posts carry `participants`.** A `wallcomment` has to reach both people in the meetup, but a
+commenter who is not in that meetup **cannot read the match document** — the `matches` rule allows reads
+only to its two participants and admins. So the post stores `participants: [a, b]` at creation and the
+commenter reads it from there. Posts created before BRIEF-025 have no such field and fall back to
+`authorUid`, so they still notify the author.
 
 ## Tokens
 `users/{uid}/fcmTokens/{token}` — document id *is* the token; fields `createdAt`, `userAgent`.

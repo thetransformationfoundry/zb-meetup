@@ -48,6 +48,11 @@ a one-line risk note. Cover:
    - rows **missing a language** (would silently fall back to English),
    - any hard-coded UI string in `app.js` that reaches the DOM but bypasses the dictionary (continue the Round-9
      DOM-literal audit method — tag text, `toast()` args, `textContent=`, placeholders, `aria-label`s).
+   - **Known already (fix in Phase 2):** `finishOnboard`'s error toasts are still hardcoded English — domain
+     rejection, "That email already has an account", "Couldn't create the account" — they sit in a ternary inside a
+     concatenated `toast(...)`, which is why the BRIEF-023 audit missed them. Translate them (EN/NL/RO) and add the
+     ternary-inside-`toast()` pattern to the DOM-literal sweep so the method catches this shape next time. Flagged by
+     CC in the BRIEF-004 handoff (2026-09-12).
 4. **CSS / design tokens.** Undefined tokens referenced (render silently wrong — CLAUDE.md guardrail), tokens
    defined but unused, duplicate/orphaned rules, and any lingering `backdrop-filter` on transformed/animated
    elements (the Android flicker guardrail).
@@ -58,6 +63,17 @@ a one-line risk note. Cover:
    works because of current data rather than by construction.
 7. **Console + network at runtime.** Load each screen in the demo and note console errors/warnings and any obviously
    redundant Firestore reads (report only; performance tuning is out of scope unless it's a bug).
+   - **Known already (investigate + fix): the onboarding tail feels slow on iOS** (Sean, 2026-09-12, real iPhone) —
+     specifically the consent step's **"Enter ZB MeetUP" button (`finishOnboard`)** and the **icebreaker save
+     screen** (`iceStart` / `claimIcebreakerBonus`). Both chain real work behind one tap with **no tap feedback**:
+     `finishOnboard` = create the Firebase account → write the profile (`saveMe`) → request **push permission/token**
+     (BRIEF-004, must stay inside the gesture) → start icebreakers → transition; the icebreaker step = write the
+     three answers + claim the +10 bonus. So the button looks frozen while several network round-trips run. Audit
+     the whole onboarding tail for the same shape. Lightest fix pattern: **acknowledge the tap instantly** — disable
+     the button + inline spinner the moment it's pressed, then run the chain; and let writes that don't gate the next
+     screen settle in the background rather than blocking the transition. **Do not** move the push-permission call
+     out of the user gesture (Safari refuses a prompt outside it), and don't reorder the account-create/write
+     sequence without flagging it. Tap-feedback + non-blocking writes are low-risk UI and fine for Phase 2.
 8. **Repo hygiene.** Confirm no secrets/personal data crept in (the seed-name CI guard should still pass); confirm
    the `refresh-demo.sh` safety fix (staging dir + `ZB_LIVE=false` override enforced) is in place and documented so
    the demo can never again be swapped in wired to live Firestore.

@@ -40,11 +40,19 @@ service cloud.firestore {
     // A comment may only be appended by its own author: exactly one new element, whose byUid
     // is the caller's uid. Before this, comments carried a client-supplied display name and no
     // uid, so a direct write could post under another colleague's name (BRIEF-011A).
+    // BRIEF-011A: a comment may only be appended by its own author.
+    // BRIEF-025 adds `mentions` (the uids the commenter picked) and, with it, an explicit
+    // field allowlist on the appended comment. The allowlist is a TIGHTENING, not a fix:
+    // the previous version constrained only the comment count and byUid, so any extra
+    // field could already be smuggled onto a comment. Author identity is unchanged.
     function commentAppendOk() {
       let newC = request.resource.data.comments;
       let oldC = resource.data.comments;
+      let last = newC[newC.size() - 1];
       return newC.size() == oldC.size() + 1
-        && newC[newC.size() - 1].byUid == request.auth.uid;
+        && last.byUid == request.auth.uid
+        && last.keys().hasOnly(['byUid', 'text', 'at', 'mentions'])
+        && (!('mentions' in last) || last.mentions is list);
     }
     function touchesComments() {
       return request.resource.data.diff(resource.data).affectedKeys().hasAny(['comments']);

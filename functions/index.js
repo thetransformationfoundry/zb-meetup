@@ -53,7 +53,10 @@ exports.onNotificationCreated = eu.firestore
     const to = await recipient(uid);
     if (!to.consent) return null;
 
-    const key = { request: "notif_request", accept: "notif_accept", msg: "notif_msg" }[n.type];
+    const key = {
+      request: "notif_request", accept: "notif_accept", msg: "notif_msg",
+      mention: "notif_mention", wallcomment: "notif_wallcomment"      // BRIEF-025
+    }[n.type];
     let body;
     if (key) {
       // Prefer the sender's real name over parsing the stored English text.
