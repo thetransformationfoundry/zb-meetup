@@ -7,12 +7,19 @@ only ever read their own tokens.
 
 Deployed with `firebase deploy --only functions` (Blaze required — active since 2026-09-08).
 
-## Why the v1 API
+## Why the v1 API, and the region
 `functions/index.js` imports `firebase-functions/v1`. The Firestore database is in **eur3** (EU
-multi-region). v2 Firestore triggers run through Eventarc and must be created in a region matching the
-database, which is a deploy-time trap for a one-command handoff. The v1 triggers deploy to the default
-region against any database location. If the database ever moves to a single region, v2 becomes the
-better choice.
+multi-region); v2 Firestore triggers run through Eventarc and must be created in a matching region,
+which is a deploy-time trap. v1 deploys against any database location. If the database ever moves to a
+single region, v2 becomes the better choice.
+
+All four are pinned to **`europe-west1`** (inside eur3) via `functions.region(...)`. The first deploy
+went to the default `us-central1` and the CLI warned that both Firestore triggers were firing
+cross-region. Pinning keeps colleague data — names, message text, device tokens — inside the EU instead
+of crossing to the US and back on every push, and removes a transatlantic hop from each send.
+
+**Changing the region deletes and recreates the functions**, so a region change needs
+`firebase deploy --only functions --force` to authorise removing the old ones.
 
 ## 1. `onNotificationCreated` — the push path
 Trigger: `notifications/{uid}/items/{id}` **onCreate**.
