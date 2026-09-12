@@ -144,8 +144,39 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   document.getElementById("ob-role").value = "GSCC IT Sr Analyst"; window.obWork();
   window.obPickPhoto();
   chk("avatar captures at 256px", global.__canvasPx === 256);
+  /* ---- BRIEF-026: the heavy taps must acknowledge instantly ---- */
+  // Make push look available so the consent tick renders and the permission branch runs.
+  const realPushState = window.ZB_STORE.pushState.bind(window.ZB_STORE);
+  window.ZB_STORE.pushState = async () => ({ supported:true, enabled:false, needsInstall:false, blocked:false, configured:true });
+  await window.__refreshPush();
+  const gesture = [];
+  global.Notification = { permission:"default", requestPermission(){ gesture.push("perm"); return Promise.resolve("granted"); } };
+  let signUps = 0, profileWrites = 0;
+  const realSignUp = window.ZB_STORE.signUp.bind(window.ZB_STORE);
+  window.ZB_STORE.signUp = function(){ signUps++; gesture.push("signUp"); return realSignUp.apply(null, arguments); };
+  // signUp alone is a weak signal — `if(!S.currentUser())` already skips a second one.
+  // The profile write is what actually re-runs if the handler is re-entered.
+  const realSaveMe = window.ZB_STORE.saveMe.bind(window.ZB_STORE);
+  window.ZB_STORE.saveMe = function(){ profileWrites++; return realSaveMe.apply(null, arguments); };
+
   window.obStep(4); document.getElementById("ob-consent").checked = true;
-  await window.finishOnboard();
+  const cta = document.querySelector(".ob-cta .btn");
+  const ctaLabel = cta.innerHTML;
+  const firstTap = window.finishOnboard(cta);          // deliberately NOT awaited yet
+  chk("the consent button acknowledges the tap before any network work",
+      cta.disabled === true && cta._zbBusy === true && /btn-spin/.test(cta.innerHTML));
+  chk("the push permission prompt still fires inside the user gesture",
+      gesture[0] === "perm");
+  const secondTap = window.finishOnboard(cta);         // an impatient second tap
+  await firstTap; await secondTap;
+  chk("a double tap cannot create two accounts, nor re-run the handler",
+      signUps === 1 && profileWrites === 1);
+
+  window.ZB_STORE.signUp = realSignUp;
+  window.ZB_STORE.saveMe = realSaveMe;
+  delete global.Notification;
+  window.ZB_STORE.pushState = realPushState;     // back to the demo store's own (always off)
+  await window.__refreshPush();
   /* ---- BRIEF-020: the icebreaker step sits between onboarding and the award ---- */
   const iceScr = scr();
   chk("a colleague who has not earned the bonus is offered it",
@@ -797,6 +828,22 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       document.querySelector(".ob-cta .btn").textContent === window.ZB_T("save", "ro"));
   window.iceSkip();
   window.go("profile");
+  // The icebreaker Save is the other heavy tap. Runs here, just before the block that
+  // resets icebreaker state anyway, so it disturbs nothing downstream.
+  window.iceFromProfile();
+  let saves = 0;
+  const realSaveIce = window.ZB_STORE.saveIcebreakers.bind(window.ZB_STORE);
+  window.ZB_STORE.saveIcebreakers = function(){ saves++; return realSaveIce.apply(null, arguments); };
+  window.iceAns(0, "one"); window.iceAns(1, "two"); window.iceAns(2, "three");
+  const iceBtn = document.querySelector(".ob-cta .btn");
+  const s1 = window.iceSave(iceBtn);                  // not awaited — check the instant state
+  chk("the icebreaker Save acknowledges the tap before the write",
+      iceBtn.disabled === true && iceBtn._zbBusy === true && /btn-spin/.test(iceBtn.innerHTML));
+  const s2 = window.iceSave(iceBtn);                  // an impatient second tap
+  await s1; await s2;
+  chk("a double tap saves the icebreakers once", saves === 1);
+  window.ZB_STORE.saveIcebreakers = realSaveIce;
+
   // Sean's exact path: skip at onboarding, then set them later from You. The bonus is offered
   // only once all three boxes have text — a save with gaps does not grant it, so must not promise it.
   await window.ZB_STORE.saveIcebreakers([]);

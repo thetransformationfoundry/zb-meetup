@@ -31,6 +31,34 @@ const P = {
   download:'<path d="M12 4v11M8 11l4 4 4-4M5 20h14"/>'
 };
 function icon(name,size=22,filled=false){const f=filled?`fill="currentColor" stroke="none"`:`fill="none" stroke="currentColor" stroke-width="1.9"`;return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" ${f} stroke-linecap="round" stroke-linejoin="round">${P[name]||''}</svg>`;}
+/* ---- BRIEF-026: acknowledge a heavy tap before the network answers ----
+   The onboarding tail does several round-trips behind one tap. Without an
+   immediate busy state the button looks frozen and people tap again, which on
+   the consent step meant a second account-create attempt.
+
+   btnBusy() returns false if the button is ALREADY busy — callers use that as
+   the double-submit guard, so the guard and the visual state can never disagree. */
+function btnBusy(el){
+  if(!el||el._zbBusy===true)return false;      // strict: an unset expando must not read busy
+  const label=el.innerHTML,txt=(el.textContent||'').trim();
+  el._zbBusy=true;
+  el._zbLabel=label;
+  el.disabled=true;
+  el.setAttribute&&el.setAttribute('aria-busy','true');
+  el.innerHTML=`<span class="btn-spin">${spinnerIcon(18)}</span> ${esc(txt)}`;
+  return true;
+}
+function btnIdle(el){
+  if(!el)return;
+  el.disabled=false;
+  el.removeAttribute&&el.removeAttribute('aria-busy');
+  if(typeof el._zbLabel==='string')el.innerHTML=el._zbLabel;
+  el._zbBusy=false;el._zbLabel=null;
+}
+// The onboarding CTA, when a handler was invoked without its element (the harness
+// calls these directly, and older inline onclicks passed nothing).
+const obBtn=el=>el||document.querySelector('.ob-cta .btn')||null;
+
 function spinnerIcon(size=22){return `<svg width="${size}" height="${size}" viewBox="0 0 256 256" fill="currentColor"><path d="M136,32V64a8,8,0,0,1-16,0V32a8,8,0,0,1,16,0Zm37.25,58.75a8,8,0,0,0,5.66-2.35l22.63-22.62a8,8,0,0,0-11.32-11.32L167.6,77.09a8,8,0,0,0,5.65,13.66ZM224,120H192a8,8,0,0,0,0,16h32a8,8,0,0,0,0-16Zm-45.09,47.6a8,8,0,0,0-11.31,11.31l22.62,22.63a8,8,0,0,0,11.32-11.32ZM128,184a8,8,0,0,0-8,8v32a8,8,0,0,0,16,0V192A8,8,0,0,0,128,184ZM77.09,167.6,54.46,190.22a8,8,0,0,0,11.32,11.32L88.4,178.91A8,8,0,0,0,77.09,167.6ZM72,128a8,8,0,0,0-8-8H32a8,8,0,0,0,0,16H64A8,8,0,0,0,72,128ZM65.78,54.46A8,8,0,0,0,54.46,65.78L77.09,88.4A8,8,0,0,0,88.4,77.09Z"></path></svg>`;}
 
 /* ---------------- scenes (holding meetup images) ---------------- */
@@ -326,6 +354,7 @@ window.checkUpdate=function(){
 let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],spin:{points:0,freeSpin:true},admin:false,leaderboard:[],bugs:[],build:null,adminData:null};
 let adminOpenQ=null,adminAnon=false;   // which question is expanded; whether to hide who said what
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
+let obSubmitting=false, iceSaving=false;   // BRIEF-026: one onboarding submit at a time
 // Pre-login screens have no profile to read, so seed the picker from the device language.
 // Only en/nl/ro are offered; anything else falls back to English.
 const browserLang=(function(){try{
@@ -664,12 +693,26 @@ function iceDone(){
   if(ICE.from==='profile'){mode="app";view="profile";refresh();return;}
   showAward();
 }
-window.iceSave=async function(){
+window.iceSave=async function(el){
+  if(iceSaving)return;                           // already saving — ignore the second tap
+  iceSaving=true;
+  const btn=obBtn(el);
+  btnBusy(btn);
   const list=ICE.qs.map((q,i)=>({id:q.id,question:q.text,answer:(ICE.answers[i]||'').trim()}))
                    .filter(x=>x.answer);
-  await S.saveIcebreakers(list);
-  if(list.length===3&&await S.claimIcebreakerBonus())toast(t('ice_bonus_toast'));
-  await refresh();
+  try{
+    // Both stay awaited: the bonus claim re-reads the saved answers and refuses
+    // unless all three are there, so it cannot start before the write lands, and
+    // the award screen reports the balance they produce.
+    await S.saveIcebreakers(list);
+    if(list.length===3&&await S.claimIcebreakerBonus())toast(t('ice_bonus_toast'));
+  }catch(e){
+    iceSaving=false;btnIdle(btn);toast(t('save_failed'));return;
+  }
+  iceSaving=false;
+  // The refresh that used to sit here was redundant AND risky: showAward() fetches its
+  // own profile, iceDone()'s profile path refreshes itself, and a late refresh landing
+  // after the award screen re-renders it mid-confetti.
   iceDone();
 };
 window.iceSkip=function(){iceDone();};
@@ -712,7 +755,7 @@ function renderOnboard(){
         <textarea class="input" rows="2" placeholder="${t('ice_answer_ph')}" oninput="iceAns(${i},this.value)">${ICE.answers[i]||''}</textarea></div>`).join('')}
       <p class="muted small" style="line-height:1.5">${t('ice_note')}</p>
       </div><div class="ob-cta">
-      <button class="btn" onclick="iceSave()">${icon('check',18)} ${(done===3&&icebreakerBonusPending())?t('ice_save_bonus'):t('save')}</button>
+      <button class="btn" onclick="iceSave(this)">${icon('check',18)} ${(done===3&&icebreakerBonusPending())?t('ice_save_bonus'):t('save')}</button>
       <button class="btn alt" style="margin-top:8px" onclick="iceSkip()">${t('skip_now')}</button>
     </div></div>`;
     return;
@@ -757,7 +800,7 @@ function renderOnboard(){
       <p class="muted small center" style="margin-top:12px">${t('rs_then')}</p>
       </div><div class="ob-cta">
       <button class="btn" onclick="obGoSignIn()">${icon('check',18)} Sign in</button>
-      <button class="btn alt" style="margin-top:8px" onclick="obForgot('resend')">${t('rs_again')}</button>
+      <button class="btn alt" style="margin-top:8px" onclick="obForgot('resend',this)">${t('rs_again')}</button>
     </div></div>`;
     return;
   }
@@ -772,8 +815,8 @@ function renderOnboard(){
         <label class="small" style="font-weight:700">${t('ob_pass')}</label>
         <input class="input" id="ob-pass" type="password" placeholder="${t('si_pass_ph')}" style="margin-top:6px" onkeydown="if(event.key==='Enter')obSignIn()"></div>
       </div><div class="ob-cta">
-      <button class="btn" onclick="obSignIn()">${icon('check',18)} ${t('si_btn')}</button>
-      <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">${t('ob_forgot')}</button>
+      <button class="btn" onclick="obSignIn(this)">${icon('check',18)} ${t('si_btn')}</button>
+      <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot(null,this)">${t('ob_forgot')}</button>
       <div class="hr"></div>
       <p class="muted small center" style="margin:0 0 8px">${t('si_new')}</p>
       <button class="btn alt" onclick="obGoCreate()">${t('si_create')}</button>
@@ -787,7 +830,7 @@ function renderOnboard(){
   if(onboardStep===0){
     body=`<div class="center" style="padding-top:10px"><div class="avatar lg" style="margin:0 auto 16px;background:var(--zb-blue)">${icon('users',54)}</div><h2>${t('ob_welcome_h')}</h2><p class="sub">${t('ob_welcome_sub')}</p></div>
       <div class="card"><label class="small" style="font-weight:700">${t('ob_email')}</label><input class="input" id="ob-email" placeholder="you@zimmerbiomet.com" style="margin:6px 0 12px" value="${OB.email}"><label class="small" style="font-weight:700">${t('ob_pass')}</label><input class="input" id="ob-pass" type="password" placeholder="${t('ob_pass_hint')}" style="margin-top:6px"></div>`;
-    cta=`<button class="btn" onclick="obCreate()">${t('ob_create')}</button><button class="btn alt" style="margin-top:8px" onclick="obGoSignIn()">${t('ob_have_account')}</button><button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot()">${t('ob_forgot')}</button>`;
+    cta=`<button class="btn" onclick="obCreate()">${t('ob_create')}</button><button class="btn alt" style="margin-top:8px" onclick="obGoSignIn()">${t('ob_have_account')}</button><button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot(null,this)">${t('ob_forgot')}</button>`;
   } else if(onboardStep===1){
     body=`<h2>${t('ob_name_h')}</h2><p class="sub">${t('ob_name_sub')}</p><div class="card"><input class="input" id="ob-name" placeholder="${t('ob_name_ph')}" value="${OB.name||''}"></div>`;
     cta=`<button class="btn" onclick="obName()">${t('continue')}</button>`;
@@ -807,9 +850,10 @@ function renderOnboard(){
       <br>· ${t('consent_ice')}
       <br>· ${t('consent_push')}
       <br><br>${t('consent_delete')}</div><label class="row" style="gap:10px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ob-consent" style="width:20px;height:20px"> <span class="small">${t('ob_consent_tick')}</span></label>${PUSH.supported||PUSH.needsInstall?`<label class="row" style="gap:10px;cursor:pointer;margin-top:10px"><input type="checkbox" id="ob-push" checked style="width:20px;height:20px"> <span class="small">${t('push_consent_tick')}</span></label>`:''}`;
-    cta=`<button class="btn" onclick="finishOnboard()">${t('enter_app')}</button>`;
+    cta=`<button class="btn" onclick="finishOnboard(this)">${t('enter_app')}</button>`;
   }
   $("#screen").innerHTML=`<div class="ob"><div>${dots}${body}</div><div class="ob-cta">${cta}</div></div>`;
+  btnIdle(document.querySelector('.ob-cta .btn'));   // this markup is new — never inherit busy
 }
 window.obStep=n=>{onboardStep=n;renderOnboard();};
 window.obLang=function(l){OB.lang=LANGS.indexOf(l)>-1?l:'en';renderOnboard();};
@@ -821,12 +865,22 @@ window.obCreate=function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").v
   if(!window.ZB_DOMAIN_OK(e)){toast(t('err_domain',{domain:window.ZB_DOMAIN_HINT()}));return;}
   if((p||'').length<6){toast(t('err_pass_short'));return;}
   OB.email=e;OB.pass=p;onboardStep=1;renderOnboard();};
-window.obSignIn=async function(){const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;if(!e||!p){toast(t('err_need_both'));return;}try{await S.signIn(e,p);}catch(err){toast(t('err_signin'));}};
-window.obForgot=async function(resend){
+window.obSignIn=async function(el){
+  const e=$("#ob-email").value.trim(),p=$("#ob-pass").value;
+  if(!e||!p){toast(t('err_need_both'));return;}
+  const btn=el||null;
+  if(btn&&!btnBusy(btn))return;
+  try{ await S.signIn(e,p); }
+  catch(err){ btnIdle(btn); toast(t('err_signin')); }
+  // On success the auth listener swaps the screen, so the button goes with it.
+};
+window.obForgot=async function(resend,el){
   const e=resend?(OB.email||''):(($("#ob-email")||{}).value||'').trim();
   if(!e){toast(t('err_email_first'));return;}
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){toast(t('err_email_bad'));return;}
   OB.email=e;
+  const btn=el||null;
+  if(btn&&!btnBusy(btn))return;                  // the reset mail is a round-trip too
   try{ await S.resetPassword(e); }
   catch(err){ /* never reveal whether the address is registered — show the same screen either way */ }
   if(resend)toast(t('rs_sent_again'));
@@ -855,8 +909,14 @@ function deptForRole(r){
   if(/supply|inventory|planning|portfolio|master data|program|opex/i.test(r))return 'Supply Chain';
   return 'Zimmer Biomet';
 }
-window.finishOnboard=async function(){
+window.finishOnboard=async function(el){
   if(!$("#ob-consent").checked){toast(t('ob_consent_need'));return;}
+  // The FLAG is the double-submit guard, not the button: a re-render can replace the
+  // button mid-flight, and the guard must outlive it. btnBusy is the visual half.
+  if(obSubmitting)return;
+  obSubmitting=true;
+  const btn=obBtn(el);
+  btnBusy(btn);
   // Ticked by default, but the colleague may untick it — then we never prompt.
   const pushBox=$("#ob-push"); const wantsPush=!!(pushBox&&pushBox.checked);
   // The permission prompt must start INSIDE this tap: awaiting signUp first would
@@ -867,22 +927,28 @@ window.finishOnboard=async function(){
   }
   authBusy=true;
   try{ if(!S.currentUser()) await S.signUp(OB.email,OB.pass); }
-  catch(err){ authBusy=false; const code=(err&&err.code)||'';
+  catch(err){ authBusy=false; obSubmitting=false; btnIdle(btn); const code=(err&&err.code)||'';
     toast(/domain-not-allowed/.test(code)?"ZB MeetUP is for Zimmer Biomet colleagues — please use your "+window.ZB_DOMAIN_HINT()+" email"
       :/in-use/.test(code)?"That email already has an account — tap sign in.":"Couldn't create the account."); return; }
+  // GATING, stays awaited: onAuth sends anyone without a saved name back to
+  // onboarding, and the icebreaker step reads the saved language.
   await S.saveMe({name:OB.name,email:OB.email,lang:OB.lang||'en',color:OB.color,photo:OB.photo||null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now(),pushConsent:wantsPush});
-  await S.welcome();
-  // Register the token only now that the account exists. Unticked means no prompt,
-  // no token and no nagging — the You screen can turn it on later.
+  // NOT gating — nothing on the next screen reads either, and both are recoverable:
+  // a missed welcome notification is cosmetic, and push can be switched on from You.
+  // Token registration is the slowest step in the chain (service worker + getToken),
+  // so keeping it off the critical path is most of the win here.
+  S.welcome().catch(()=>{});
   if(wantsPush){
-    try{ if(permP)await permP; await S.pushEnable(); }catch(e){}
-    await refreshPush();
+    // The prompt already fired inside the tap above; getToken needs no gesture, so
+    // this can finish in the background without Safari refusing it.
+    Promise.resolve(permP).then(()=>S.pushEnable()).then(()=>refreshPush()).catch(()=>{});
   }
   authBusy=false;
   // The award screen is the last step of onboarding. It REPORTS the bonus the store already
   // granted — per the handoff, this screen is not the source of truth for the award — then
   // routes on to Spin.
   await refresh();
+  obSubmitting=false;
   iceStart('onboard');          // icebreakers first, so the award screen shows the real balance
 };
 

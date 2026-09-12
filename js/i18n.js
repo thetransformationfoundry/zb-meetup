@@ -268,6 +268,7 @@ window.ZB_I18N = {
   file_read_err:{en:"Couldn't read that file",nl:"Kon dat bestand niet lezen",ro:"Nu am putut citi fișierul"},
   picker_err:{en:"Photo picker unavailable",nl:"Fotokiezer niet beschikbaar",ro:"Selectorul de poze nu este disponibil"},
   ice_bonus_toast:{en:"Nice — 10 points for your icebreakers!",nl:"Mooi — 10 punten voor je ijsbrekers!",ro:"Super — 10 puncte pentru întrebările tale de cunoaștere!"},
+  save_failed:{en:"Couldn't save that — try again in a moment.",nl:"Kon dat niet opslaan — probeer het zo opnieuw.",ro:"Nu am putut salva — încearcă din nou peste puțin."},
   err_need_email:{en:"Please enter your email",nl:"Vul je e-mailadres in",ro:"Introdu adresa ta de e-mail"},
   err_domain:{en:"ZB MeetUP is for Zimmer Biomet colleagues — please use your {domain} email",nl:"ZB MeetUP is voor Zimmer Biomet-collega's — gebruik je {domain}-e-mailadres",ro:"ZB MeetUP este pentru colegii Zimmer Biomet — folosește adresa ta {domain}"},
   err_pass_short:{en:"Password must be at least 6 characters",nl:"Wachtwoord moet minstens 6 tekens zijn",ro:"Parola trebuie să aibă cel puțin 6 caractere"},
