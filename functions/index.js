@@ -29,10 +29,17 @@ const { t } = require("./i18n");
 const db = () => admin.firestore();
 const DAY = 24 * 60 * 60 * 1000;
 
+// All four run in europe-west1, inside the eur3 multi-region that holds the
+// database. Two reasons: colleague data (names, message text, tokens) stays in
+// the EU rather than crossing to us-central1 and back on every push, and the
+// Firestore triggers stop making a transatlantic hop before they can send.
+// Changing this region deletes and recreates the functions.
+const eu = functions.region("europe-west1");
+
 /* ---------------------------------------------------------------
    1. Every in-app notification becomes a device push.
    --------------------------------------------------------------- */
-exports.onNotificationCreated = functions.firestore
+exports.onNotificationCreated = eu.firestore
   .document("notifications/{uid}/items/{id}")
   .onCreate(async (snap, ctx) => {
     const uid = ctx.params.uid;
@@ -66,7 +73,7 @@ exports.onNotificationCreated = functions.firestore
    2. Accepted but not finished after 3 days.
    Each side is nudged only about ITS OWN unfinished part.
    --------------------------------------------------------------- */
-exports.dailyReminder = functions.pubsub
+exports.dailyReminder = eu.pubsub
   .schedule("0 10 * * *").timeZone("Europe/Amsterdam")
   .onRun(async () => {
     const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 3 * DAY);
@@ -106,7 +113,7 @@ exports.dailyReminder = functions.pubsub
    --------------------------------------------------------------- */
 const SPIN_UNLOCK_MS = Date.parse("2026-09-16T09:00:00+02:00");
 
-exports.dailySpinNudge = functions.pubsub
+exports.dailySpinNudge = eu.pubsub
   .schedule("0 9 * * *").timeZone("Europe/Amsterdam")
   .onRun(async () => {
     if (Date.now() < SPIN_UNLOCK_MS) { console.log("dailySpinNudge: before unlock, skipped"); return null; }
@@ -136,7 +143,7 @@ exports.dailySpinNudge = functions.pubsub
    can all race without double-paying. The client self-claim STAYS as a
    fallback for the seconds before this runs, or if it ever fails.
    --------------------------------------------------------------- */
-exports.onMatchPhotoWritten = functions.firestore
+exports.onMatchPhotoWritten = eu.firestore
   .document("matches/{id}")
   .onUpdate(async (change) => {
     const before = change.before.data() || {};
