@@ -82,9 +82,22 @@ certificates → generate key pair. Give the **public** key to CC (it's public, 
    - **Daily spin nudge (from Sean, 2026-09-10):** a scheduled function at **09:00 Europe/Amsterdam** sends every
      user who has a token + notification consent a "Time to spin — meet someone new today" push (`target: spin`).
      Respect consent/opt-out; don't send to users who declined.
-3. **Consent step** (`js/app.js:255`): add a line + default-on toggle — "Get notified about matches and
-   messages" — that drives the permission request. Respect a user who declines at the OS level (don't nag;
-   re-offerable from Profile). Keep the GDPR consent copy accurate (mention push).
+3. **Consent step — default ON, but user-controllable (`js/app.js:255`):** add a line + toggle "Get notified about
+   matches and messages", **checked by default but the user can untick it before continuing**. If ticked (and it's
+   a real user gesture), request permission + register the token; if unticked, do NOT prompt — continue with push
+   off, no token, no nagging. Keep the GDPR consent copy accurate (mention push) and **translated (add to the i18n
+   dictionary, EN/NL/RO)**.
+3a. **Manage push from the You / Profile screen (both directions):** add a persistent **Push notifications** toggle
+   on the You screen so a user can **enable OR disable it at any time after onboarding**, independent of what they
+   chose at signup:
+   - **Off → On:** request permission (user gesture) and register the token; if the OS permission was previously
+     denied, show a short hint that they must re-enable notifications for the site/app in their device settings
+     (we can't override an OS denial from JS).
+   - **On → Off:** stop pushes — delete this device's token from `users/{uid}/fcmTokens/{token}` and unsubscribe
+     (`deleteToken`), so the Cloud Function has nothing to send to. This is the real off switch, not just "don't ask
+     again".
+   - Reflect true state from **token presence** (per the Reference: not `Notification.permission`), so the toggle
+     shows ON only when a live token exists for this device. Label + any hint text are dictionary strings (EN/NL/RO).
 4. **Instant shared-photo award (from BRIEF-005):** BRIEF-005 made the photo's +5 to the *other* participant a
    client "self-claim" (lands on their next sync, seconds later) because rules forbid a participant writing
    another user's points doc. With Blaze on, add a Cloud Function that grants the other participant's +5 the

@@ -313,6 +313,13 @@ const browserLang=(function(){try{
 }catch(e){return 'en';}})();
 let AWARD={first:"",points:30,bonus:0,balance:30};   // props for the Points Awarded screen
 let ICE={qs:[],answers:["","",""],from:"onboard"};   // the icebreaker step
+// Push state for THIS device (BRIEF-004). Cached so renders stay synchronous;
+// `enabled` comes from a real token in Firestore, never Notification.permission.
+let PUSH={supported:false,enabled:false,needsInstall:false,blocked:false,configured:false};
+async function refreshPush(){
+  try{ if(S.pushState) PUSH=await S.pushState(); }catch(e){}
+  return PUSH;
+}
 let OB={lang:(typeof browserLang!=="undefined"?browserLang:"en"),email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};
 // The two matching-critical labels — keyed off by eligible(), so never inline these strings.
 const EMEA_ROLE='EMEA - QARA Commercial';
@@ -755,7 +762,8 @@ function renderOnboard(){
       <br><br>· ${t('consent_photos')}
       <br>· ${t('consent_answers')}
       <br>· ${t('consent_ice')}
-      <br><br>${t('consent_delete')}</div><label class="row" style="gap:10px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ob-consent" style="width:20px;height:20px"> <span class="small">${t('ob_consent_tick')}</span></label>`;
+      <br>· ${t('consent_push')}
+      <br><br>${t('consent_delete')}</div><label class="row" style="gap:10px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ob-consent" style="width:20px;height:20px"> <span class="small">${t('ob_consent_tick')}</span></label>${PUSH.supported||PUSH.needsInstall?`<label class="row" style="gap:10px;cursor:pointer;margin-top:10px"><input type="checkbox" id="ob-push" checked style="width:20px;height:20px"> <span class="small">${t('push_consent_tick')}</span></label>`:''}`;
     cta=`<button class="btn" onclick="finishOnboard()">${t('enter_app')}</button>`;
   }
   $("#screen").innerHTML=`<div class="ob"><div>${dots}${body}</div><div class="ob-cta">${cta}</div></div>`;
@@ -806,13 +814,27 @@ function deptForRole(r){
 }
 window.finishOnboard=async function(){
   if(!$("#ob-consent").checked){toast(t('ob_consent_need'));return;}
+  // Ticked by default, but the colleague may untick it — then we never prompt.
+  const pushBox=$("#ob-push"); const wantsPush=!!(pushBox&&pushBox.checked);
+  // The permission prompt must start INSIDE this tap: awaiting signUp first would
+  // spend the user gesture and Safari would refuse to show it.
+  let permP=null;
+  if(wantsPush&&PUSH.supported&&!PUSH.needsInstall&&typeof Notification!=="undefined"&&Notification.permission==="default"){
+    try{ permP=Notification.requestPermission(); }catch(e){ permP=null; }
+  }
   authBusy=true;
   try{ if(!S.currentUser()) await S.signUp(OB.email,OB.pass); }
   catch(err){ authBusy=false; const code=(err&&err.code)||'';
     toast(/domain-not-allowed/.test(code)?"ZB MeetUP is for Zimmer Biomet colleagues — please use your "+window.ZB_DOMAIN_HINT()+" email"
       :/in-use/.test(code)?"That email already has an account — tap sign in.":"Couldn't create the account."); return; }
-  await S.saveMe({name:OB.name,email:OB.email,lang:OB.lang||'en',color:OB.color,photo:OB.photo||null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now()});
+  await S.saveMe({name:OB.name,email:OB.email,lang:OB.lang||'en',color:OB.color,photo:OB.photo||null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now(),pushConsent:wantsPush});
   await S.welcome();
+  // Register the token only now that the account exists. Unticked means no prompt,
+  // no token and no nagging — the You screen can turn it on later.
+  if(wantsPush){
+    try{ if(permP)await permP; await S.pushEnable(); }catch(e){}
+    await refreshPush();
+  }
   authBusy=false;
   // The award screen is the last step of onboarding. It REPORTS the bonus the store already
   // granted — per the handoff, this screen is not the source of truth for the award — then
@@ -1042,6 +1064,9 @@ function viewProfile(){
    <button class="btn secondary" onclick="go('editprofile')">${icon('pencil',18)} ${t('prof_edit')}</button>
    <button class="btn secondary" style="margin-top:10px" onclick="go('bug')">${icon('bug',18)} ${t('prof_bug')}</button>
    ${C.admin?`<button class="btn secondary" style="margin-top:10px" onclick="go('admin')">${icon('chart',18)} ${t('prof_admin')}</button>`:''}
+   ${(PUSH.supported||PUSH.needsInstall)?`<div class="card" style="margin-top:14px"><div class="row between"><b>${t('push_h')}</b>
+     <button class="btn ${PUSH.enabled?'':'secondary'} sm" style="width:auto" onclick="pushToggle()">${PUSH.enabled?t('push_on'):t('push_off')}</button></div>
+     <p class="muted small" style="margin:8px 0 0">${PUSH.enabled?t('push_sub_on'):PUSH.needsInstall?t('push_install_first'):PUSH.blocked?t('push_blocked'):t('push_sub_off')}</p></div>`:''}
    ${(function(){
      const ib=(C.me&&C.me.icebreakers)||[];
      const top='style="margin-top:14px"';
@@ -1065,6 +1090,29 @@ function viewEditProfile(){
    <select class="input" id="ep-lang" style="margin-top:6px" onchange="epLang(this.value)">${LANGS.map(l=>`<option value="${l}" ${(me.lang||'en')===l?'selected':''}>${window.ZB_T('lang_'+l,l)}</option>`).join('')}</select></div><button class="btn" onclick="saveProfile()">${icon('check',18)} ${t('ep_save')}</button>`;
 }
 // Changing language re-renders the app immediately in the new one.
+// Both directions, at any time. Off deletes this device's token so the Cloud
+// Function has nothing to send to — "don't ask again" would not stop pushes.
+window.pushToggle=async function(){
+  if(PUSH.enabled){
+    await S.pushDisable();
+    await S.savePushConsent(false);
+    toast(t('push_disabled_toast'));
+  }else{
+    if(PUSH.needsInstall){ toast(t('push_install_first')); try{window.a2hsShow&&window.a2hsShow();}catch(e){} await refreshPush(); render(); return; }
+    const r=await S.pushEnable();
+    if(r&&r.ok){ await S.savePushConsent(true); toast(t('push_enabled_toast')); }
+    else{
+      const why=(r&&r.reason)||'error';
+      // An OS-level denial cannot be undone from JS — say where to fix it.
+      toast(why==='denied'?t('push_blocked')
+        :why==='install-first'?t('push_install_first')
+        :(why==='unsupported'||why==='not-configured')?t('push_unsupported')
+        :t('push_failed'));
+    }
+  }
+  await refreshPush(); render();
+};
+
 window.epLang=async function(l){ await S.saveMe({lang:LANGS.indexOf(l)>-1?l:'en'}); await refresh(); toast(t('lang_label')); };
 window.epColor=async function(c){await S.saveMe({color:c,photo:null});await refresh();};
 window.epPickPhoto=function(){pickImage(async function(d){await S.saveMe({photo:d});await refresh();toast(t('ep_photo_toast'));});};
@@ -1217,8 +1265,42 @@ function initA2HS(){
 }
 
 /* ---------------- boot ---------------- */
+// A tapped push deep-links through the notification's own `target` — the same
+// string the in-app bell uses. The SW passes it as ?zbTarget= on a cold open, or
+// postMessage when a window is already open (so nothing in progress is lost).
+function pushTargetFromUrl(){
+  const m=(location.search||'').match(/[?&]zbTarget=([^&]+)/);
+  if(!m)return '';
+  try{ return decodeURIComponent(m[1]); }catch(e){ return m[1]; }
+}
+function clearPushParam(){
+  try{
+    if(!history.replaceState)return;
+    const u=new URL(location.href); u.searchParams.delete('zbTarget');
+    history.replaceState({}, '', u.pathname+(u.search||'')+(u.hash||''));
+  }catch(e){}
+}
+function routeToPushTarget(target){
+  if(!target)return;
+  if(mode!=='app')return;                     // still onboarding: don't jump out of it
+  go(target);
+}
+function initPushRouting(){
+  try{
+    if(!navigator.serviceWorker)return;
+    navigator.serviceWorker.addEventListener('message',ev=>{
+      const tg=ev&&ev.data&&ev.data.zbTarget;
+      if(tg)routeToPushTarget(tg);
+    });
+  }catch(e){}
+}
+
 window.ZB_BOOT=function(){
   initA2HS();
+  initPushRouting();
+  // Before sign-in too: the consent step needs to know whether to offer the
+  // push tick at all, and pushState() works signed-out (it just reports "off").
+  refreshPush();
   if(S.onChange)S.onChange(()=>{ if(mode==='app'&&!authBusy) refresh(); });
   S.onAuth(async user=>{
     if(authBusy)return;
@@ -1226,6 +1308,12 @@ window.ZB_BOOT=function(){
     const me=await S.getMe();
     if(!me||!me.name){mode="onboarding";if(onboardStep<1)onboardStep=1;OB.email=user.email||OB.email;renderOnboard();return;}
     mode="app";await refresh();
+    await refreshPush();
+    // Foreground pushes are never shown by FCM — surface them as a toast and let
+    // the bell pick up the matching in-app notification on the next sync.
+    if(S.onPush)S.onPush(p=>{ if(p&&p.body)toast(p.body); refresh(); });
+    const tg=pushTargetFromUrl();
+    if(tg){ clearPushParam(); routeToPushTarget(tg); }
   });
 };
 })();

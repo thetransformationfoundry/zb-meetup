@@ -168,6 +168,42 @@ function mapMatch(id, d, uid) {
            incoming: (d.b === uid && d.status === "requested") };
 }
 
+/* ---- push internals (BRIEF-004) ---- */
+let _messaging = null, _swReg = null, _pushToken = null, _pushCb = null, _pushAttached = false;
+const VAPID = () => String((window.ZB_CONFIG && window.ZB_CONFIG.VAPID_PUBLIC_KEY) || "").trim();
+const pushConfigured = () => !!VAPID();
+
+// Registered with a RELATIVE url on purpose: GitHub Pages serves this project
+// under /zb-meetup/, so "/firebase-messaging-sw.js" would 404 and the scope
+// would be wrong. Relative keeps scope at /zb-meetup/, covering the whole app.
+async function pushSwRegistration() {
+  if (_swReg) return _swReg;
+  _swReg = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+  return _swReg;
+}
+
+// Only ever called once permission is granted, so it cannot raise a prompt.
+async function currentPushToken() {
+  if (_pushToken) return _pushToken;
+  if (!pushConfigured()) return null;
+  const reg = await pushSwRegistration();
+  _messaging = _messaging || firebase.messaging();
+  _pushToken = await _messaging.getToken({ vapidKey: VAPID(), serviceWorkerRegistration: reg });
+  return _pushToken;
+}
+
+function attachForegroundPush() {
+  if (_pushAttached || !_pushCb) return;
+  try {
+    _messaging = _messaging || firebase.messaging();
+    _messaging.onMessage(payload => {
+      const d = (payload && payload.data) || {};
+      try { _pushCb({ title:d.title || "", body:d.body || "", target:d.target || "" }); } catch (e) {}
+    });
+    _pushAttached = true;
+  } catch (e) { /* unsupported browser — the bell still works */ }
+}
+
 const ZB_STORE = {
   mode: "firebase",
   ready: Promise.resolve(true),
@@ -542,6 +578,116 @@ const ZB_STORE = {
   async listBugs() { const isAdmin = ADMINS.includes((auth.currentUser && auth.currentUser.email || "").toLowerCase()); if (!isAdmin) return []; const q = await db.collection("bugReports").orderBy("at","desc").limit(50).get(); return q.docs.map(d => d.data()); },
   async sendBug(text) { const uid = uidNow(); await db.collection("bugReports").add({ by:(cachedMe&&cachedMe.name)||"A user", byUid:uid, text, at:new Date().toLocaleDateString() }); return true; },
   async unreadMatches() { const ms = await this.myMatches(); return ms.reduce((s,m)=>s+(m.unread||0),0); },
+
+  /* ---------------- Web push (BRIEF-004) ----------------
+     "Enabled" means THIS DEVICE has a live FCM token stored at
+     users/{uid}/fcmTokens/{token}. Deliberately NOT Notification.permission:
+     permission can stay "granted" long after the token is gone (cleared site
+     data, a token rotation, another device), and the Cloud Function can only
+     send to tokens that actually exist. Token presence is the truth.
+
+     Multi-device by design: a colleague may use a phone and a laptop, so
+     tokens accumulate and dead ones are cleaned at SEND time by the Function,
+     not by wiping the collection on every sign-in. */
+
+  // Can this browser do web push at all? Never throws — every caller treats
+  // false as "hide the whole feature".
+  async pushSupported() {
+    const pushSupported = ZB_STORE.pushSupported;     // stable home for the one-time warning flag
+    try {
+      if (!window.ZB_LIVE) return false;
+      // No VAPID key yet: hide push entirely rather than showing a switch that
+      // can only ever fail. Warned once so a missing key is obvious in testing.
+      if (!pushConfigured()) {
+        if (!pushSupported._warned && window.console) { pushSupported._warned = true; console.warn("[zb] push off: VAPID_PUBLIC_KEY is empty in js/firebase-config.js"); }
+        return false;
+      }
+      if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return false;
+      if (typeof Notification === "undefined" || typeof PushManager === "undefined") return false;
+      if (!firebase.messaging || !firebase.messaging.isSupported) return false;
+      return !!(await firebase.messaging.isSupported());
+    } catch (e) { return false; }
+  },
+
+  // iOS only delivers web push to an app installed on the Home Screen (16.4+).
+  // Prompting before that silently no-ops, so the UI sends people to the A2HS
+  // hint first and asks only once standalone.
+  pushNeedsInstall() {
+    try {
+      const ua = (navigator.userAgent || "");
+      const isIOS = /iphone|ipad|ipod/i.test(ua)
+        || (/Macintosh/.test(ua) && typeof document !== "undefined" && "ontouchend" in document);
+      if (!isIOS) return false;
+      const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
+        || navigator.standalone === true;
+      return !standalone;
+    } catch (e) { return false; }
+  },
+
+  // True state for this device, for the You-screen toggle.
+  async pushState() {
+    const out = { supported:false, enabled:false, needsInstall:false, blocked:false, configured:pushConfigured() };
+    if (!(await this.pushSupported())) return out;
+    out.supported = true;
+    out.needsInstall = this.pushNeedsInstall();
+    out.blocked = (Notification.permission === "denied");
+    const uid = uidNow();
+    if (!uid || out.blocked || Notification.permission !== "granted" || !out.configured) return out;
+    try {
+      // Safe to call: permission is already granted, so this cannot prompt.
+      const token = await currentPushToken();
+      if (!token) return out;
+      const doc = await db.collection("users").doc(uid).collection("fcmTokens").doc(token).get();
+      out.enabled = doc.exists;
+    } catch (e) { /* treat any failure as "off" — the toggle can re-enable */ }
+    return out;
+  },
+
+  // MUST be called from a real user gesture (browsers ignore the prompt otherwise).
+  // Returns { ok, reason } so the UI can explain itself in the viewer's language.
+  async pushEnable() {
+    if (!(await this.pushSupported())) return { ok:false, reason:"unsupported" };
+    if (!pushConfigured()) return { ok:false, reason:"not-configured" };
+    if (this.pushNeedsInstall()) return { ok:false, reason:"install-first" };
+    const uid = uidNow(); if (!uid) return { ok:false, reason:"signed-out" };
+    let perm = Notification.permission;
+    if (perm !== "granted") { try { perm = await Notification.requestPermission(); } catch (e) { return { ok:false, reason:"denied" }; } }
+    if (perm !== "granted") return { ok:false, reason: perm === "denied" ? "denied" : "dismissed" };
+    try {
+      const token = await currentPushToken();
+      if (!token) return { ok:false, reason:"no-token" };
+      await db.collection("users").doc(uid).collection("fcmTokens").doc(token).set({
+        createdAt: nowTs(), userAgent: (navigator.userAgent || "").slice(0, 300)
+      });
+      attachForegroundPush();
+      return { ok:true, reason:"enabled" };
+    } catch (e) {
+      if (window.console) console.warn("[zb] push enable failed", e && (e.code || e.message));
+      return { ok:false, reason:"error" };
+    }
+  },
+
+  // The real off switch: drop the token so the Function has nothing to send to.
+  // Removing only the Firestore doc would leave FCM still delivering to a live
+  // token; calling only deleteToken() would leave a dead doc behind.
+  async pushDisable() {
+    const uid = uidNow();
+    let token = null;
+    try { token = await currentPushToken(); } catch (e) {}
+    try { if (_messaging) await _messaging.deleteToken(); } catch (e) {}
+    try {
+      if (uid && token) await db.collection("users").doc(uid).collection("fcmTokens").doc(token).delete();
+    } catch (e) { if (window.console) console.warn("[zb] token doc not removed", e && e.code); }
+    _pushToken = null;
+    return true;
+  },
+
+  // Consent recorded on the profile so the scheduled nudges can respect it
+  // server-side, where Notification.permission is not visible.
+  async savePushConsent(on) { return this.saveMe({ pushConsent: !!on }); },
+
+  // Foreground pushes: FCM does NOT show these, by design. The app decides.
+  onPush(cb) { _pushCb = typeof cb === "function" ? cb : null; attachForegroundPush(); },
 
   onChange(cb) { _change = cb; },
   setViewing(v) { _viewing = v; },

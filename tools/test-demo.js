@@ -62,7 +62,7 @@ load("js/i18n.js");                  // ZB_I18N + ZB_T
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__unlock=SPIN_UNLOCK;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -889,6 +889,79 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("floor rule intact — on-site only, no remote",
       fp.length > 0 && fp.every(p => p.workClass === "on-site"));
   chk("floor colleague never sees EMEA (remote)", !fp.map(p => p.role).includes(EMEA));
+
+  /* ---- BRIEF-004: push. The demo path must never touch FCM ---- */
+  const fs2 = require("fs");
+  chk("the demo store exposes the whole push API, inert",
+      (await window.ZB_STORE.pushSupported()) === false
+      && (await window.ZB_STORE.pushEnable()).ok === false
+      && (await window.ZB_STORE.pushDisable()) === true
+      && (await window.ZB_STORE.pushState()).enabled === false);
+  chk("no FCM globals or service worker were touched by the demo path",
+      typeof global.firebase === "undefined"
+      && !(global.navigator && global.navigator.serviceWorker)
+      && typeof global.Notification === "undefined");
+  await window.__refreshPush();
+  chk("push stays hidden in demo — no toggle, no consent tick",
+      window.__PUSH().supported === false
+      && (window.go("profile"), !/push_h|Push notifications|Pushmeldingen/.test(scr())));
+
+  // The service worker is hand-written and cannot import firebase-config.js
+  // (no `window` in a worker), so its copy of the config must not drift.
+  const swSrc = fs2.readFileSync("firebase-messaging-sw.js", "utf8");
+  const cfgSrc = fs2.readFileSync("js/firebase-config.js", "utf8");
+  const fieldOf = (src, k) => { const m = src.match(new RegExp(k + '\\s*:\\s*"([^"]*)"')); return m ? m[1] : null; };
+  chk("the service worker's Firebase config matches js/firebase-config.js",
+      ["apiKey", "authDomain", "projectId", "messagingSenderId", "appId"]
+        .every(k => fieldOf(swSrc, k) && fieldOf(swSrc, k) === fieldOf(cfgSrc, k)));
+  chk("the service worker renders push itself — data-only, no notification block",
+      /onBackgroundMessage/.test(swSrc) && /showNotification/.test(swSrc)
+      && !/\bnotification\s*:/.test(swSrc));
+  chk("the service worker deep-links via the notification's own target",
+      /notificationclick/.test(swSrc) && /data\.target/.test(swSrc)
+      && !/registration\.scope[^\n]*\/firebase-messaging-sw/.test(swSrc));
+  chk("nothing in the client hardcodes a root-scoped SW path",
+      !/register\(\s*["']\//.test(fs2.readFileSync("js/store-firebase.js", "utf8")));
+
+  // Push copy lives in two dictionaries — the app's and the Functions'. They
+  // must agree, or a colleague's push says something different to their bell.
+  const fnT = require("../functions/i18n.js");
+  chk("the Functions' push copy matches the app dictionary, all three languages",
+      ["notif_request", "notif_accept", "notif_msg"].every(k =>
+        ["en", "nl", "ro"].every(l => fnT.t(k, l, { name: "X" })
+          === window.ZB_T(k, l, { name: "X" }))));
+  chk("the Functions localise the reminder and the nudge, with an English fallback",
+      ["push_reminder", "push_nudge"].every(k =>
+        ["en", "nl", "ro"].every(l => fnT.t(k, l, { name: "X" }).length > 5))
+      && fnT.t("push_nudge", "zz") === fnT.t("push_nudge", "en"));
+
+  // The token rule is the difference between push working and silently not.
+  const rules = fs2.readFileSync("firestore.rules", "utf8");
+  chk("tokens are readable and writable only by their owner",
+      /match \/users\/\{uid\}\/fcmTokens\/\{token\}/.test(rules)
+      && /allow read, write: if isMe\(uid\);/.test(rules));
+
+  // With push available, the You screen must offer a real two-way switch.
+  const realState = window.ZB_STORE.pushState;
+  let disabled = false, consent = null;
+  window.ZB_STORE.pushState = async () => ({ supported:true, enabled:true, needsInstall:false, blocked:false, configured:true });
+  window.ZB_STORE.pushDisable = async () => { disabled = true; return true; };
+  window.ZB_STORE.savePushConsent = async v => { consent = v; return true; };
+  await window.ZB_STORE.saveMe({ lang:"ro" });
+  await refreshAndSettle();
+  await window.__refreshPush();
+  window.go("profile");
+  chk("the You screen shows the push toggle in the viewer's language when supported",
+      /Notific[ăa]ri push/.test(scr()) && /Activat/.test(scr()));
+  window.ZB_STORE.pushState = async () => ({ supported:true, enabled:false, needsInstall:false, blocked:false, configured:true });
+  await window.pushToggle();
+  chk("turning it off deletes this device's token and records the opt-out",
+      disabled === true && consent === false);
+  chk("and the toggle then reads Off, not the OS permission",
+      window.__PUSH().enabled === false && /Dezactivat/.test(scr()));
+  window.ZB_STORE.pushState = realState;
+  await window.ZB_STORE.saveMe({ lang:"en" });
+  await refreshAndSettle();
 
   console.log(ok ? "\nDEMO PATH GREEN ✅" : "\nDEMO PATH FAILED ❌");
   process.exit(ok ? 0 : 1);
