@@ -339,7 +339,7 @@ function buildStampHTML(){
       <div class="row" style="gap:10px;align-items:flex-start"><div class="nicon" style="flex:none">${icon('refresh',18)}</div>
       <div class="small" style="line-height:1.5"><b>${t('stale_h')}</b> ${t('stale_body',{running:running,live:'v'+C.build.version})}</div></div></div>`:''}
     <div class="muted small" style="letter-spacing:.02em">${line}</div>
-    <button class="btn ghost sm" style="margin-top:6px" onclick="checkUpdate()">${icon('refresh',16)} Check for update</button>
+    <button class="btn ghost sm" style="margin-top:6px" onclick="checkUpdate()">${icon('refresh',16)} ${t('stale_check')}</button>
   </div>`;
 }
 // Reload past the cache. A page can only do so much: this re-requests index.html with a fresh query,
@@ -799,7 +799,7 @@ function renderOnboard(){
       </div></div>
       <p class="muted small center" style="margin-top:12px">${t('rs_then')}</p>
       </div><div class="ob-cta">
-      <button class="btn" onclick="obGoSignIn()">${icon('check',18)} Sign in</button>
+      <button class="btn" onclick="obGoSignIn()">${icon('check',18)} ${t('si_btn')}</button>
       <button class="btn alt" style="margin-top:8px" onclick="obForgot('resend',this)">${t('rs_again')}</button>
     </div></div>`;
     return;
@@ -928,8 +928,8 @@ window.finishOnboard=async function(el){
   authBusy=true;
   try{ if(!S.currentUser()) await S.signUp(OB.email,OB.pass); }
   catch(err){ authBusy=false; obSubmitting=false; btnIdle(btn); const code=(err&&err.code)||'';
-    toast(/domain-not-allowed/.test(code)?"ZB MeetUP is for Zimmer Biomet colleagues — please use your "+window.ZB_DOMAIN_HINT()+" email"
-      :/in-use/.test(code)?"That email already has an account — tap sign in.":"Couldn't create the account."); return; }
+    toast(/domain-not-allowed/.test(code)?t('err_domain',{domain:window.ZB_DOMAIN_HINT()})
+      :/in-use/.test(code)?t('err_in_use'):t('err_create')); return; }
   // GATING, stays awaited: onAuth sends anyone without a saved name back to
   // onboarding, and the icebreaker step reads the saved language.
   await S.saveMe({name:OB.name,email:OB.email,lang:OB.lang||'en',color:OB.color,photo:OB.photo||null,workClass:OB.workClass,floor:OB.floor,role:OB.role,dept:OB.dept,consentAt:Date.now(),pushConsent:wantsPush});
@@ -1100,7 +1100,7 @@ function viewMeet(id){
    <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">${t('meet_both_accepted',{type:`<b>${typeLabel(m.type)}</b>`})}</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} ${t('meet_plan')}${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t('meet_last_msg')} ${(last.by==='me'?t('meet_you_prefix')+' ':'')+last.text}</div>`:''}</div>
    ${talkingPointsHTML(m)}
    <p class="muted small" style="margin:2px 2px 10px;line-height:1.5">${t('meet_log')}</p>
-   <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?t('pts_earned'):t('pts_available')}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.photo?`${mp?`<img src="${mp}" alt="${t('meet_your_photo')}" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
+   <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?t('pts_earned'):t('pts_available')}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.photo?`${mp?`<img src="${mp}" alt="${t('meet_your_photo')}" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('ob_photo_change')}</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
    <div class="card"><div class="row between"><b>${t('meet_q_h')}</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':t('pts_available')}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${qText(q)}${q.tier===1?`<span class="tierpill">${t('key_idea')}</span>`:''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="${t('q_answer_ph')}">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">${t('meet_q_private')}</p></div>
    <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} ${t('meet_complete')}</button>
    <p class="muted small center" style="margin-top:8px">${canComplete(m)?t('meet_complete_ok'):t('meet_complete_hint')}</p>

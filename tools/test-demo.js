@@ -330,6 +330,54 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
 
+  /* ---- BRIEF-024: structural guard for the DOM-literal blind spot ----
+     Round 9 matched text between > and < only when it contained no ${...}, and only
+     looked at whole toast() arguments. Both A1 ("${icon(...)} Accept") and A2
+     (a ternary inside toast()) hid in those gaps. This sweep strips interpolations
+     first and looks INSIDE toast()/textContent= — so the next one fails the build
+     instead of waiting for a screenshot. */
+  const appSrc = require("fs").readFileSync("js/app.js", "utf8");
+  const srcLines = appSrc.split("\n");
+  const lineOf = re => srcLines.findIndex(l => re.test(l)) + 1;
+  // Regions where English is a decision, not an oversight: the splash (Sean's call)
+  // and the admin dashboard + export helpers (two admins, English canonical export).
+  // A region runs from its declaration to the next top-level declaration, whatever
+  // that happens to be — welcomeReel sits BEFORE welcomeHTML, so a hardcoded pair
+  // silently inverted and disabled the region.
+  const regionEnd = start => {
+    for (let j = start; j < srcLines.length; j++)
+      if (/^(function |window\.|const |let |\/\* -)/.test(srcLines[j])) return j + 1;
+    return srcLines.length;
+  };
+  const allowed = [
+    // the splash: one function
+    [lineOf(/^function welcomeHTML/), regionEnd(lineOf(/^function welcomeHTML/))],
+    // the admin dashboard AND its export/question helpers, which run on to viewNotifs
+    [lineOf(/^function viewAdmin/), lineOf(/^function viewNotifs/)]
+  ].filter(([a2, b2]) => a2 > 0 && b2 > a2);
+  const inAllowedRegion = n => allowed.some(([a2, b2]) => a2 > 0 && b2 > a2 && n >= a2 && n < b2);
+  const BRAND = /^(ZB MeetUP|Zimmer Biomet|The Transformation Foundry)$/;
+  const leaks = [];
+  srcLines.forEach((raw, i) => {
+    const n = i + 1;
+    if (inAllowedRegion(n)) return;
+    const l = raw.replace(/\/\/.*$/, "");                 // drop line comments
+    const stripped = l.replace(/\$\{[^{}]*(\{[^{}]*\}[^{}]*)*\}/g, " ");
+    const push = txt => {
+      const t2 = txt.trim();
+      if (!t2 || BRAND.test(t2)) return;
+      if (/[;={}`()]|^&|^\d/.test(t2)) return;            // code fragments, entities
+      if (!/[A-Za-z]{3,}\s+[A-Za-z]{2,}/.test(t2) && !/^(Accept|Decline|Save|Cancel|Send|Back|On|Off)$/.test(t2)) return;
+      leaks.push(n + ': "' + t2.slice(0, 60) + '"');
+    };
+    for (const m of stripped.matchAll(/>([^<>\n]{3,90})</g)) push(m[1]);
+    for (const m of l.matchAll(/(placeholder|aria-label|title)="([^"$]{4,80})"/g)) push(m[2]);
+    if (/toast\(|textContent\s*=/.test(l))
+      for (const m of l.matchAll(/["']([^"'\n]{10,120})["']/g)) push(m[1]);
+  });
+  if (leaks.length) console.log("   leaked:", leaks.join(" | "));
+  chk("no colleague-facing English literal bypasses the dictionary", leaks.length === 0);
+
   /* ---- BRIEF-024 A2: point + photo feedback must be translated ---- */
   chk("every points label and toast has a dictionary key, in all three languages",
       ["meet_photo_added","meet_done_toast","meet_done_toast_10","pts_earned","pts_available","pts_10"]

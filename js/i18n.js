@@ -267,6 +267,7 @@ window.ZB_I18N = {
   type_virtual:{en:"a virtual catch-up",nl:"een virtuele bijpraat",ro:"o discuție virtuală"},
 
   /* --- how it works --- */
+  stale_check:{en:"Check for update",nl:"Controleer op update",ro:"Caută actualizare"},
   stale_h:{en:"Update available",nl:"Update beschikbaar",ro:"Actualizare disponibilă"},
   stale_body:{en:"— this device is running {running} but {live} is live. Tap Check for update. If it keeps showing the old version and you opened this from a home-screen icon, remove the icon and add it again.",nl:"— dit apparaat draait {running} maar {live} staat live. Tik op Controleer op update. Blijft de oude versie verschijnen en opende je dit via een beginscherm-icoon, verwijder het icoon dan en voeg het opnieuw toe.",ro:"— acest dispozitiv rulează {running}, dar versiunea live este {live}. Apasă Caută actualizare. Dacă tot apare versiunea veche și ai deschis aplicația de pe ecranul principal, șterge pictograma și adaug-o din nou."},
   img_process_err:{en:"Couldn't process that image",nl:"Kon die afbeelding niet verwerken",ro:"Nu am putut procesa imaginea"},
@@ -277,6 +278,8 @@ window.ZB_I18N = {
   save_failed:{en:"Couldn't save that — try again in a moment.",nl:"Kon dat niet opslaan — probeer het zo opnieuw.",ro:"Nu am putut salva — încearcă din nou peste puțin."},
   err_need_email:{en:"Please enter your email",nl:"Vul je e-mailadres in",ro:"Introdu adresa ta de e-mail"},
   err_domain:{en:"ZB MeetUP is for Zimmer Biomet colleagues — please use your {domain} email",nl:"ZB MeetUP is voor Zimmer Biomet-collega's — gebruik je {domain}-e-mailadres",ro:"ZB MeetUP este pentru colegii Zimmer Biomet — folosește adresa ta {domain}"},
+  err_in_use:{en:"That email already has an account — tap sign in.",nl:"Dat e-mailadres heeft al een account — tik op inloggen.",ro:"Există deja un cont cu acest e-mail — apasă pe autentificare."},
+  err_create:{en:"Couldn't create the account.",nl:"Kon het account niet aanmaken.",ro:"Nu am putut crea contul."},
   err_pass_short:{en:"Password must be at least 6 characters",nl:"Wachtwoord moet minstens 6 tekens zijn",ro:"Parola trebuie să aibă cel puțin 6 caractere"},
   err_need_both:{en:"Enter your email and password",nl:"Vul je e-mailadres en wachtwoord in",ro:"Introdu e-mailul și parola"},
   err_signin:{en:"Sign-in failed — check your details or tap Create account.",nl:"Inloggen mislukt — controleer je gegevens of tik op Account aanmaken.",ro:"Autentificare eșuată — verifică datele sau apasă Creează cont."},
