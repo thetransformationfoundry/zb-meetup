@@ -330,6 +330,26 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
 
+  /* ---- BRIEF-024 A1: the accept/decline card. Unreachable in the demo until now,
+         because store.js never computed `incoming` — which is how it stayed English. ---- */
+  const reqMate = (await window.ZB_STORE.listUsers())[0];
+  await window.ZB_STORE._seedIncoming(reqMate.uid);
+  await window.ZB_STORE.saveMe({ lang:"ro" });
+  await refreshAndSettle();
+  window.go("meetups");
+  const reqRo = scr();
+  chk("the incoming request card renders in the viewer's language",
+      reqRo.indexOf(window.ZB_T("m_wants","ro",{name:reqMate.name})) > -1
+      && reqRo.indexOf(window.ZB_T("m_accept","ro")) > -1
+      && reqRo.indexOf(window.ZB_T("m_decline","ro")) > -1);
+  chk("no English survives on the accept/decline card",
+      !/wants to meet<|>Accept<|>Decline<|suggested /.test(reqRo));
+  chk("the suggested meetup type is translated, not the raw stored string",
+      reqRo.indexOf(window.ZB_T("type_coffee","ro")) > -1
+      && reqRo.indexOf("a coffee") === -1);
+  await window.ZB_STORE.saveMe({ lang:"en" });
+  await refreshAndSettle();
+
   /* ---- BRIEF-025: mentions, comment notifications, wall deep-link ---- */
   const allUsers = await window.ZB_STORE.listUsers();
   const nameOfUid = u => (allUsers.filter(x => x.uid === u)[0] || {}).name || "";

@@ -182,8 +182,24 @@
       return P(MATCHES.map(m => Object.assign({}, m, {
         completed: !!(m.completedBy||{})["me"] || m.status === "completed",
         otherCompleted: !!(m.completedBy||{})[m.person.uid] || m.status === "completed",
-        photoAwarded: !!(m.photoAwarded||{})["me"]
+        photoAwarded: !!(m.photoAwarded||{})["me"],
+        // Computed by the SAME rule as the live store. It was missing here entirely, so
+        // `m.incoming` was undefined on every demo match and the accept/decline card was
+        // unreachable in the demo — which is why its English strings went unnoticed for
+        // 25 briefs. Demo matches are created with a:"me", so this stays false unless a
+        // test seeds one; behaviour is unchanged.
+        incoming: (m.b === "me" && m.status === "requested")
       })));
+    },
+    // Demo-only, like _notify/_sentNotifs: seed a request FROM a colleague so the
+    // accept/decline card can actually be rendered and asserted.
+    _seedIncoming(uid) {
+      const other = USERS.find(u => u.uid === uid) || USERS[0];
+      const m = { id:"m"+(mid++), a:other.uid, b:"me", person:other, status:"requested",
+                  type:"a coffee", questionIds:[], questions:[], answers:[], photo:null,
+                  completedBy:{}, photoAwarded:{}, messages:[], reads:{} };
+      MATCHES.push(m);
+      return P(m.id);
     },
     getMatch(id) { return P(MATCHES.find(m => m.id === id)); },
     // ---- spin economy (BRIEF-017) ----
