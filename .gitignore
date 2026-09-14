@@ -20,3 +20,4 @@ _demo/
 # stops following it. Backed up separately in a PRIVATE repo; never re-add it
 # here, and never wire the private backup in as a submodule.
 Context/
+CLAUDE.md
