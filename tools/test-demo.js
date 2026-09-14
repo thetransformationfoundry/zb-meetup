@@ -62,7 +62,7 @@ load("js/i18n.js");                  // ZB_I18N + ZB_T
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__unlock=SPIN_UNLOCK;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -329,6 +329,22 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("legacy comments still render", !!seedWithComment
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
+
+  /* ---- BRIEF-024 F1: a failing background refresh must not become an unhandled
+         rejection. Every fire-and-forget path routes through refreshQuietly(). ---- */
+  const appSrcF1 = require("fs").readFileSync("js/app.js", "utf8");
+  chk("no fire-and-forget refresh() is left uncaught",
+      !appSrcF1.split("\n").some(l => /(^|[^.\w])refresh\(\);/.test(l) && !/await/.test(l)));
+  // and it really swallows a rejection rather than throwing past the caller
+  const realGetMe = window.ZB_STORE.getMe.bind(window.ZB_STORE);
+  let sawUnhandled = false;
+  process.once("unhandledRejection", () => { sawUnhandled = true; });
+  window.ZB_STORE.getMe = () => Promise.reject(new Error("simulated network failure"));
+  await window.__refreshQuietly("test");
+  window.ZB_STORE.getMe = realGetMe;
+  await new Promise(r => setTimeout(r, 0));
+  chk("a refresh that fails is caught, not thrown at the runtime", sawUnhandled === false);
+  await refreshAndSettle();
 
   /* ---- BRIEF-024: structural guard for the DOM-literal blind spot ----
      Round 9 matched text between > and < only when it contained no ${...}, and only

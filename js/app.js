@@ -434,6 +434,16 @@ const canComplete=m=>myAnswersDone(m)&&!m.completed;   // my 3 answers = my +5; 
 function unread(){return C.notifs.filter(n=>!n.read).length;}
 
 /* ---------------- data load ---------------- */
+// A fire-and-forget refresh() still awaits twelve store reads, so any rejection —
+// a dropped connection, a transient Firestore error — became an UNHANDLED rejection:
+// the screen silently kept stale data and nothing said so. Background callers route
+// through here instead. Quiet by default (a blip should not nag), loud on request.
+function refreshQuietly(why,notify){
+  return refresh().catch(e=>{
+    if(window.console)console.warn('[zb] background refresh failed ('+why+')',e&&(e.code||e.message));
+    if(notify)toast(t('refresh_failed'));
+  });
+}
 async function refresh(){
   const [me,users,matches,posts,notifs,questions,spin,admin,lb,bugs]=await Promise.all([
     S.getMe(),S.listUsers(),S.myMatches(),S.listPosts(),S.listNotifs(),S.questionBank(),S.spinState(),S.isAdmin(),S.leaderboard(),S.listBugs()
@@ -690,8 +700,9 @@ window.iceAns=function(i,v){ICE.answers[i]=v;
   if(b)b.textContent=(all3&&icebreakerBonusPending())?t('ice_save_bonus'):t('save');
 };
 function iceDone(){
-  if(ICE.from==='profile'){mode="app";view="profile";refresh();return;}
-  showAward();
+  // The colleague is waiting on this one, so a failure is worth telling them about.
+  if(ICE.from==='profile'){mode="app";view="profile";refreshQuietly('icebreakers',true);return;}
+  showAward().catch(e=>{ if(window.console)console.warn('[zb] award screen failed',e); });
 }
 window.iceSave=async function(el){
   if(iceSaving)return;                           // already saving — ignore the second tap
@@ -1469,7 +1480,9 @@ window.ZB_BOOT=function(){
   // Before sign-in too: the consent step needs to know whether to offer the
   // push tick at all, and pushState() works signed-out (it just reports "off").
   refreshPush();
-  if(S.onChange)S.onChange(()=>{ if(mode==='app'&&!authBusy) refresh(); });
+  // Fires on every Firestore snapshot change — the most exposed of the four, and the
+  // one a network blip actually hits. Silent: it will simply try again on the next change.
+  if(S.onChange)S.onChange(()=>{ if(mode==='app'&&!authBusy) refreshQuietly('live update'); });
   S.onAuth(async user=>{
     if(authBusy)return;
     if(!user){mode="onboarding";onboardStep="welcome";renderOnboard();return;}
@@ -1479,7 +1492,7 @@ window.ZB_BOOT=function(){
     await refreshPush();
     // Foreground pushes are never shown by FCM — surface them as a toast and let
     // the bell pick up the matching in-app notification on the next sync.
-    if(S.onPush)S.onPush(p=>{ if(p&&p.body)toast(p.body); refresh(); });
+    if(S.onPush)S.onPush(p=>{ if(p&&p.body)toast(p.body); refreshQuietly('push'); });
     const tg=pushTargetFromUrl();
     if(tg){ clearPushParam(); routeToPushTarget(tg); }
   });
