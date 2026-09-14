@@ -201,7 +201,6 @@
       MATCHES.push(m);
       return P(m.id);
     },
-    getMatch(id) { return P(MATCHES.find(m => m.id === id)); },
     // ---- spin economy (BRIEF-017) ----
     spinState() { const sp = normSpin(); return P({ points:(ME&&ME.points)||0, freeSpin:sp.freeAvailable }); },
     paySpin() {

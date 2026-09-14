@@ -330,6 +330,26 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
 
+  /* ---- BRIEF-024 B1: the two stores must expose the SAME public surface ----
+     getMatch() existed only in the demo. Nothing called it, which is what made it
+     dangerous: the first code to do so would pass the harness and throw in
+     production. This compares the surfaces so the next drift fails here instead. */
+  const surfaceOf = file => {
+    const src = require("fs").readFileSync(file, "utf8");
+    const from = src.indexOf("ZB_STORE = {");
+    const names = new Set();
+    for (const m of src.slice(from).matchAll(/^\s{2,4}(?:async\s+)?([a-zA-Z_]\w*)\s*\(([^)]*)\)\s*\{/gm))
+      if (!m[1].startsWith("_")) names.add(m[1]);            // _internals may differ by design
+    return names;
+  };
+  const demoApi = surfaceOf("js/store.js"), liveApi = surfaceOf("js/store-firebase.js");
+  const onlyDemo = [...demoApi].filter(k => !liveApi.has(k));
+  const onlyLive = [...liveApi].filter(k => !demoApi.has(k) && k !== "for" && k !== "if");
+  if (onlyDemo.length || onlyLive.length)
+    console.log("   demo-only:", onlyDemo.join(",") || "-", " live-only:", onlyLive.join(",") || "-");
+  chk("the demo and live stores expose the same ZB_STORE surface",
+      onlyDemo.length === 0 && onlyLive.length === 0);
+
   /* ---- BRIEF-024 F1: a failing background refresh must not become an unhandled
          rejection. Every fire-and-forget path routes through refreshQuietly(). ---- */
   const appSrcF1 = require("fs").readFileSync("js/app.js", "utf8");
