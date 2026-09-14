@@ -271,3 +271,19 @@ select.input{appearance:none;-webkit-appearance:none;background:#fff url("data:i
 .ttf a:hover{text-decoration:underline}
 /* Sits under the name in a leaderboard row, so it never shifts the rank or the score. */
 .noteligible{display:block;font-size:10.5px;font-weight:600;color:var(--muted);margin-top:1px}
+
+/* ---- BRIEF-029: shareable demo badge ----
+   Sits clear of the tab bar and the home indicator, and is pointer-events:none so it can
+   never swallow a tap on the UI it is labelling. It is transform-centred, so per the
+   Android-flicker guardrail it carries no backdrop-filter — the background is solid. */
+.demobadge{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(72px + env(safe-area-inset-bottom,0px));
+  z-index:40;pointer-events:none;
+  max-width:calc(100% - 32px);
+  padding:6px 13px;border-radius:999px;
+  background:rgba(26,26,26,.88);color:#fff;
+  font-size:11.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+  box-shadow:0 4px 14px rgba(6,14,26,.22)}
+/* Onboarding and the countdown hide the tab bar, so the badge drops to the bottom edge. */
+.demobadge.nobar{bottom:calc(16px + env(safe-area-inset-bottom,0px))}

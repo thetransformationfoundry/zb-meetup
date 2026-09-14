@@ -333,6 +333,66 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
 
+  /* ---- BRIEF-029: shareable demo mode ---- */
+  // The switch is decided in firebase-config.js BEFORE index.html picks a store, so it is
+  // tested by evaluating that file in a sandbox with a fake location/sessionStorage.
+  const vm029 = require("vm");
+  const cfgSrc029 = require("fs").readFileSync("js/firebase-config.js", "utf8");
+  const runCfg = (search, store, noStore) => {
+    const ss = { _v: Object.assign({}, store),
+      getItem(k){ return k in this._v ? this._v[k] : null; },
+      setItem(k,v){ this._v[k] = String(v); }, removeItem(k){ delete this._v[k]; } };
+    const ctx = { window:{} }; ctx.window = ctx;
+    if (search !== null) ctx.location = { search };
+    if (!noStore) ctx.sessionStorage = ss;
+    vm029.createContext(ctx); vm029.runInContext(cfgSrc029, ctx);
+    return { demo: ctx.window.ZB_DEMO, live: ctx.window.ZB_LIVE, kept: ss._v };
+  };
+  const noParam = runCfg("", {});
+  chk("without ?demo the app stays exactly live, as before",
+      noParam.demo === false && noParam.live === true);
+  const on = runCfg("?demo=1", {});
+  chk("?demo=1 forces the demo store even though a real apiKey is present",
+      on.demo === true && on.live === false && on.kept.zbDemo === "1");
+  chk("demo survives a refresh with no param (sessionStorage), and ?demo=0 clears it",
+      runCfg("", on.kept).demo === true
+      && runCfg("?demo=0", on.kept).demo === false
+      && runCfg("", runCfg("?demo=0", on.kept).kept).live === true);
+  chk("a browser that throws on sessionStorage still honours the URL for that load",
+      runCfg("?demo=1", {}, true).demo === true && runCfg(null, {}, true).live === true);
+
+  // the guarantee that matters: a demo tab never even FETCHES the Firebase SDK
+  const idx = require("fs").readFileSync("index.html", "utf8");
+  const loader = idx.slice(idx.indexOf("window.ZB_LIVE"), idx.indexOf("App UI"));
+  chk("index.html loads the Firebase SDK only on the live branch, the demo store on the other",
+      /\?\s*\[[^\]]*firebase-app-compat[^\]]*store-firebase\.js/.test(loader.replace(/\s+/g, " "))
+      && /:\s*\[\s*"js\/store\.js/.test(loader.replace(/\s+/g, " ")));
+
+  // countdown: unlocked in demo, untouched for everyone else
+  const realDemoFlag = window.ZB_DEMO;
+  const emailBefore029 = window.ZB_STORE._email;
+  setNow(window.__unlock.getTime() - 3 * 86400000);      // three days before launch
+  window.ZB_STORE._email = "someone.else@zimmerbiomet.com";   // a non-admin, so the lock applies
+  await refreshAndSettle();
+  chk("a live colleague before unlock is still held at the countdown",
+      window.__spinLocked() === true);
+  window.ZB_DEMO = true;
+  chk("a demo tab is past the countdown so spin actually works",
+      window.__spinLocked() === false);
+  window.go("spin");
+  chk("and the demo tab gets the real spin screen, not the holding screen",
+      /TODAY.S MATCH/.test(scr()) && !/COUNTDOWN TO LAUNCH/.test(scr()));
+  window.ZB_DEMO = realDemoFlag;
+  chk("clearing the demo flag restores the countdown for live users",
+      window.__spinLocked() === true);
+  realNow();
+  window.ZB_STORE._email = emailBefore029;                // put the signed-in user back
+  await refreshAndSettle();
+
+  chk("the demo badge copy exists in all three languages",
+      ["en","nl","ro"].every(l => (window.ZB_T("demo_badge", l) || "").length > 10
+        && window.ZB_T("demo_badge", l) !== "demo_badge"));
+
   /* ---- BRIEF-027: builder exclusion, admin eligibility chip, TTF credit ---- */
   chk("ZB_IS_BUILDER keys off the agency DOMAIN, not the admin list",
       window.ZB_IS_BUILDER("sean.abbood@thetransformationfoundry.nl") === true

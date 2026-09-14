@@ -234,7 +234,10 @@ const SPIN_UNLOCK=window.ZB_SPIN_UNLOCK;
 }catch(e){}})();
 const previewCountdown=()=>{try{return localStorage.getItem('zbPreviewCountdown')==='1';}catch(e){return false;}};
 // Admins bypass so Sean and Donnae can seed and test; preview overrides that for QA.
-const spinLocked=()=>!!SPIN_UNLOCK&&Date.now()<SPIN_UNLOCK.getTime()&&(!C.admin||previewCountdown());
+// A demo tab is always past the gate: the whole point of the link is to show the app
+// working, and a visitor landing on a countdown sees nothing. This reads window.ZB_DEMO,
+// which is false for every live tab, so the real countdown is untouched for colleagues.
+const spinLocked=()=>!window.ZB_DEMO&&!!SPIN_UNLOCK&&Date.now()<SPIN_UNLOCK.getTime()&&(!C.admin||previewCountdown());
 function unlockParts(){
   const ms=Math.max(0,SPIN_UNLOCK.getTime()-Date.now()), t=Math.floor(ms/1000);
   const p=n=>n<10?'0'+n:String(n);
@@ -550,6 +553,7 @@ function render(){
   else if(view==="admin"){s.innerHTML=viewAdmin();if(C.admin&&!C.adminData)loadAdminData();}
   else if(view==="notifs")s.innerHTML=viewNotifs();
   s.scrollTop=0;
+  if(window.__demoBadgePaint)window.__demoBadgePaint();
 }
 // After a wall: deep-link, bring the post into view. render() resets scrollTop, so this
 // has to run after it, and the highlight clears itself so a later visit is not still lit.
@@ -873,6 +877,7 @@ function renderOnboard(){
   }
   $("#screen").innerHTML=`<div class="ob"><div>${dots}${body}</div><div class="ob-cta">${cta}</div></div>`;
   btnIdle(document.querySelector('.ob-cta .btn'));   // this markup is new — never inherit busy
+  if(window.__demoBadgePaint)window.__demoBadgePaint();
 }
 window.obStep=n=>{onboardStep=n;renderOnboard();};
 window.obLang=function(l){OB.lang=LANGS.indexOf(l)>-1?l:'en';renderOnboard();};
@@ -1482,8 +1487,31 @@ function initPushRouting(){
   }catch(e){}
 }
 
+// BRIEF-029: one small badge, injected once, so no screen has to remember to render it.
+// Follows the viewer's language like everything else, and re-checks whether the tab bar
+// is showing so it never sits on top of it.
+function initDemoBadge(){
+  if(!window.ZB_DEMO)return;
+  let el=document.getElementById('demobadge');
+  if(!el){
+    el=document.createElement('div');
+    el.id='demobadge';el.className='demobadge';
+    el.setAttribute('role','status');
+    document.body.appendChild(el);
+  }
+  const paint=()=>{
+    el.textContent=t('demo_badge');
+    const tb=document.getElementById('tabbar');
+    const barShowing=!!(tb&&tb.style.display!=='none'&&(tb.innerHTML||'').trim());
+    el.className='demobadge'+(barShowing?'':' nobar');
+  };
+  paint();
+  window.__demoBadgePaint=paint;      // repainted after each render
+}
+
 window.ZB_BOOT=function(){
   initA2HS();
+  initDemoBadge();
   initPushRouting();
   // Before sign-in too: the consent step needs to know whether to offer the
   // push tick at all, and pushState() works signed-out (it just reports "off").

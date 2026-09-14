@@ -82,6 +82,36 @@ window.ZB_DOMAIN_HINT = function () {
   return (window.ZB_CONFIG.ALLOWED_DOMAINS || []).map(d => "@" + d).join(" or ");
 };
 
+// ---- Shareable demo mode (BRIEF-029) ----
+// ?demo=1 forces the in-browser demo store for THIS TAB, so the app can be shown to
+// someone without an account and without touching the live project. ?demo=0 clears it.
+//
+// It has to be decided HERE, before index.html chooses which store to load: that choice
+// reads window.ZB_LIVE, and the Firebase SDK is only fetched on the live branch. So a
+// demo tab never loads firebase-*.js at all, and can make no Firestore or Auth call —
+// the demo store talks to nothing.
+//
+// sessionStorage, not localStorage, and not a URL rewrite: it survives a refresh and
+// in-app navigation in this tab only, so a demo link can never leave someone's normal
+// browsing (or a home-screen launch) stuck in demo.
+window.ZB_DEMO = (function () {
+  // Neither global is guaranteed: the Node harness evaluates this file with no DOM, and
+  // a private-mode browser can throw on sessionStorage. Default off in both cases, so
+  // nothing can accidentally flip the app into demo.
+  var search = (typeof location !== "undefined" && location.search) || "";
+  var m = search.match(/[?&]demo=([01])/);
+  var store = null;
+  try { store = (typeof sessionStorage !== "undefined") ? sessionStorage : null; } catch (e) { store = null; }
+  if (m) {
+    var on = m[1] === "1";
+    try { if (store) { on ? store.setItem("zbDemo", "1") : store.removeItem("zbDemo"); } } catch (e) {}
+    return on;                                   // the URL always wins for this load
+  }
+  try { return !!store && store.getItem("zbDemo") === "1"; } catch (e) { return false; }
+})();
+
 // LIVE once real keys are present (they are), else DEMO mode.
-window.ZB_LIVE = !!window.ZB_CONFIG.firebase.apiKey &&
+// The demo override wins over the key check — that is the whole point of it.
+window.ZB_LIVE = !window.ZB_DEMO &&
+                 !!window.ZB_CONFIG.firebase.apiKey &&
                  window.ZB_CONFIG.firebase.apiKey.indexOf("PASTE") === -1;

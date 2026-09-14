@@ -209,6 +209,7 @@ window.ZB_I18N = {
   m_not_found:{en:"Meetup not found.",nl:"Meetup niet gevonden.",ro:"Întâlnirea nu a fost găsită."},
   m_your_part_done:{en:"You've finished your part of this meetup.",nl:"Je hebt jouw deel van deze meetup afgerond.",ro:"Ți-ai finalizat partea din această întâlnire."},
   m_view_recap:{en:"View the recap",nl:"Bekijk de samenvatting",ro:"Vezi rezumatul"},
+  demo_badge:{en:"Demo — sample data, nothing is saved",nl:"Demo — voorbeeldgegevens, er wordt niets opgeslagen",ro:"Demo — date de exemplu, nu se salvează nimic"},
   zb_only:{en:"For Zimmer Biomet colleagues only",nl:"Alleen voor Zimmer Biomet-collega's",ro:"Doar pentru colegii Zimmer Biomet"},
   si_h:{en:"Welcome back",nl:"Welkom terug",ro:"Bine ai revenit"},
   si_sub:{en:"Sign in with your work email to pick up where you left off.",nl:"Log in met je werk-e-mail om verder te gaan waar je gebleven was.",ro:"Conectează-te cu e-mailul de serviciu ca să continui de unde ai rămas."},
