@@ -125,6 +125,12 @@ window.ZB_I18N = {
   meet_q_h:{en:"2 · Discussion questions",nl:"2 · Gespreksvragen",ro:"2 · Întrebări de discuție"},
   meet_q_private:{en:"Your answers stay private (admins only). The photo goes to the community wall.",nl:"Je antwoorden blijven privé (alleen beheerders). De foto komt op de community-wall.",ro:"Răspunsurile tale rămân private (doar administratorii). Poza ajunge pe peretele comunității."},
   meet_complete:{en:"Complete my part",nl:"Mijn deel afronden",ro:"Finalizează partea mea"},
+  pts_10:{en:"+10 pts",nl:"+10 ptn",ro:"+10 pct"},
+  meet_photo_added:{en:"Photo added +5 pts",nl:"Foto toegevoegd +5 ptn",ro:"Poză adăugată +5 pct"},
+  meet_done_toast:{en:"Your part is complete! +5 pts",nl:"Jouw deel is klaar! +5 ptn",ro:"Partea ta e gata! +5 pct"},
+  meet_done_toast_10:{en:"Your part is complete! +5 pts (10 in total)",nl:"Jouw deel is klaar! +5 ptn (10 in totaal)",ro:"Partea ta e gata! +5 pct (10 în total)"},
+  pts_earned:{en:"+5 earned",nl:"+5 verdiend",ro:"+5 obținute"},
+  pts_available:{en:"+5 pts",nl:"+5 ptn",ro:"+5 pct"},
   meet_complete_hint:{en:"Answer all 3 questions to complete your part.",nl:"Beantwoord alle 3 de vragen om je deel af te ronden.",ro:"Răspunde la toate 3 întrebările pentru a finaliza partea ta."},
 
   /* --- meetup leftovers (BRIEF-023A) --- */

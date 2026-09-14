@@ -330,6 +330,14 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
 
+  /* ---- BRIEF-024 A2: point + photo feedback must be translated ---- */
+  chk("every points label and toast has a dictionary key, in all three languages",
+      ["meet_photo_added","meet_done_toast","meet_done_toast_10","pts_earned","pts_available","pts_10"]
+        .every(k => ["en","nl","ro"].every(l => (window.ZB_T(k,l)||"").length > 2 && window.ZB_T(k,l) !== k)));
+  chk("the Romanian points labels are not just the English ones",
+      window.ZB_T("meet_done_toast","ro") !== window.ZB_T("meet_done_toast","en")
+      && window.ZB_T("pts_earned","ro") !== window.ZB_T("pts_earned","en"));
+
   /* ---- BRIEF-024 A1: the accept/decline card. Unreachable in the demo until now,
          because store.js never computed `incoming` — which is how it stayed English. ---- */
   const reqMate = (await window.ZB_STORE.listUsers())[0];

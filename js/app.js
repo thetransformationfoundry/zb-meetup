@@ -1100,8 +1100,8 @@ function viewMeet(id){
    <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">${t('meet_both_accepted',{type:`<b>${typeLabel(m.type)}</b>`})}</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} ${t('meet_plan')}${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t('meet_last_msg')} ${(last.by==='me'?t('meet_you_prefix')+' ':'')+last.text}</div>`:''}</div>
    ${talkingPointsHTML(m)}
    <p class="muted small" style="margin:2px 2px 10px;line-height:1.5">${t('meet_log')}</p>
-   <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?'+5 earned':'+5 pts'}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.photo?`${mp?`<img src="${mp}" alt="${t('meet_your_photo')}" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
-   <div class="card"><div class="row between"><b>${t('meet_q_h')}</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':'+5 pts'}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${qText(q)}${q.tier===1?`<span class="tierpill">${t('key_idea')}</span>`:''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="${t('q_answer_ph')}">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">${t('meet_q_private')}</p></div>
+   <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?t('pts_earned'):t('pts_available')}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.photo?`${mp?`<img src="${mp}" alt="${t('meet_your_photo')}" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} Change photo</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
+   <div class="card"><div class="row between"><b>${t('meet_q_h')}</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':t('pts_available')}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${qText(q)}${q.tier===1?`<span class="tierpill">${t('key_idea')}</span>`:''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="${t('q_answer_ph')}">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">${t('meet_q_private')}</p></div>
    <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} ${t('meet_complete')}</button>
    <p class="muted small center" style="margin-top:8px">${canComplete(m)?t('meet_complete_ok'):t('meet_complete_hint')}</p>
    <p class="muted small center" style="margin-top:6px">${m.otherCompleted?t('meet_partner_done',{name:m.person.first}):t('meet_waiting',{name:m.person.first})}</p>`;
@@ -1141,11 +1141,11 @@ function refreshCompleteBtn(m){const b=document.getElementById('completeBtn');if
 window.addPhoto=function(id){const had=!!(C.matches.find(x=>x.id===id)||{}).photo;
   const m=C.matches.find(x=>x.id===id);
   const post=m?{names:(C.me.name||'You')+' & '+m.person.first,scene:typeToScene(m.type)}:null;
-  return new Promise(function(res){pickImage(async function(d){await S.setMatchPhoto(id,d,post);toast(had?"Photo updated":"Photo added +5 pts");await refresh();res(true);},MEETUP_PX);});};
+  return new Promise(function(res){pickImage(async function(d){await S.setMatchPhoto(id,d,post);toast(had?t('ep_photo_toast'):t('meet_photo_added'));await refresh();res(true);},MEETUP_PX);});};
 window.ans=async function(id,i,v){const m=C.matches.find(x=>x.id===id);if(!m)return;m.answers[i]=v;await S.setMatchAnswers(id,m.answers);refreshCompleteBtn(m);};
 window.complete=async function(id){const m=C.matches.find(x=>x.id===id);if(!m||!canComplete(m))return;
   await S.completeMatch(id,{names:(C.me.name||'You')+' & '+m.person.first,scene:typeToScene(m.type),photo:typeof m.photo==='string'?m.photo:null});
-  toast(m.photoAwarded?"Your part is complete! +5 pts (10 in total)":"Your part is complete! +5 pts");view="meetups";await refresh();};
+  toast(m.photoAwarded?t('meet_done_toast_10'):t('meet_done_toast'));view="meetups";await refresh();};
 
 /* ---------------- WALL ---------------- */
 function viewWall(){
@@ -1239,7 +1239,7 @@ function viewProfile(){
          <p class="muted small" style="margin:8px 0 10px">${t('ice_yours_sub')}</p>
          ${ib.map(x=>`<div class="q"><div class="t">${qText({id:x.id,text:x.question},myLang())}</div><div class="small" style="margin-top:4px;white-space:pre-wrap">${x.answer}</div></div>`).join('')}
          <button class="btn ghost sm" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('pencil',15)} ${t('ice_edit')}</button></div>`;
-     return `<div class="card" ${top}><div class="row between"><b>${t('ice_break_h')}</b><span class="chip">+10 pts</span></div>
+     return `<div class="card" ${top}><div class="row between"><b>${t('ice_break_h')}</b><span class="chip">${t('pts_10')}</span></div>
        <p class="muted small" style="margin:8px 0 10px">${t('ice_break_sub')}</p>
        <button class="btn" style="width:100%;justify-content:center" onclick="iceFromProfile()">${icon('chat',17)} ${answered?t('ice_finish'):t('ice_answer3')}</button></div>`;
    })()}
