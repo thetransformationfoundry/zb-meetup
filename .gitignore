@@ -12,3 +12,11 @@ firestore-debug.log
 
 # local demo copy made by tools/refresh-demo.sh — never commit it
 _demo/
+
+# BRIEF-028: the shared brain (briefs, session logs, audits, roadmap, question
+# sources) is TTF/ZB planning IP and security detail, and this repo is PUBLIC so
+# GitHub Pages can serve the app for free. Context stays ON DISK at these exact
+# paths — Cowork and Claude Code keep reading and writing it normally — git just
+# stops following it. Backed up separately in a PRIVATE repo; never re-add it
+# here, and never wire the private backup in as a submodule.
+Context/
