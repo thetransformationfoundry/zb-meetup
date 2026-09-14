@@ -30,6 +30,14 @@ window.ZB_CONFIG = {
     "thetransformationfoundry.nl"  // The Transformation Foundry (builder)
   ],
 
+  // The builder/agency domain. Accounts here are NOT Zimmer Biomet colleagues: they
+  // are excluded from other people's match pool, from @mentions and from the prize
+  // leaderboard, while keeping full testing access. Deliberately a DOMAIN list and not
+  // ADMIN_EMAILS — Donnae is an admin AND a real colleague, and must not be excluded.
+  BUILDER_DOMAINS: [
+    "thetransformationfoundry.nl"   // The Transformation Foundry (builder)
+  ],
+
   // Only these emails get admin powers (the Admin dashboard).
   ADMIN_EMAILS: [
     "donnae.abbood@zimmerbiomet.com",         // Donnae — initiative owner
@@ -59,6 +67,16 @@ window.ZB_DOMAIN_OK = function (email) {
   const domain = String(email).trim().toLowerCase().slice(at + 1);
   return (window.ZB_CONFIG.ALLOWED_DOMAINS || []).some(d => d.toLowerCase() === domain);
 };
+// Is this a builder (agency) account rather than a Zimmer Biomet colleague?
+// Same exact-domain matching as ZB_DOMAIN_OK, so "thetransformationfoundry.nl.evil.tld"
+// is not a builder either. One source of truth for both stores and the UI.
+window.ZB_IS_BUILDER = function (email) {
+  const at = String(email || "").trim().toLowerCase().lastIndexOf("@");
+  if (at < 1) return false;
+  const domain = String(email).trim().toLowerCase().slice(at + 1);
+  return (window.ZB_CONFIG.BUILDER_DOMAINS || []).some(d => d.toLowerCase() === domain);
+};
+
 // Human-readable form of the list, for messages shown to people.
 window.ZB_DOMAIN_HINT = function () {
   return (window.ZB_CONFIG.ALLOWED_DOMAINS || []).map(d => "@" + d).join(" or ");

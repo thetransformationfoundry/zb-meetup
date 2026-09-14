@@ -114,7 +114,14 @@ function ttl(key, ms, loader) {
   return loader().then(v => { cache[key] = { t:Date.now(), v }; return v; });
 }
 const uidNow = () => auth.currentUser && auth.currentUser.uid;
-const profileToPublic = d => ({ uid:d.uid, lang:d.lang || "en", name:d.name, first:d.first || (d.name||"").split(" ")[0], role:d.role, dept:d.dept, workClass:d.workClass, floor:!!d.floor, color:d.color, photo:d.photo||null, points:d.points||0, icebreakers:d.icebreakers||[] });
+const myEmail = () => (auth.currentUser && auth.currentUser.email) || "";
+// BRIEF-027. Builder = the agency domain, NOT the admin list: Donnae is an admin and a
+// real colleague, so she is admin:true, builder:false and participates normally.
+const myFlags = () => ({
+  builder: !!(window.ZB_IS_BUILDER && window.ZB_IS_BUILDER(myEmail())),
+  admin: ADMINS.includes(myEmail().toLowerCase())
+});
+const profileToPublic = d => ({ uid:d.uid, builder:!!d.builder, admin:!!d.admin, lang:d.lang || "en", name:d.name, first:d.first || (d.name||"").split(" ")[0], role:d.role, dept:d.dept, workClass:d.workClass, floor:!!d.floor, color:d.color, photo:d.photo||null, points:d.points||0, icebreakers:d.icebreakers||[] });
 
 // Writes into ANOTHER user's notifications/{uid}/items subtree, so it depends on the
 // published rule allowing a signed-in colleague to create (not read/edit) a notification
@@ -230,12 +237,31 @@ const ZB_STORE = {
   async deleteAccount() { const u = auth.currentUser; if (!u) return; try { await db.collection("users").doc(u.uid).delete(); } catch(e){} try { await u.delete(); } catch(e){ await auth.signOut(); } },
 
   // ---- profile ----
-  async getMe() { const uid = uidNow(); if (!uid) return null; const s = await db.collection("users").doc(uid).get(); cachedMe = s.exists ? Object.assign({ uid }, s.data()) : null; return cachedMe ? { ...cachedMe } : null; },
+  async getMe() {
+    const uid = uidNow(); if (!uid) return null;
+    const s = await db.collection("users").doc(uid).get();
+    cachedMe = s.exists ? Object.assign({ uid }, s.data()) : null;
+    if (cachedMe) {
+      // BRIEF-027 backfill: accounts created before this brief carry neither flag, so
+      // Sean's and Donnae's existing documents would otherwise need a console edit. Only
+      // writes when the stored value actually differs, so this is a one-time correction
+      // per account and not a write on every load.
+      const want = myFlags();
+      if (cachedMe.builder !== want.builder || cachedMe.admin !== want.admin) {
+        try {
+          await db.collection("users").doc(uid).set(want, { merge:true });
+          cachedMe = Object.assign(cachedMe, want);
+          cache["users"] = null;
+        } catch (e) { if (window.console) console.warn("[zb] flag backfill failed", e && e.code); }
+      }
+    }
+    return cachedMe ? { ...cachedMe } : null;
+  },
   async saveMe(partial) {
     const uid = uidNow(); if (!uid) throw new Error("not signed in");
     const ref = db.collection("users").doc(uid);
     const existing = await ref.get();
-    const data = Object.assign({}, partial);
+    const data = Object.assign({}, partial, myFlags());
     if (partial.name) data.first = partial.name.split(" ")[0];
     if (!existing.exists) {
       data.points = SIGNUP_BONUS; data.signupBonusGranted = true;   // BRIEF-017 signup bonus
@@ -251,8 +277,15 @@ const ZB_STORE = {
 
   // ---- users / leaderboard (cached 20s to limit reads) ----
   _allUsers() { return ttl("users", 20000, () => db.collection("users").get().then(q => q.docs.map(d => Object.assign({ uid:d.id }, d.data())))); },
-  async listUsers() { const uid = uidNow(); const all = await this._allUsers(); return all.filter(u => u.uid !== uid).map(profileToPublic); },
-  async leaderboard() { const uid = uidNow(); const all = await this._allUsers(); return all.map(u => ({ name:u.name, points:u.points||0, color:u.color, photo:u.photo||null, me:u.uid===uid })).sort((a,b)=>b.points-a.points); },
+  // The candidate pool other people's spins draw from, and the @mention picker.
+  // Builders are filtered OUT here, so no real colleague can be matched to one. The
+  // builder's OWN call still returns every real colleague (none of them are builders),
+  // which is what keeps their spin -> request -> accept -> complete loop working.
+  async listUsers() { const uid = uidNow(); const all = await this._allUsers(); return all.filter(u => u.uid !== uid && !u.builder).map(profileToPublic); },
+  // Builders never appear or rank. Admins who are real colleagues (Donnae) DO rank
+  // normally — `admin` is surfaced only so the row can show an ineligibility chip.
+  // Display-only: nothing here changes points or ordering.
+  async leaderboard() { const uid = uidNow(); const all = await this._allUsers(); return all.filter(u => !u.builder).map(u => ({ name:u.name, points:u.points||0, color:u.color, photo:u.photo||null, me:u.uid===uid, admin:!!u.admin })).sort((a,b)=>b.points-a.points); },
 
   // ---- matches ----
   async myMatches() {

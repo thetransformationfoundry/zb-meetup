@@ -129,8 +129,11 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && window.ZB_DOMAIN_OK("nodomain") === false);
 
   chk("create step's sign-in link goes to the sign-in screen", /obGoSignIn\(\)/.test(scr()) && !/onclick="obSignIn\(\)"/.test(scr()));
-  // onboard as an ADMIN address (allowed domain) so BRIEF-007's idea bank is exercised
-  document.getElementById("ob-email").value = "sean.abbood@thetransformationfoundry.nl";
+  // Onboard as DONNAE: an admin AND a real Zimmer Biomet colleague. That exercises
+  // BRIEF-007's idea bank exactly as before, and since BRIEF-027 it is also the right
+  // fixture — Sean's TTF address is a BUILDER, so onboarding as him would run most of
+  // the suite as an account that is excluded from the pool and the leaderboard.
+  document.getElementById("ob-email").value = "donnae.abbood@zimmerbiomet.com";
   document.getElementById("ob-pass").value = "demo1234"; window.obCreate();
   window.obLang("nl"); window.obStep(1);
   chk("the rest of onboarding follows the chosen language", /Wat is je naam\?/.test(scr()));
@@ -329,6 +332,82 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("legacy comments still render", !!seedWithComment
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
+
+  /* ---- BRIEF-027: builder exclusion, admin eligibility chip, TTF credit ---- */
+  chk("ZB_IS_BUILDER keys off the agency DOMAIN, not the admin list",
+      window.ZB_IS_BUILDER("sean.abbood@thetransformationfoundry.nl") === true
+      && window.ZB_IS_BUILDER("donnae.abbood@zimmerbiomet.com") === false   // admin, but a real colleague
+      && window.ZB_IS_BUILDER("x@thetransformationfoundry.nl.evil.tld") === false
+      && window.ZB_IS_BUILDER("") === false);
+
+  const poolBefore = (await window.ZB_STORE.listUsers()).length;
+  const boardBefore = (await window.ZB_STORE.leaderboard()).length;
+  const bUid = (await window.ZB_STORE.listUsers())[0].uid;
+  const bName = (await window.ZB_STORE.listUsers())[0].name;
+  await window.ZB_STORE._flagUser(bUid, { builder:true });
+  const poolAfter = await window.ZB_STORE.listUsers();
+  const boardAfter = await window.ZB_STORE.leaderboard();
+  chk("a builder is dropped from the match pool and the @mention list",
+      poolAfter.length === poolBefore - 1 && !poolAfter.some(u => u.uid === bUid));
+  chk("a builder never appears on the leaderboard",
+      boardAfter.length === boardBefore - 1 && !boardAfter.some(r => r.name === bName));
+
+  // a real colleague who happens to be an admin must be untouched by all of it
+  const aUid = poolAfter[0].uid, aName = poolAfter[0].name;
+  await window.ZB_STORE._flagUser(aUid, { admin:true });
+  const boardAdmin = await window.ZB_STORE.leaderboard();
+  const adminRow = boardAdmin.find(r => r.name === aName);
+  chk("an admin colleague still appears, ranks by points, and is flagged for the chip",
+      !!adminRow && adminRow.admin === true
+      && (await window.ZB_STORE.listUsers()).some(u => u.uid === aUid));
+  chk("the chip does not move anyone: ordering is still purely by points",
+      boardAdmin.every((r, i, arr) => i === 0 || arr[i-1].points >= r.points));
+  await refreshAndSettle();
+  window.go("ranks");
+  chk("the ineligibility chip renders in the viewer's language",
+      scr().indexOf(window.ZB_T("ranks_not_eligible", "en")) > -1);
+
+  // saving a profile from a builder address must stamp the flag
+  const savedEmail = window.ZB_STORE._email;
+  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+  await window.ZB_STORE.saveMe({ name:"Builder Tester" });
+  chk("saving from a builder address stamps builder:true, admin:true",
+      (await window.ZB_STORE.getMe()).builder === true
+      && (await window.ZB_STORE.getMe()).admin === true);
+  chk("and a builder is left off the leaderboard even as the signed-in user",
+      !(await window.ZB_STORE.leaderboard()).some(r => r.me === true));
+
+  // the builder's OWN loop must survive: spin -> request -> the other side accepts
+  const bTarget = (await window.ZB_STORE.listUsers())[0];
+  const bQs = (await window.ZB_STORE.questionBank()).filter(q => q.tier !== 2).slice(0, 3);
+  const bMatch = await window.ZB_STORE.createMatch(bTarget, "a coffee", bQs);
+  await window.ZB_STORE.acceptMatch(bMatch);
+  const bm = (await window.ZB_STORE.myMatches()).find(m => m.id === bMatch);
+  chk("a builder can still spin, request and have it accepted",
+      !!bm && bm.status === "active" && bTarget.builder !== true);
+
+  window.ZB_STORE._email = savedEmail;
+  await window.ZB_STORE.saveMe({ name:"Test User" });
+
+  chk("a Zimmer Biomet colleague saving their profile is never marked a builder",
+      (await window.ZB_STORE.getMe()).builder === false);
+
+  // credit
+  window.go("profile");
+  chk("the TTF credit shows on You, translated label plus the literal studio name",
+      scr().indexOf(window.ZB_T("credit_by", "en")) > -1
+      && /The Transformation Foundry/.test(scr())
+      && /thetransformationfoundry\.nl/.test(scr()));
+  await window.ZB_STORE.saveMe({ lang:"ro" });
+  await refreshAndSettle();
+  window.go("profile");
+  chk("the credit label follows the viewer's language",
+      scr().indexOf(window.ZB_T("credit_by", "ro")) > -1
+      && scr().indexOf(window.ZB_T("credit_by", "en")) === -1);
+  await window.ZB_STORE.saveMe({ lang:"en" });
+  await window.ZB_STORE._flagUser(bUid, { builder:false });
+  await window.ZB_STORE._flagUser(aUid, { admin:false });
+  await refreshAndSettle();
 
   /* ---- BRIEF-024 hygiene: what was removed must stay removed ---- */
   const appHy = require("fs").readFileSync("js/app.js", "utf8");
@@ -699,7 +778,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   let denied = false;
   try { await window.ZB_STORE.adminAnswers(); } catch (e) { denied = (e && e.code) === "zb/not-admin"; }
   chk("a non-admin cannot read the answers", denied && (await window.ZB_STORE.isAdmin()) === false);
-  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+  window.ZB_STORE._email = "donnae.abbood@zimmerbiomet.com";
 
   /* ---- BRIEF-019: go-live spin lock ---- */
   const UNLOCK = window.__unlock.getTime();
@@ -763,7 +842,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("How it works also runs chrome-free while locked", chrome().join() === "none,none");
 
   // admins bypass so they can seed and test
-  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+  window.ZB_STORE._email = "donnae.abbood@zimmerbiomet.com";
   await refreshAndSettle();
   chk("an admin bypasses the lock", window.__spinLocked() === false);
   window.go("spin"); chk("admin sees the real spin screen", /TODAY.S MATCH/.test(scr()) && !/COUNTDOWN TO LAUNCH/.test(scr()));
@@ -786,7 +865,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("chrome and the full app come back at unlock", chrome().join() === ",");
   window.go("wall"); chk("other tabs reachable again after unlock", /Community wall/.test(scr()));
   realNow();
-  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+  window.ZB_STORE._email = "donnae.abbood@zimmerbiomet.com";
   await refreshAndSettle();
 
   /* ---- BRIEF-023: fallbacks, badges, export language ---- */
@@ -1082,7 +1161,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   let seedDenied = false;
   try { await window.ZB_STORE.seedQuestionBank(); } catch (e) { seedDenied = (e && e.code) === "zb/not-admin"; }
   chk("a non-admin cannot seed the question bank", seedDenied);
-  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+  window.ZB_STORE._email = "donnae.abbood@zimmerbiomet.com";
 
   // an edited question must not split the idea bank into two entries
   const answered = (await window.ZB_STORE.adminAnswers()).questions[0];
@@ -1092,7 +1171,7 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("editing a question relabels its answers, not duplicates them",
       same.length === 1 && same[0].text === "Reworded by the admin?"
       && same[0].count === answered.count);
-  window.ZB_STORE._email = "sean.abbood@thetransformationfoundry.nl";
+  window.ZB_STORE._email = "donnae.abbood@zimmerbiomet.com";
 
   /* ---- BRIEF-015: role list, migration, EMEA/GSCC matching ---- */
   const EMEA = "EMEA - QARA Commercial", QARA = "GSCC - QARA";
@@ -1219,6 +1298,20 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   window.ZB_STORE.pushState = realState;
   await window.ZB_STORE.saveMe({ lang:"en" });
   await refreshAndSettle();
+
+  // BRIEF-027's guarantee: the ineligibility chip is display-only, so a colleague who
+  // meets an ADMIN still earns their own points. Runs LAST — it completes a real meetup,
+  // which would otherwise shift the admin dashboard's aggregate counts.
+  const admMate = (await window.ZB_STORE.listUsers())[0];
+  await window.ZB_STORE._flagUser(admMate.uid, { admin:true });
+  const admPtsPre = (await window.ZB_STORE.getMe()).points;
+  const admQs = (await window.ZB_STORE.questionBank()).filter(q => q.tier !== 2).slice(0, 3);
+  const admMatch = await window.ZB_STORE.createMatch(admMate, "a coffee", admQs);
+  await window.ZB_STORE.acceptMatch(admMatch);
+  await window.ZB_STORE.setMatchAnswers(admMatch, admQs.map(() => "an answer"));
+  await window.ZB_STORE.completeMatch(admMatch, { names:"x", scene:"coffee", photo:null });
+  chk("meeting an admin still earns the colleague their own points",
+      (await window.ZB_STORE.getMe()).points === admPtsPre + 5);
 
   console.log(ok ? "\nDEMO PATH GREEN ✅" : "\nDEMO PATH FAILED ❌");
   process.exit(ok ? 0 : 1);

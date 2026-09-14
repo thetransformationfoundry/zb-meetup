@@ -161,18 +161,29 @@
     // ---- profile ----
     getMe() { return P(ME ? { ...ME } : null); },
     saveMe(partial) {
-      ME = Object.assign(ME || { points:SIGNUP_BONUS, signupBonusGranted:true, lang:"en", color:"#0079BD" }, partial);   // BRIEF-017/023
+      ME = Object.assign(ME || { points:SIGNUP_BONUS, signupBonusGranted:true, lang:"en", color:"#0079BD" }, partial, this._myFlags());   // BRIEF-017/023/027
       if (this._email && !ME.email) ME.email = this._email;
       if (this._authcb) this._authcb({ uid:"me", email:ME.email });
       return P({ ...ME });
     },
     isAdmin() { const e = (this._email||"").toLowerCase(); return P((window.ZB_CONFIG.ADMIN_EMAILS||[]).map(x=>x.toLowerCase()).includes(e)); },
+    // BRIEF-027, mirroring store-firebase.js: builder = the agency DOMAIN, admin = the
+    // admin list. Donnae is admin:true, builder:false and participates normally.
+    _myFlags() {
+      const e = (this._email||"").toLowerCase();
+      return { builder: !!(window.ZB_IS_BUILDER && window.ZB_IS_BUILDER(e)),
+               admin: (window.ZB_CONFIG.ADMIN_EMAILS||[]).map(x=>x.toLowerCase()).includes(e) };
+    },
 
     // ---- users / leaderboard ----
-    listUsers() { return P(USERS.map(u => ({ ...u }))); },
+    // Builders are filtered out of the pool and the @mention picker, exactly as live.
+    listUsers() { return P(USERS.filter(u => !u.builder).map(u => ({ ...u }))); },
+    // Builders never rank. Admins who are real colleagues do rank, with `admin`
+    // surfaced so the row can show the ineligibility chip. Display-only.
     leaderboard() {
-      const all = USERS.map(u => ({ name:u.name, points:u.points, color:u.color, photo:u.photo, me:false }));
-      if (ME) all.push({ name:ME.name, points:ME.points, color:ME.color, photo:ME.photo, me:true });
+      const all = USERS.filter(u => !u.builder)
+        .map(u => ({ name:u.name, points:u.points, color:u.color, photo:u.photo, me:false, admin:!!u.admin }));
+      if (ME && !ME.builder) all.push({ name:ME.name, points:ME.points, color:ME.color, photo:ME.photo, me:true, admin:!!ME.admin });
       return P(all.sort((a,b) => b.points - a.points));
     },
 
@@ -193,6 +204,12 @@
     },
     // Demo-only, like _notify/_sentNotifs: seed a request FROM a colleague so the
     // accept/decline card can actually be rendered and asserted.
+    // Demo-only: flag a fixture colleague as a builder/admin so the BRIEF-027 filters
+    // can be asserted without changing the size or shape of the demo pool.
+    _flagUser(uid, flags) {
+      const u = USERS.find(x => x.uid === uid); if (!u) return P(false);
+      Object.assign(u, flags || {}); return P(true);
+    },
     _seedIncoming(uid) {
       const other = USERS.find(u => u.uid === uid) || USERS[0];
       const m = { id:"m"+(mid++), a:other.uid, b:"me", person:other, status:"requested",

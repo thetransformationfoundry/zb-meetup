@@ -328,6 +328,13 @@ async function loadBuild(){
     if(b&&b.version){C.build=b;if(view==='profile')render();}
   }catch(e){/* offline or no stamp deployed yet — the running version still shows */}
 }
+// The builder credit. The label is translated; the studio name and domain stay literal.
+function ttfCredit(dark){
+  const c=dark?'rgba(255,255,255,.72)':'var(--muted)', l=dark?'rgba(255,255,255,.92)':'var(--zb-blue)';
+  return `<div class="ttf" style="color:${c}">${t('credit_by')}
+    <a href="https://thetransformationfoundry.nl" target="_blank" rel="noopener noreferrer"
+       style="color:${l}">The Transformation Foundry</a></div>`;
+}
 const buildIsStale=()=>!!(C.build&&ZB_APP_VERSION&&Number(C.build.version)>ZB_APP_VERSION);
 function buildStampHTML(){
   const running=ZB_APP_VERSION?('v'+ZB_APP_VERSION):'dev';
@@ -339,6 +346,7 @@ function buildStampHTML(){
       <div class="small" style="line-height:1.5"><b>${t('stale_h')}</b> ${t('stale_body',{running:running,live:'v'+C.build.version})}</div></div></div>`:''}
     <div class="muted small" style="letter-spacing:.02em">${line}</div>
     <button class="btn ghost sm" style="margin-top:6px" onclick="checkUpdate()">${icon('refresh',16)} ${t('stale_check')}</button>
+    ${ttfCredit()}
   </div>`;
 }
 // Reload past the cache. A page can only do so much: this re-requests index.html with a fresh query,
@@ -633,6 +641,7 @@ function welcomeHTML(){
       <button type="button" onclick="obGoCreate()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">Create account</span></button>
       <button type="button" onclick="obGoSignIn()" style="width:100%;cursor:pointer;padding:17px;border-radius:999px;background:#fff;border:1px solid #ECEFF3;color:var(--ink);font-family:inherit;font-size:15px;font-weight:600;box-shadow:var(--shadow);">I already have an account</button>
       <div style="text-align:center;font-size:11.5px;color:var(--muted);margin-top:2px;">For Zimmer Biomet colleagues only &nbsp;·&nbsp; <a href="javascript:void(0)" onclick="obHow()" style="color:var(--zb-blue);font-weight:700">How it works</a></div>
+      ${ttfCredit()}
     </div>
   </div>`;
 }
@@ -1226,7 +1235,7 @@ window.addComment=async function(id){
 /* ---------------- RANKS ---------------- */
 function viewRanks(){
   let h=`<h2>${t('ranks_h')}</h2><p class="sub">${t('ranks_sub')}</p><div class="card prize"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${icon('money',14)} ${t('prize_chip')}</span><p class="small" style="margin:11px 0 0;line-height:1.5;opacity:.96">${t('prize_body')}</p><div class="prizerow"><div class="prizecard"><div class="pk">${t('prize_best')}</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">${t('prize_top')}</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">${t('prize_runner')}</div><div class="pv">€150</div></div></div><button type="button" class="btn white sm" style="width:100%;justify-content:center;margin-top:12px" onclick="go('howitworks')">${icon('help',16)} ${t('hiw_h')}</button></div><div class="card">`;
-  C.leaderboard.slice(0,15).forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${r.photo?`<img src="${r.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(r.name)}</span><div class="nm">${r.name}</div><div class="p">${r.points}</div></div>`;});
+  C.leaderboard.slice(0,15).forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${r.photo?`<img src="${r.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(r.name)}</span><div class="nm">${esc(r.name)}${(r.admin&&!r.builder)?`<span class="noteligible">${t('ranks_not_eligible')}</span>`:''}</div><div class="p">${r.points}</div></div>`;});
   return h+`</div>`;
 }
 
