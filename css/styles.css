@@ -47,7 +47,6 @@ body{font-family:var(--font);background:#e9edf2;color:var(--ink);-webkit-font-sm
 /* Language cue on a colleague's card (BRIEF-023) — a compact pill, not an emoji flag, so it
    renders identically on every platform and matches the tierpill treatment. */
 .langpill{display:inline-block;white-space:nowrap;font-size:10px;font-weight:800;letter-spacing:.6px;color:var(--zb-blue);background:var(--zb-blue-soft);border:1px solid #CFE4F1;padding:2px 6px;border-radius:6px;vertical-align:middle}
-.langpill.on-dark{color:#fff;background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.3)}
 /* SVG flag badge (BRIEF-023A): rounded, hairline border, sits on the text baseline. */
 .langflag{display:inline-flex;align-items:center;vertical-align:middle;width:20px;height:13px;border-radius:3px;overflow:hidden;box-shadow:0 0 0 1px rgba(16,24,40,.18)}
 .langflag svg{display:block}
@@ -172,7 +171,6 @@ h2{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:4px 0 2px}
 .avatar{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex:0 0 auto;width:44px;height:44px;font-size:15px;overflow:hidden}
 .avatar.lg{width:120px;height:120px;font-size:40px;box-shadow:var(--shadow-lg)}
 .avatar.sm{width:34px;height:34px;font-size:12px}
-.avatar.xs{width:26px;height:26px;font-size:10px}
 .input,textarea.input{width:100%;font-family:inherit;font-size:15px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);outline:none}
 .input:focus{border-color:var(--zb-blue);box-shadow:0 0 0 3px var(--zb-blue-soft)}
 textarea.input{resize:vertical}
@@ -184,16 +182,7 @@ textarea.input{resize:vertical}
 .tabbar button{flex:1;border:none;background:none;padding:9px 0 12px;font-family:inherit;font-size:10.5px;font-weight:600;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
 .tabbar button.active{color:var(--zb-blue)}
 .ic{display:inline-block;vertical-align:middle}
-.spin-stage{height:190px;display:flex;align-items:center;justify-content:center;position:relative;margin:6px 0 4px}
-.spin-ring{position:absolute;width:150px;height:150px;border-radius:50%;border:3px dashed var(--zb-blue-soft)}
-.spin-hero{background:linear-gradient(160deg,#0079BD 0%,#005f95 60%,#004b78 100%);border-radius:20px;padding:22px 18px 20px;color:#fff;min-height:calc(100vh - 150px);display:flex;flex-direction:column;align-items:center;text-align:center;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
-.spin-hero .ey{font-size:12px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;opacity:.85}
-.spin-hero h2{color:#fff;margin:2px 0 0}
-.spin-ring2{width:172px;height:172px;border-radius:50%;border:3px dashed rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;margin:14px 0 4px}
-.match-pop{background:#fff;color:var(--ink);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow-lg);animation:pop .3s ease;min-width:210px;margin-top:8px}
-.spin-cta{margin-top:auto;width:100%;padding-top:18px}
 .btn.white{background:#fff;color:var(--zb-blue);animation:none;box-shadow:none;border-radius:12px} .btn.white:hover{background:#eef5fb;filter:none}
-.btn.glass{background:rgba(255,255,255,.16);color:#fff;animation:none;box-shadow:none;border-radius:12px} .btn.glass:hover{background:rgba(255,255,255,.26);filter:none}
 .prize{background:linear-gradient(135deg,#0079BD,#005f95);color:#fff;border:none}
 .prizerow{display:flex;gap:9px;margin-top:14px}
 .prizecard{flex:1;background:rgba(255,255,255,.14);border-radius:12px;padding:12px 6px;text-align:center}
@@ -204,14 +193,6 @@ select.input{appearance:none;-webkit-appearance:none;background:#fff url("data:i
 /* onboarding: content top, buttons low (thumb reach) */
 .ob{min-height:calc(100vh - 130px);display:flex;flex-direction:column}
 .ob-cta{margin-top:auto;padding-top:20px}
-/* spin reel of meetup photos */
-.reel{width:calc(100% + 36px);margin:16px -18px 4px;overflow:hidden;-webkit-mask:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
-.reel-track{display:flex;align-items:center;gap:10px;width:max-content;animation:reel 26s linear infinite}
-@keyframes reel{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.reelcard{width:118px;flex:0 0 auto;background:#fff;border-radius:12px;box-shadow:var(--shadow);overflow:hidden;transform:rotate(var(--r,0deg))}
-.reelcard .rp{aspect-ratio:1;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:6px;line-height:1.2}
-.reelcard .rc{padding:5px 8px;font-size:9px;color:var(--muted)}
-.reelchip{display:inline-flex;align-items:center;background:rgba(255,255,255,.92);color:var(--zb-blue);font-size:11px;font-weight:800;padding:6px 11px;border-radius:999px;box-shadow:var(--shadow);flex:0 0 auto;white-space:nowrap}
 /* meetup detail blue header */
 .meet-hero{background:linear-gradient(160deg,#0079BD,#005f95);border-radius:18px;padding:18px;color:#fff;box-shadow:var(--shadow-lg);margin-bottom:16px}
 .meet-hero .muted{color:rgba(255,255,255,.8)}
@@ -261,9 +242,6 @@ select.input{appearance:none;-webkit-appearance:none;background:#fff url("data:i
 .stat{flex:1;text-align:center;padding:10px 6px}
 .stat .v{font-size:22px;font-weight:800;color:var(--zb-blue)}
 .stat .l{font-size:11px;color:var(--muted)}
-.seg{display:flex;gap:8px;margin:6px 0 14px}
-.seg button{flex:1;padding:9px;border:1px solid var(--line);background:#fff;border-radius:10px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;color:var(--ink)}
-.seg button.active{background:var(--zb-blue);color:#fff;border-color:var(--zb-blue)}
 .iconbtn{background:none;border:none;cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:13px;font-weight:700;padding:6px 4px}
 .iconbtn.liked{color:var(--bad)}
 .steps{display:flex;gap:6px;justify-content:center;margin-bottom:18px}

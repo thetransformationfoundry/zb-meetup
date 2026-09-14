@@ -183,7 +183,6 @@ window.ZB_I18N = {
   notif_msg:{en:"{name} sent you a message",nl:"{name} heeft je een bericht gestuurd",ro:"{name} ți-a trimis un mesaj"},
   notif_mention:{en:"{name} mentioned you in a comment",nl:"{name} heeft je genoemd in een reactie",ro:"{name} te-a menționat într-un comentariu"},
   notif_wallcomment:{en:"{name} commented on your meetup",nl:"{name} heeft op je meetup gereageerd",ro:"{name} a comentat la întâlnirea ta"},
-  wall_mention_hint:{en:"Type @ to mention a colleague",nl:"Typ @ om een collega te noemen",ro:"Scrie @ pentru a menționa un coleg"},
   wall_mention_none:{en:"No colleague found",nl:"Geen collega gevonden",ro:"Niciun coleg găsit"},
   notif_welcome:{en:"Welcome to ZB MeetUP! Tap Spin to find your first match.",nl:"Welkom bij ZB MeetUP! Tik op Spin om je eerste match te vinden.",ro:"Bine ai venit la ZB MeetUP! Apasă Învârte pentru prima potrivire."},
 

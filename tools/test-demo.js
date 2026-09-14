@@ -330,6 +330,19 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
 
+  /* ---- BRIEF-024 hygiene: what was removed must stay removed ---- */
+  const appHy = require("fs").readFileSync("js/app.js", "utf8");
+  const cssHy = require("fs").readFileSync("css/styles.css", "utf8");
+  chk("no dead slug() in app.js — both stores keep their own, which is used",
+      !/function slug\(/.test(appHy));
+  chk("every dictionary key is referenced somewhere",
+      Object.keys(window.ZB_I18N).every(k =>
+        new RegExp("['\"]" + k + "['\"]").test(appHy) || /^(text_|lang_)/.test(k)
+        || ["notif_mention","notif_wallcomment","push_reminder","push_nudge","fallback_name"].indexOf(k) > -1));
+  chk("the orphaned reel/spin CSS is gone and no undefined token is left",
+      !/\.reelcard|\.spin-stage|\.reel-track|\.match-pop/.test(cssHy)
+      && !/var\(--r[,)]/.test(cssHy));
+
   /* ---- BRIEF-024 B1: the two stores must expose the SAME public surface ----
      getMatch() existed only in the demo. Nothing called it, which is what made it
      dangerous: the first code to do so would pass the harness and throw in
