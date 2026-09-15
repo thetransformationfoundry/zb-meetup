@@ -348,6 +348,12 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && tpScr.indexOf(window.ZB_T("tp_button", "ro")) < tpScr.indexOf(window.ZB_T("meet_log", "ro")));
   chk("it uses the inline sparkle icon, never the emoji",
       /class="btn tp-btn"/.test(tpScr) && !/[\u2726\u2728]/.test(tpScr));
+  // The card sits ABOVE the button: the button is the persistent CTA and each tap
+  // refreshes what is above it, rather than pushing the new question under the thumb.
+  chk("the reveal slot renders above the button, and both sit under Talking points",
+      tpScr.indexOf('id="tpOut"') > -1
+      && tpScr.indexOf('id="tpOut"') < tpScr.indexOf('class="btn tp-btn"')
+      && tpScr.indexOf(window.ZB_T("meet_talking", "ro")) < tpScr.indexOf('id="tpOut"'));
 
   // rolling must not touch the store at all
   const tpWrites = [];
@@ -364,7 +370,9 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       !!first && bank2.some(q => q.id === first)
       && shown.indexOf(window.__qText(bank2.filter(q => q.id === first)[0], "ro")) > -1);
   chk("the revealed card carries the translated label and the reveal animation",
-      shown.indexOf(window.ZB_T("tp_label", "ro")) > -1 && /class="card tp-card"/.test(shown));
+      shown.indexOf(window.ZB_T("tp_label", "ro")) > -1 && /class="[^"]*tp-card/.test(shown));
+  chk("the reveal reuses the blue hero treatment rather than a second blue",
+      /class="meet-hero tp-card"/.test(shown));
   const rolls = new Set([first]);
   for (let i = 0; i < 12; i++) { window.talkingPointRoll(); rolls.add(window.__TP()); }
   chk("tapping again re-rolls to different questions", rolls.size > 1);

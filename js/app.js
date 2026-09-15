@@ -446,15 +446,20 @@ const icebreakerQuestions=()=>(C.questions||[]).filter(q=>q.tier===2);
 let TP=null;                                  // {id} of the question currently revealed
 function talkingPointGenHTML(){
   if(!icebreakerQuestions().length)return '';      // no Tier-2 bank: hide it entirely
-  return `<button class="btn tp-btn" type="button" onclick="talkingPointRoll()">
+  // Card first, button under it: the button is the persistent CTA at the bottom of the
+  // block and each tap refreshes the card ABOVE it, so the thing you just generated is
+  // never pushed off under your thumb.
+  return `<div id="tpOut">${TP?talkingPointCardHTML():''}</div>
+    <button class="btn tp-btn" type="button" onclick="talkingPointRoll()">
       ${icon('sparkle',18)} ${t('tp_button')}
-    </button>
-    <div id="tpOut">${TP?talkingPointCardHTML():''}</div>`;
+    </button>`;
 }
 function talkingPointCardHTML(){
   const q=(C.questions||[]).filter(x=>x&&x.id===TP)[0];
   if(!q)return '';
-  return `<div class="card tp-card"><div class="tp-tag">${icon('sparkle',13)} ${t('tp_label')}</div>
+  // meet-hero is the blue-gradient treatment already used by the shared-space hero, so
+  // this reuses it rather than inventing a second blue.
+  return `<div class="meet-hero tp-card"><div class="tp-tag">${icon('sparkle',13)} ${t('tp_label')}</div>
     <div class="tp-q">${esc(qText(q,myLang()))}</div></div>`;
 }
 // Re-rolls on every tap, avoiding an immediate repeat when there is more than one to pick from.
