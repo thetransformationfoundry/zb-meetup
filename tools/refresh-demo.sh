@@ -27,8 +27,16 @@ printf '\n// LOCAL TEST COPY ONLY — force demo mode so nothing touches live Fi
 grep -q '^window.ZB_LIVE = false;$' "$STAGE/js/firebase-config.js" || {
   echo "ABORT: demo override missing — not swapping in." >&2; exit 1; }
 
-rm -rf "$DEST.old"
-[ -d "$DEST" ] && mv "$DEST" "$DEST.old"
-mv "$STAGE" "$DEST"
-rm -rf "$DEST.old"
+# Publish by copying the validated staging tree INTO the existing directory rather than
+# swapping the directory itself. A running `python3 -m http.server` holds the served
+# directory's inode, so the old mv-swap pulled the ground out from under it and every
+# request 000'd until the server was restarted. Copying in place keeps the inode stable,
+# so a server started earlier keeps serving — and the validation above still means a
+# broken or live-wired build never reaches $DEST.
+mkdir -p "$DEST"
+for item in index.html manifest.json css js assets firebase-messaging-sw.js; do
+  [ -e "$STAGE/$item" ] || continue
+  rm -rf "$DEST/$item"
+  cp -R "$STAGE/$item" "$DEST/"
+done
 echo "demo refreshed: $DEST  ($(grep -o 'app.js?v=[0-9]*' "$DEST/index.html" | head -1), ZB_LIVE=false)"
