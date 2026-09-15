@@ -62,7 +62,7 @@ load("js/i18n.js");                  // ZB_I18N + ZB_T
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__TP=()=>TP;window.__qText=qText;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -332,6 +332,51 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("legacy comments still render", !!seedWithComment
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
+
+  /* ---- BRIEF-030 B: the talking-point generator ---- */
+  // Needs an ACTIVE shared space (not the completed recap), so seed one.
+  const tpMate = (await window.ZB_STORE.listUsers())[0];
+  const tpQs = (await window.ZB_STORE.questionBank()).filter(q => q.tier !== 2).slice(0, 3);
+  const tpId = await window.ZB_STORE.createMatch(tpMate, "a coffee", tpQs);
+  await window.ZB_STORE.acceptMatch(tpId);
+  await window.ZB_STORE.saveMe({ lang: "ro" });
+  await refreshAndSettle();
+  window.go("meet:" + tpId);
+  const tpScr = scr();
+  chk("the button sits in the active shared space, above 'Log your meetup'",
+      tpScr.indexOf(window.ZB_T("tp_button", "ro")) > -1
+      && tpScr.indexOf(window.ZB_T("tp_button", "ro")) < tpScr.indexOf(window.ZB_T("meet_log", "ro")));
+  chk("it uses the inline sparkle icon, never the emoji",
+      /class="btn tp-btn"/.test(tpScr) && !/[\u2726\u2728]/.test(tpScr));
+
+  // rolling must not touch the store at all
+  const tpWrites = [];
+  ["saveMe","setMatchAnswers","completeMatch","commentPost","saveIcebreakers","claimIcebreakerBonus",
+   "setMatchPhoto","createMatch","paySpin"].forEach(fn => {
+    const real = window.ZB_STORE[fn].bind(window.ZB_STORE);
+    window.ZB_STORE[fn] = function(){ tpWrites.push(fn); return real.apply(null, arguments); };
+  });
+  window.talkingPointRoll();
+  const first = window.__TP();
+  const shown = document.getElementById("tpOut").innerHTML;
+  const bank2 = (await window.ZB_STORE.questionBank()).filter(q => q.tier === 2);
+  chk("it reveals a Tier-2 icebreaker, in the viewer's language",
+      !!first && bank2.some(q => q.id === first)
+      && shown.indexOf(window.__qText(bank2.filter(q => q.id === first)[0], "ro")) > -1);
+  chk("the revealed card carries the translated label and the reveal animation",
+      shown.indexOf(window.ZB_T("tp_label", "ro")) > -1 && /class="card tp-card"/.test(shown));
+  const rolls = new Set([first]);
+  for (let i = 0; i < 12; i++) { window.talkingPointRoll(); rolls.add(window.__TP()); }
+  chk("tapping again re-rolls to different questions", rolls.size > 1);
+  chk("generating a talking point writes nothing to the store", tpWrites.length === 0);
+  // Active shared space only — the completed recap is a record, not a prompt generator.
+  window.go("recap:" + id);
+  chk("the generator does not appear on the completed recap",
+      scr().indexOf(window.ZB_T("tp_button", "ro")) === -1);
+  window.go("meet:" + tpId);
+
+  await window.ZB_STORE.saveMe({ lang: "en" });
+  await refreshAndSettle();
 
   /* ---- BRIEF-030 A: the leaderboard shows everyone, not the top 15 ---- */
   const boardAll = await window.ZB_STORE.leaderboard();

@@ -7,6 +7,9 @@ const S = window.ZB_STORE, CFG = window.ZB_CONFIG;
 
 /* ---------------- icons (Phosphor-style) ---------------- */
 const P = {
+  // Four-point sparkle, drawn to match the Phosphor set's weight. Inline, not the emoji
+  // "✦" — nav and buttons never carry emoji (CLAUDE.md guardrail).
+  sparkle:'<path d="M12 2.6c.9 4.6 1.9 5.6 6.5 6.5-4.6.9-5.6 1.9-6.5 6.5-.9-4.6-1.9-5.6-6.5-6.5 4.6-.9 5.6-1.9 6.5-6.5Z"/><path d="M18.4 15.1c.45 2.3.95 2.8 3.25 3.25-2.3.45-2.8.95-3.25 3.25-.45-2.3-.95-2.8-3.25-3.25 2.3-.45 2.8-.95 3.25-3.25Z"/>',
   target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>',
   users:'<circle cx="9" cy="8" r="3.2"/><path d="M3.4 19a5.6 5.6 0 0 1 11.2 0"/><path d="M15.5 5.2A2.8 2.8 0 0 1 17 10.6M16 13.4a5 5 0 0 1 4.6 5.6"/>',
   image:'<rect x="3" y="4.5" width="18" height="15" rx="2.6"/><circle cx="8.5" cy="10" r="1.7"/><path d="M4 17l4.6-4 3.4 3 3-2.6 5 4.6"/>',
@@ -434,6 +437,35 @@ function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=(Math.random(
 // asked once at onboarding and never collected, so they must never appear in a meetup.
 const ideaQuestions=()=>(C.questions||[]).filter(q=>q.tier===1);
 const icebreakerQuestions=()=>(C.questions||[]).filter(q=>q.tier===2);
+
+/* ---- BRIEF-030 B: "Generate another talking point" ----
+   Pure display. It reads the question bank already in memory and writes the result
+   into one div — no store call, no persistence, no points, nothing captured. The
+   revealed question is held in a module variable so a re-render does not lose it,
+   and it is deliberately NOT part of the match document. */
+let TP=null;                                  // {id} of the question currently revealed
+function talkingPointGenHTML(){
+  if(!icebreakerQuestions().length)return '';      // no Tier-2 bank: hide it entirely
+  return `<button class="btn tp-btn" type="button" onclick="talkingPointRoll()">
+      ${icon('sparkle',18)} ${t('tp_button')}
+    </button>
+    <div id="tpOut">${TP?talkingPointCardHTML():''}</div>`;
+}
+function talkingPointCardHTML(){
+  const q=(C.questions||[]).filter(x=>x&&x.id===TP)[0];
+  if(!q)return '';
+  return `<div class="card tp-card"><div class="tp-tag">${icon('sparkle',13)} ${t('tp_label')}</div>
+    <div class="tp-q">${esc(qText(q,myLang()))}</div></div>`;
+}
+// Re-rolls on every tap, avoiding an immediate repeat when there is more than one to pick from.
+window.talkingPointRoll=function(){
+  const pool=icebreakerQuestions();
+  if(!pool.length)return;
+  const pick=pool.length>1?pool.filter(q=>q.id!==TP):pool;
+  TP=pick[Math.floor(Math.random()*pick.length)].id;
+  const out=document.getElementById('tpOut');
+  if(out)out.innerHTML=talkingPointCardHTML();     // re-set, so the reveal animation replays
+};
 function pickQuestions(){
   const bank=ideaQuestions();
   if(!bank.length)return [];
@@ -1123,6 +1155,7 @@ function viewMeet(id){
   return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">${t('meet_with')} ${m.person.first}</h2><p class="sub">${t('meet_shared')}</p>
    <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">${t('meet_both_accepted',{type:`<b>${typeLabel(m.type)}</b>`})}</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} ${t('meet_plan')}${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t('meet_last_msg')} ${(last.by==='me'?t('meet_you_prefix')+' ':'')+last.text}</div>`:''}</div>
    ${talkingPointsHTML(m)}
+   ${talkingPointGenHTML()}
    <p class="muted small" style="margin:2px 2px 10px;line-height:1.5">${t('meet_log')}</p>
    <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?t('pts_earned'):t('pts_available')}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.photo?`${mp?`<img src="${mp}" alt="${t('meet_your_photo')}" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('ob_photo_change')}</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
    <div class="card"><div class="row between"><b>${t('meet_q_h')}</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':t('pts_available')}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${qText(q)}${q.tier===1?`<span class="tierpill">${t('key_idea')}</span>`:''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="${t('q_answer_ph')}">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">${t('meet_q_private')}</p></div>

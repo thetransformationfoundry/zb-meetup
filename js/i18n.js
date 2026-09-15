@@ -117,6 +117,8 @@ window.ZB_I18N = {
   meet_both_accepted:{en:"You both accepted — suggested: {type}. Plan a time and place together.",nl:"Jullie hebben allebei geaccepteerd — voorstel: {type}. Plan samen een tijd en plek.",ro:"Ați acceptat amândoi — sugestie: {type}. Stabiliți împreună ora și locul."},
   meet_last_msg:{en:"Last message:",nl:"Laatste bericht:",ro:"Ultimul mesaj:"},
   meet_you_prefix:{en:"You:",nl:"Jij:",ro:"Tu:"},
+  tp_button:{en:"Generate another talking point",nl:"Genereer nog een gespreksonderwerp",ro:"Generează alt subiect de conversație"},
+  tp_label:{en:"Talking point",nl:"Gespreksonderwerp",ro:"Subiect de conversație"},
   meet_talking:{en:"Talking points",nl:"Gespreksonderwerpen",ro:"Subiecte de conversație"},
   meet_log:{en:"Log your meetup below — add a photo and answer the questions together, during or just after you meet, to earn your points.",nl:"Leg je meetup hieronder vast — voeg een foto toe en beantwoord de vragen samen, tijdens of net na de ontmoeting, om je punten te verdienen.",ro:"Înregistrează întâlnirea mai jos — adaugă o poză și răspundeți împreună la întrebări, în timpul sau imediat după întâlnire, ca să primiți punctele."},
   meet_photo_h:{en:"1 · Share a photo",nl:"1 · Deel een foto",ro:"1 · Împarte o poză"},

@@ -287,3 +287,17 @@ select.input{appearance:none;-webkit-appearance:none;background:#fff url("data:i
   box-shadow:0 4px 14px rgba(6,14,26,.22)}
 /* Onboarding and the countdown hide the tab bar, so the badge drops to the bottom edge. */
 .demobadge.nobar{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+
+/* ---- BRIEF-030 B: talking-point generator ----
+   The button borrows the Spin/primary treatment (--btn-grad via .btn) and only adds the
+   spacing that makes it read as its own moment between two cards. */
+.tp-btn{width:100%;justify-content:center;margin:2px 0 12px}
+/* The reveal. popIn is the same curve the match card and award chips use, so this lands
+   on-brand; re-setting #tpOut's innerHTML restarts it on every re-roll.
+   No backdrop-filter — this animates, which is the combination that flickers on Android. */
+.tp-card{margin:0 0 14px;border-color:#dbe7f2;background:linear-gradient(180deg,#F7FBFE,#FFFFFF);
+  animation:popIn .34s cubic-bezier(.2,.9,.3,1.2) both}
+.tp-tag{display:inline-flex;align-items:center;gap:6px;
+  font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--zb-blue)}
+.tp-q{margin-top:8px;font-size:16px;line-height:1.45;font-weight:650;color:var(--ink)}
