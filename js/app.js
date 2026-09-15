@@ -1240,7 +1240,10 @@ window.addComment=async function(id){
 /* ---------------- RANKS ---------------- */
 function viewRanks(){
   let h=`<h2>${t('ranks_h')}</h2><p class="sub">${t('ranks_sub')}</p><div class="card prize"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${icon('money',14)} ${t('prize_chip')}</span><p class="small" style="margin:11px 0 0;line-height:1.5;opacity:.96">${t('prize_body')}</p><div class="prizerow"><div class="prizecard"><div class="pk">${t('prize_best')}</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">${t('prize_top')}</div><div class="pv">€250</div></div><div class="prizecard"><div class="pk">${t('prize_runner')}</div><div class="pv">€150</div></div></div><button type="button" class="btn white sm" style="width:100%;justify-content:center;margin-top:12px" onclick="go('howitworks')">${icon('help',16)} ${t('hiw_h')}</button></div><div class="card">`;
-  C.leaderboard.slice(0,15).forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${r.photo?`<img src="${r.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(r.name)}</span><div class="nm">${esc(r.name)}${(r.admin&&!r.builder)?`<span class="noteligible">${t('ranks_not_eligible')}</span>`:''}</div><div class="p">${r.points}</div></div>`;});
+  // The whole ranked list, 1 -> end. The store returns every user already (builders
+  // filtered, sorted by points, no Firestore .limit() on the users read), so this cap was
+  // purely cosmetic and hid most of the company from their own leaderboard.
+  C.leaderboard.forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${r.photo?`<img src="${r.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(r.name)}</span><div class="nm">${esc(r.name)}${(r.admin&&!r.builder)?`<span class="noteligible">${t('ranks_not_eligible')}</span>`:''}</div><div class="p">${r.points}</div></div>`;});
   return h+`</div>`;
 }
 

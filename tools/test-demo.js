@@ -333,6 +333,22 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && seedWithComment.comments[0].byUid === undefined
       && scr().indexOf("<b>" + String(seedWithComment.comments[0].by).split(" ")[0] + "</b>") > -1);
 
+  /* ---- BRIEF-030 A: the leaderboard shows everyone, not the top 15 ---- */
+  const boardAll = await window.ZB_STORE.leaderboard();
+  window.go("ranks");
+  const ranksScr = scr();
+  chk("the store returns every non-builder user, uncapped",
+      boardAll.length === (await window.ZB_STORE.listUsers()).length + 1);   // + me
+  chk("every ranked user renders, not just the first 15",
+      (ranksScr.match(/class="rankrow/g) || []).length === boardAll.length
+      && boardAll.length > 15);
+  chk("the last-placed colleague is on screen, and numbered correctly",
+      ranksScr.indexOf(String(boardAll[boardAll.length - 1].name).replace(/&/g, "&amp;")) > -1
+      && ranksScr.indexOf('<div class="n">' + boardAll.length + '</div>') > -1);
+  chk("rank number, me-highlight and points all survive the change",
+      /<div class="n">1<\/div>/.test(ranksScr) && /rankrow me/.test(ranksScr)
+      && new RegExp('<div class="p">' + boardAll[0].points + '</div>').test(ranksScr));
+
   /* ---- BRIEF-029: shareable demo mode ---- */
   // The switch is decided in firebase-config.js BEFORE index.html picks a store, so it is
   // tested by evaluating that file in a sandbox with a fake location/sessionStorage.
