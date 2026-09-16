@@ -890,7 +890,7 @@ function renderOnboard(){
   if(onboardStep===0){
     body=`<div class="center" style="padding-top:10px"><div class="avatar lg" style="margin:0 auto 16px;background:var(--zb-blue)">${icon('users',54)}</div><h2>${t('ob_welcome_h')}</h2><p class="sub">${t('ob_welcome_sub')}</p></div>
       <div class="card"><label class="small" style="font-weight:700">${t('ob_email')}</label><input class="input" id="ob-email" placeholder="you@zimmerbiomet.com" style="margin:6px 0 12px" value="${OB.email}"><label class="small" style="font-weight:700">${t('ob_pass')}</label><input class="input" id="ob-pass" type="password" placeholder="${t('ob_pass_hint')}" style="margin-top:6px">
-        <p class="muted small" style="margin:8px 2px 0;line-height:1.45">${t('ob_pass_security')}</p></div>`;
+        <p class="muted small" style="margin:12px 0 0;padding-top:11px;border-top:1px solid var(--line);line-height:1.5">${t('ob_pass_security')}</p></div>`;
     cta=`<button class="btn" onclick="obCreate()">${t('ob_create')}</button><button class="btn alt" style="margin-top:8px" onclick="obGoSignIn()">${t('ob_have_account')}</button><button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot(null,this)">${t('ob_forgot')}</button>`;
   } else if(onboardStep===1){
     body=`<h2>${t('ob_name_h')}</h2><p class="sub">${t('ob_name_sub')}</p><div class="card"><input class="input" id="ob-name" placeholder="${t('ob_name_ph')}" value="${OB.name||''}"></div>`;

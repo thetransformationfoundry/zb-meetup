@@ -36,7 +36,7 @@ window.ZB_I18N = {
   ob_welcome_sub:{en:"Meet a new colleague each day — coffee, a walk, or a quick call. Let's get you set up.",nl:"Ontmoet elke dag een nieuwe collega — koffie, een wandeling of een kort gesprek. We zetten je account klaar.",ro:"Cunoaște un coleg nou în fiecare zi — o cafea, o plimbare sau un apel scurt. Hai să îți configurăm contul."},
   ob_email:{en:"Work email",nl:"Werk-e-mail",ro:"E-mail de serviciu"},
   ob_pass:{en:"Password",nl:"Wachtwoord",ro:"Parolă"},
-  ob_pass_security:{en:"This is a separate app — please use a new password, not your Zimmer Biomet one.",nl:"Dit is een aparte app — gebruik een nieuw wachtwoord, niet dat van Zimmer Biomet.",ro:"Aceasta este o aplicație separată — folosește o parolă nouă, nu cea de la Zimmer Biomet."},
+  ob_pass_security:{en:"Note: this app was built for Zimmer Biomet colleagues but isn't an official, enterprise-approved application, so please use a different password from your usual Zimmer Biomet login.",nl:"Let op: deze app is gemaakt voor Zimmer Biomet-collega's, maar is geen officiële, door de organisatie goedgekeurde applicatie. Gebruik daarom een ander wachtwoord dan je gewone Zimmer Biomet-login.",ro:"Notă: această aplicație a fost creată pentru colegii Zimmer Biomet, dar nu este o aplicație oficială, aprobată de companie. Te rugăm să folosești o parolă diferită de cea de la contul tău Zimmer Biomet."},
   ob_pass_hint:{en:"At least 6 characters",nl:"Minimaal 6 tekens",ro:"Cel puțin 6 caractere"},
   ob_create:{en:"Create account",nl:"Account aanmaken",ro:"Creează cont"},
   ob_have_account:{en:"I already have an account — sign in",nl:"Ik heb al een account — inloggen",ro:"Am deja un cont — conectează-mă"},

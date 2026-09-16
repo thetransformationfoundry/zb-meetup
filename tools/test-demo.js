@@ -91,8 +91,15 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("the create-account screen shows the note, under the password field",
       createScr.indexOf(window.ZB_T("ob_pass_security", "en")) > -1
       && createScr.indexOf('id="ob-pass"') < createScr.indexOf(window.ZB_T("ob_pass_security", "en")));
+  // Asserts the SHAPE, not the words — this is copy that will be reworded.
   chk("it is muted helper text, not a shouty banner",
-      /<p class="muted small"[^>]*>[^<]*separate app/.test(createScr));
+      new RegExp('<p class="muted small"[^>]*>\\s*' +
+        window.ZB_T("ob_pass_security", "en").slice(0, 24)
+          .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(createScr));
+  chk("it opens as a calm 'Note:', not an alarm",
+      /^Note:/.test(window.ZB_T("ob_pass_security", "en"))
+      && /^Let op:/.test(window.ZB_T("ob_pass_security", "nl"))
+      && /^Not[\u0103a]:/.test(window.ZB_T("ob_pass_security", "ro")));
   window.obLang("ro");
   chk("the note follows the viewer's language during onboarding",
       scr().indexOf(window.ZB_T("ob_pass_security", "ro")) > -1
