@@ -83,6 +83,24 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("sign-in screen renders", /Welcome back/.test(si) && /ob-email/.test(si) && /ob-pass/.test(si)
       && /Sign in<\/button>|>Sign in</.test(si) && /Forgot password\?/.test(si) && /Create an account instead/.test(si));
   chk("sign-in is not the create step", !/Create account<\/button>/.test(si));
+  /* ---- BRIEF-031: the credential-reuse note belongs at password CREATION only ---- */
+  chk("the sign-in screen carries no password-reuse note",
+      si.indexOf(window.ZB_T("ob_pass_security", "en")) === -1);
+  window.obStep(0);                       // obGoCreate() lands on the language step first
+  const createScr = scr();
+  chk("the create-account screen shows the note, under the password field",
+      createScr.indexOf(window.ZB_T("ob_pass_security", "en")) > -1
+      && createScr.indexOf('id="ob-pass"') < createScr.indexOf(window.ZB_T("ob_pass_security", "en")));
+  chk("it is muted helper text, not a shouty banner",
+      /<p class="muted small"[^>]*>[^<]*separate app/.test(createScr));
+  window.obLang("ro");
+  chk("the note follows the viewer's language during onboarding",
+      scr().indexOf(window.ZB_T("ob_pass_security", "ro")) > -1
+      && scr().indexOf(window.ZB_T("ob_pass_security", "en")) === -1);
+  window.obLang("nl");
+  chk("and in Dutch",
+      scr().indexOf(window.ZB_T("ob_pass_security", "nl")) > -1);
+  window.obLang("en");
   // forgot password -> the "check your email (and junk)" confirmation screen
   document.getElementById("ob-email").value = "test@zimmerbiomet.com";
   await window.obForgot();
