@@ -420,10 +420,19 @@ function eligible(){
   return C.users.filter(p=>{
     if(matched.has(p.uid)||busy.has(p.uid))return false;
     // EMEA has a single role and only meets the QARA set: EMEA<->EMEA and EMEA<->GSCC - QARA.
-    // GSCC - QARA keeps its full GSCC pool and gains EMEA. Additive — the floor rule below is unchanged.
+    // GSCC - QARA keeps its full GSCC pool and gains EMEA. A separate axis from workClass below.
     const involvesEmea=C.me.role===EMEA_ROLE||p.role===EMEA_ROLE;
     if(involvesEmea&&!(QARA_SET.includes(C.me.role)&&QARA_SET.includes(p.role)))return false;
-    if(C.me.floor||p.floor)return C.me.workClass==='on-site'&&p.workClass==='on-site';
+    // BRIEF-032 — workClass matrix. Warehouse and office both count as 'on-site'; the ONLY pair
+    // that cannot meet is on-site <-> fully-remote. Partial bridges everyone, remote meets remote.
+    //
+    // This replaces `if(C.me.floor||p.floor) return both on-site`, which was stricter than its
+    // intent in one direction and looser in the other: a 'partial' colleague could never draw a
+    // warehouse worker (the reported bug — 'partial'==='on-site' is false), while office on-site
+    // <-> fully-remote was allowed because the old branch only engaged when a floor worker was
+    // involved. `floor` no longer gates matching; it stays for the spin-screen copy only.
+    const wcOk=(a,b)=>!((a==='on-site'&&b==='remote')||(a==='remote'&&b==='on-site'));
+    if(!wcOk(C.me.workClass,p.workClass))return false;
     return true;
   });
 }

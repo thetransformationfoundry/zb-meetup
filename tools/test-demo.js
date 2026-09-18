@@ -1369,16 +1369,59 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("a legacy-role colleague is matchable after normalising",
       pool.filter(r => r === QARA).length >= 1);
 
-  // floor rule untouched: on-site only, and never a fully-remote colleague
-  const floorPool = (async () => {
-    await window.ZB_STORE.saveMe({ role:"GSCC Warehouse Clerk", workClass:"on-site", floor:true });
+  /* ---- BRIEF-032: the full workClass matrix ----
+     Replaces the old floor assertions. `floor` no longer gates matching: warehouse and
+     office both count as 'on-site', and the ONLY blocked pair is on-site <-> fully-remote.
+     Every cell is asserted in BOTH directions, so a one-sided rule cannot slip through. */
+  const eligWith = async (mine, theirs, floorFlag) => {
+    await window.ZB_STORE.saveMe({ role:"GSCC IT Sr Analyst", workClass:mine, floor:!!floorFlag });
     await refreshAndSettle();
-    return window.__eligible();
-  });
-  const fp = await floorPool();
-  chk("floor rule intact — on-site only, no remote",
-      fp.length > 0 && fp.every(p => p.workClass === "on-site"));
-  chk("floor colleague never sees EMEA (remote)", !fp.map(p => p.role).includes(EMEA));
+    const pool = window.__eligible();
+    return pool.some(p => p.workClass === theirs);
+  };
+  // warehouse is on-site + floor:true; office on-site is the same workClass without the flag
+  const MATRIX = [
+    // [mine, floor?, theirs, expected]
+    ["on-site", true,  "partial", true ],   // the reported bug: Donnae could never draw warehouse
+    ["on-site", true,  "on-site", true ],
+    ["on-site", true,  "remote",  false],
+    ["on-site", false, "partial", true ],
+    ["on-site", false, "on-site", true ],
+    ["on-site", false, "remote",  false],   // the latent bug: this used to be allowed
+    ["partial", false, "on-site", true ],
+    ["partial", false, "partial", true ],
+    ["partial", false, "remote",  true ],
+    ["remote",  false, "partial", true ],
+    ["remote",  false, "remote",  true ],
+    ["remote",  false, "on-site", false],
+  ];
+  const wrong = [];
+  for (const [mine, fl, theirs, want] of MATRIX) {
+    const got = await eligWith(mine, theirs, fl);
+    if (got !== want) wrong.push(`${mine}${fl ? "(warehouse)" : ""} -> ${theirs}: expected ${want}, got ${got}`);
+  }
+  if (wrong.length) console.log("   matrix mismatches:", wrong.join(" | "));
+  chk("the workClass matrix holds in every cell, both directions", wrong.length === 0);
+  // the two headline cases, called out so a failure names itself
+  // Donnae's exact case. This must look for a FLOOR colleague, not merely an on-site one:
+  // under the old rule a 'partial' user could still draw non-floor on-site people, so a
+  // workClass-only assertion passes against the bug and proves nothing.
+  await window.ZB_STORE.saveMe({ role:"GSCC - QARA", workClass:"partial", floor:false });
+  await refreshAndSettle();
+  const donnaePool = window.__eligible();
+  chk("a partly-remote colleague CAN now draw a WAREHOUSE (floor) worker — the reported bug",
+      donnaePool.some(p => p.floor === true));
+  chk("on-site NEVER draws fully-remote, in either direction (the latent bug)",
+      (await eligWith("on-site", "remote", false)) === false
+      && (await eligWith("remote", "on-site", false)) === false);
+  chk("remote meets remote, and partial still bridges everyone",
+      (await eligWith("remote", "remote", false))
+      && (await eligWith("partial", "on-site", false))
+      && (await eligWith("partial", "remote", false)));
+  // floor is now cosmetic: it must not change eligibility either way
+  chk("the floor flag no longer affects who you can match with",
+      (await eligWith("on-site", "partial", true)) === (await eligWith("on-site", "partial", false))
+      && (await eligWith("on-site", "remote", true)) === (await eligWith("on-site", "remote", false)));
 
   /* ---- BRIEF-004: push. The demo path must never touch FCM ---- */
   const fs2 = require("fs");
