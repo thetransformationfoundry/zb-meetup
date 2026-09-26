@@ -32,6 +32,23 @@ service cloud.firestore {
     match /users/{uid}/fcmTokens/{token} {
       allow read, write: if isMe(uid);
     }
+    // Avatars (BRIEF-033). The base64 moved out of users/{uid} so that bulk read stays light.
+    // Visibility is UNCHANGED from when it was an inline field: any signed-in colleague could
+    // see it then and can see it now. Write is the owner — plus an admin, which the one-time
+    // migration needs in order to move everyone else's existing photo into this doc.
+    match /users/{uid}/media/{doc} {
+      allow read: if signedIn();
+      allow write: if isMe(uid) || isAdmin();
+    }
+    // The shared meetup photo (BRIEF-033), moved out of matches/{id} for the same reason.
+    // Mirrors the match rule exactly: the two participants and admins, which preserves
+    // BRIEF-013 — either participant may set or replace the shared photo, not just the author.
+    match /matches/{id}/media/{doc} {
+      allow read, write: if isAdmin()
+        || (signedIn() && (
+             request.auth.uid == get(/databases/$(database)/documents/matches/$(id)).data.a
+          || request.auth.uid == get(/databases/$(database)/documents/matches/$(id)).data.b));
+    }
     match /matches/{id} {
       allow read, update, delete: if isAdmin()
         || (signedIn() && (request.auth.uid == resource.data.a || request.auth.uid == resource.data.b));

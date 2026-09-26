@@ -159,7 +159,9 @@
     signOut() { this._email = null; ME = null; MATCHES = []; NOTIFS = []; if (this._authcb) this._authcb(null); return P(true); },
 
     // ---- profile ----
-    getMe() { return P(ME ? { ...ME } : null); },
+    // Mirrors the live contract: the profile is LIGHT. The demo keeps the blob in memory
+    // (there is no network here) but never hands it out except through getPhoto().
+    getMe() { if (!ME) return P(null); const { photo, ...light } = ME; return P({ ...light, hasPhoto: !!photo }); },
     saveMe(partial) {
       ME = Object.assign(ME || { points:SIGNUP_BONUS, signupBonusGranted:true, lang:"en", color:"#0079BD" }, partial, this._myFlags());   // BRIEF-017/023/027
       if (this._email && !ME.email) ME.email = this._email;
@@ -169,6 +171,16 @@
     isAdmin() { const e = (this._email||"").toLowerCase(); return P((window.ZB_CONFIG.ADMIN_EMAILS||[]).map(x=>x.toLowerCase()).includes(e)); },
     // BRIEF-027, mirroring store-firebase.js: builder = the agency DOMAIN, admin = the
     // admin list. Donnae is admin:true, builder:false and participates normally.
+    // ---- photos on demand (BRIEF-033), same signatures as the live store ----
+    getPhoto(uid) {
+      if (ME && (uid === "me" || uid === ME.uid)) return P(ME.photo || null);
+      const u = USERS.find(x => x.uid === uid);
+      return P((u && u.photo) || null);
+    },
+    getMatchPhoto(id) { const m = MATCHES.find(x => x.id === id); return P((m && m.photo) || null); },
+    // No inline media to move in the demo; present so the surfaces stay in lockstep.
+    migrateMedia() { return P({ users:0, usersSkipped:0, matches:0, matchesSkipped:0, profilesStripped:0, errors:0 }); },
+
     _myFlags() {
       const e = (this._email||"").toLowerCase();
       return { builder: !!(window.ZB_IS_BUILDER && window.ZB_IS_BUILDER(e)),
@@ -177,23 +189,29 @@
 
     // ---- users / leaderboard ----
     // Builders are filtered out of the pool and the @mention picker, exactly as live.
-    listUsers() { return P(USERS.filter(u => !u.builder).map(u => ({ ...u }))); },
+    // BRIEF-033: mirrors the live contract — the list is LIGHT. The demo has no network,
+    // but if it handed back photos here the harness would pass while the live app still
+    // shipped them, which is exactly the drift the lockstep rule exists to stop.
+    listUsers() { return P(USERS.filter(u => !u.builder).map(u => { const { photo, ...light } = u; return { ...light, hasPhoto: !!photo }; })); },
     // Builders never rank. Admins who are real colleagues do rank, with `admin`
     // surfaced so the row can show the ineligibility chip. Display-only.
     leaderboard() {
       const all = USERS.filter(u => !u.builder)
-        .map(u => ({ name:u.name, points:u.points, color:u.color, photo:u.photo, me:false, admin:!!u.admin }));
-      if (ME && !ME.builder) all.push({ name:ME.name, points:ME.points, color:ME.color, photo:ME.photo, me:true, admin:!!ME.admin });
+        .map(u => ({ name:u.name, points:u.points, color:u.color, me:false, admin:!!u.admin }));
+      if (ME && !ME.builder) all.push({ name:ME.name, points:ME.points, color:ME.color, me:true, admin:!!ME.admin });
       return P(all.sort((a,b) => b.points - a.points));
     },
 
     // ---- matches ----
     // Per-user view of each match: MY completion + MY photo award, plus the other side read-only.
     myMatches() {
-      return P(MATCHES.map(m => Object.assign({}, m, {
+      // The blob is stripped here, exactly as the live mapMatch never includes it; the bytes
+      // come from getMatchPhoto(). `hasPhoto` is what the UI uses to know one exists.
+      return P(MATCHES.map(({ photo, ...m }) => Object.assign({}, m, {
         completed: !!(m.completedBy||{})["me"] || m.status === "completed",
         otherCompleted: !!(m.completedBy||{})[m.person.uid] || m.status === "completed",
         photoAwarded: !!(m.photoAwarded||{})["me"],
+        hasPhoto: !!photo,
         // Computed by the SAME rule as the live store. It was missing here entirely, so
         // `m.incoming` was undefined on every demo match and the accept/decline card was
         // unreachable in the demo — which is why its English strings went unnoticed for

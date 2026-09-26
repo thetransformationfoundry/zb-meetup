@@ -121,7 +121,7 @@ const myFlags = () => ({
   builder: !!(window.ZB_IS_BUILDER && window.ZB_IS_BUILDER(myEmail())),
   admin: ADMINS.includes(myEmail().toLowerCase())
 });
-const profileToPublic = d => ({ uid:d.uid, builder:!!d.builder, admin:!!d.admin, lang:d.lang || "en", name:d.name, first:d.first || (d.name||"").split(" ")[0], role:d.role, dept:d.dept, workClass:d.workClass, floor:!!d.floor, color:d.color, photo:d.photo||null, points:d.points||0, icebreakers:d.icebreakers||[] });
+const profileToPublic = d => ({ uid:d.uid, builder:!!d.builder, admin:!!d.admin, lang:d.lang || "en", name:d.name, first:d.first || (d.name||"").split(" ")[0], role:d.role, dept:d.dept, workClass:d.workClass, floor:!!d.floor, color:d.color, hasPhoto:!!(d.hasPhoto || d.photo), points:d.points||0, icebreakers:d.icebreakers||[] });
 
 // Writes into ANOTHER user's notifications/{uid}/items subtree, so it depends on the
 // published rule allowing a signed-in colleague to create (not read/edit) a notification
@@ -149,6 +149,48 @@ function attachListeners() {
 }
 function detachListeners() { _unsub.forEach(u => { try { u(); } catch(e){} }); _unsub = []; }
 
+/* ---------------- media (BRIEF-033) ----------------
+   Base64 photos used to live INSIDE users/{uid} and matches/{id}. Both collections are
+   bulk-fetched whole — _allUsers() for the spin pool and leaderboard, adminAnswers() for the
+   idea bank and CSV — and Firestore cannot project fields out client-side, so every open
+   dragged down every avatar (and every 960px meetup photo). That is the ~1 minute open.
+
+   They now live one level down, in a doc nobody bulk-reads:
+     users/{uid}/media/photo      { photo, updatedAt }
+     matches/{id}/media/photo     { photo, updatedAt }
+   The parent keeps a light `hasPhoto` boolean so the UI knows whether to bother fetching,
+   and so logic that only asks "is there a photo?" (the +5 claim) needs no blob at all.
+
+   LEGACY FALLBACK: until the migration has run, a doc may still carry an inline `photo`.
+   Every read below falls back to it, so a half-migrated database still shows every face. */
+const mediaRef = (coll, id) => db.collection(coll).doc(id).collection("media").doc("photo");
+const _photoCache = {};                       // key `${coll}/${id}` -> base64 | null
+
+async function readPhoto(coll, id) {
+  if (!id) return null;
+  const key = coll + "/" + id;
+  if (key in _photoCache) return _photoCache[key];
+  let out = null;
+  try {
+    const s = await mediaRef(coll, id).get();
+    if (s.exists) out = (s.data() || {}).photo || null;
+    if (!out) {                                // not migrated yet: read the inline copy
+      const p = await db.collection(coll).doc(id).get();
+      const d = p.exists ? (p.data() || {}) : {};
+      out = (typeof d.photo === "string" && d.photo) ? d.photo : (coll === "matches" ? matchPhoto(d) : null);
+    }
+  } catch (e) { if (window.console) console.warn("[zb] photo read failed", coll, id, e && e.code); }
+  _photoCache[key] = out;
+  return out;
+}
+// Write the blob to its own doc and flip the parent's light flag. Clearing sends null.
+async function writePhoto(coll, id, photo) {
+  const ref = mediaRef(coll, id);
+  if (photo) await ref.set({ photo, updatedAt: nowTs() });
+  else { try { await ref.delete(); } catch (e) {} }
+  _photoCache[coll + "/" + id] = photo || null;
+}
+
 // One shared photo per meetup, stored as a base64 string on the match doc (`photo`).
 // Legacy fallback: matches created before v=7 kept a per-uid `photos` map (a flag or a
 // base64) — read the first value so in-flight meetups don't lose their completed photo step.
@@ -168,7 +210,7 @@ function mapMatch(id, d, uid) {
   const msgs = (d.messages || []).map(m => ({ by: m.by === uid ? "me" : "them", text:m.text }));
   const unread = Math.max(0, msgs.filter(m => m.by === "them").length - ((d.reads && d.reads[uid]) || 0));
   return { id, a:d.a, b:d.b, status:d.status, type:d.type, questions:d.questions || [], person:other,
-           answers:myAns.slice(), photo: matchPhoto(d), messages:msgs, unread,
+           answers:myAns.slice(), hasPhoto: !!(d.hasPhoto || matchPhoto(d)), messages:msgs, unread,
            completed: !!cb[uid] || legacyDone,
            otherCompleted: !!cb[otherUid] || legacyDone,
            photoAwarded: !!(d.photoAwarded && d.photoAwarded[uid]),
@@ -234,7 +276,11 @@ const ZB_STORE = {
   signIn(email, pass) { return auth.signInWithEmailAndPassword(email, pass); },
   resetPassword(email) { return auth.sendPasswordResetEmail(email); },
   signOut() { detachListeners(); return auth.signOut(); },
-  async deleteAccount() { const u = auth.currentUser; if (!u) return; try { await db.collection("users").doc(u.uid).delete(); } catch(e){} try { await u.delete(); } catch(e){ await auth.signOut(); } },
+  async deleteAccount() { const u = auth.currentUser; if (!u) return;
+    // BRIEF-033: the avatar is its own doc now, and deleting the parent does NOT delete a
+    // subcollection — without this the photo would outlive the account (a GDPR problem).
+    try { await writePhoto("users", u.uid, null); } catch(e){}
+    try { await db.collection("users").doc(u.uid).delete(); } catch(e){} try { await u.delete(); } catch(e){ await auth.signOut(); } },
 
   // ---- profile ----
   async getMe() {
@@ -263,12 +309,21 @@ const ZB_STORE = {
     const existing = await ref.get();
     const data = Object.assign({}, partial, myFlags());
     if (partial.name) data.first = partial.name.split(" ")[0];
+    // BRIEF-033: the avatar never goes into users/{uid} — only the light flag does.
+    let newPhoto;
+    if ("photo" in data) {
+      newPhoto = data.photo || null;
+      delete data.photo;
+      data.hasPhoto = !!newPhoto;
+      data.photo = FV.delete();               // drop any pre-migration inline copy
+    }
     if (!existing.exists) {
       data.points = SIGNUP_BONUS; data.signupBonusGranted = true;   // BRIEF-017 signup bonus
       if (!data.lang) data.lang = "en";                             // BRIEF-023
       data.createdAt = nowTs(); data.email = auth.currentUser.email;
     }
     await ref.set(data, { merge:true });
+    if (newPhoto !== undefined) await writePhoto("users", uid, newPhoto);
     const s = await ref.get(); cachedMe = Object.assign({ uid }, s.data());
     cache["users"] = null;
     return { ...cachedMe };
@@ -281,6 +336,74 @@ const ZB_STORE = {
   // Builders are filtered OUT here, so no real colleague can be matched to one. The
   // builder's OWN call still returns every real colleague (none of them are builders),
   // which is what keeps their spin -> request -> accept -> complete loop working.
+  /* ---- photos on demand (BRIEF-033) ----
+     One person's avatar, or one meetup's photo. Cached in memory for the session, so the
+     spin card, the shared space and a profile each cost at most one read per subject. */
+  /* ---- one-time media migration (BRIEF-033, admin only) ----
+     Moves every inline base64 photo into its own doc and clears the original. IDEMPOTENT:
+     a document already migrated is skipped, so re-running does no work and cannot lose a
+     photo — it never clears an inline copy without having written the new doc first.
+
+     It also strips `aProfile.photo` / `bProfile.photo`. Those are avatar snapshots embedded
+     in every match doc by createMatch, so each match carried TWO more base64 blobs on top of
+     its meetup photo. The brief did not mention them; adminAnswers() bulk-reads matches, so
+     leaving them would have left much of the admin slowness in place. New matches are already
+     clean because profileToPublic no longer carries a photo.
+
+     Safe to run while people are online: readPhoto() falls back to the inline copy, so a
+     half-migrated database still shows every face. */
+  async migrateMedia(onProgress) {
+    const isAdmin = ADMINS.includes((auth.currentUser && auth.currentUser.email || "").toLowerCase());
+    if (!isAdmin) throw Object.assign(new Error("admins only"), { code: "zb/not-admin" });
+    const out = { users:0, usersSkipped:0, matches:0, matchesSkipped:0, profilesStripped:0, errors:0 };
+    const say = m => { try { onProgress && onProgress(m, out); } catch (e) {} };
+
+    const users = await db.collection("users").get();
+    say("users: " + users.size);
+    for (const doc of users.docs) {
+      const d = doc.data() || {};
+      try {
+        if (typeof d.photo === "string" && d.photo) {
+          await mediaRef("users", doc.id).set({ photo:d.photo, updatedAt: nowTs() });   // write FIRST
+          await doc.ref.update({ photo: FV.delete(), hasPhoto: true });                 // then clear
+          out.users++;
+        } else {
+          if (d.hasPhoto === undefined) await doc.ref.update({ hasPhoto: false });
+          out.usersSkipped++;
+        }
+      } catch (e) { out.errors++; if (window.console) console.warn("[zb] user migrate failed", doc.id, e && e.code); }
+    }
+
+    const matches = await db.collection("matches").get();
+    say("matches: " + matches.size);
+    for (const doc of matches.docs) {
+      const d = doc.data() || {};
+      try {
+        const inline = matchPhoto(d);
+        const upd = {};
+        if (inline) {
+          await mediaRef("matches", doc.id).set({ photo:inline, updatedAt: nowTs() });
+          upd.photo = FV.delete(); upd.photos = FV.delete(); upd.hasPhoto = true;
+          out.matches++;
+        } else {
+          if (d.hasPhoto === undefined) upd.hasPhoto = false;
+          out.matchesSkipped++;
+        }
+        // the embedded avatar snapshots
+        if (d.aProfile && d.aProfile.photo) { upd["aProfile.photo"] = FV.delete(); out.profilesStripped++; }
+        if (d.bProfile && d.bProfile.photo) { upd["bProfile.photo"] = FV.delete(); out.profilesStripped++; }
+        if (Object.keys(upd).length) await doc.ref.update(upd);
+      } catch (e) { out.errors++; if (window.console) console.warn("[zb] match migrate failed", doc.id, e && e.code); }
+    }
+    Object.keys(_photoCache).forEach(k => delete _photoCache[k]);
+    cache["users"] = null;
+    say("done");
+    return out;
+  },
+
+  getPhoto(uid) { return readPhoto("users", uid); },
+  getMatchPhoto(id) { return readPhoto("matches", id); },
+
   async listUsers() { const uid = uidNow(); const all = await this._allUsers(); return all.filter(u => u.uid !== uid && !u.builder).map(profileToPublic); },
   // Builders never appear or rank. Admins who are real colleagues (Donnae) DO rank
   // normally — `admin` is surfaced only so the row can show an ineligibility chip.
@@ -388,7 +511,10 @@ const ZB_STORE = {
         const ps = await tx.get(existingRef); existing = ps.exists ? ps.data() : null;
       }
 
-      const upd = { photo: photo || null };
+      // BRIEF-033: the blob goes to matches/{id}/media/photo, written in the SAME
+      // transaction so the flag and the bytes can never disagree. The parent keeps only
+      // `hasPhoto`, and any pre-migration inline copy is dropped as we go.
+      const upd = { hasPhoto: !!photo, photo: FV.delete() };
       const claim = !!photo && !(d.photoAwarded && d.photoAwarded[uid]);
       if (claim) upd["photoAwarded."+uid] = true;
 
@@ -411,8 +537,11 @@ const ZB_STORE = {
       }
 
       tx.update(ref, upd);
+      if (photo) tx.set(mediaRef("matches", id), { photo, updatedAt: nowTs() });
+      else tx.delete(mediaRef("matches", id));
       if (claim) tx.update(db.collection("users").doc(uid), { points: FV.increment(5) });
     });
+    _photoCache["matches/" + id] = photo || null;
     cache["users"] = null; cache["posts"] = null;
     return true;
   },
@@ -438,13 +567,20 @@ const ZB_STORE = {
     await db.runTransaction(async tx => {
       const s = await tx.get(ref); const d = s.data(); if (!d) return;
       if (d.completedBy && d.completedBy[uid]) return;    // my part is already done
+      // BRIEF-033: the shared photo now lives in a subdoc. Read it here, with the reads,
+      // because a transaction may not read after it writes — and the wall post still needs
+      // the actual bytes. Falls back to any pre-migration inline copy.
+      let shared = null;
+      if (!post.photo && (d.hasPhoto || d.photo)) {
+        const ms = await tx.get(mediaRef("matches", id));
+        shared = (ms.exists && (ms.data() || {}).photo) || matchPhoto(d) || null;
+      }
       done = true;
       const other = d.a === uid ? d.b : d.a;
       const upd = { ["completedBy."+uid]: Date.now() };   // a map value, so not serverTimestamp()
       // match-level "completed" only once BOTH sides are in
       if (d.completedBy && d.completedBy[other]) { upd.status = "completed"; upd.completedAt = nowTs(); }
       tx.update(db.collection("users").doc(uid), { points: FV.increment(5) });   // my 3 answers
-      const shared = typeof d.photo === "string" ? d.photo : null;
       const photo = post.photo || shared || null;
       if (!d.postId && photo) {                           // ONE wall post per meetup
         const pref = db.collection("posts").doc();
