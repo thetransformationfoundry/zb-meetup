@@ -82,7 +82,51 @@ function reelHTML(){
 /* ---------------- helpers ---------------- */
 const $=s=>document.querySelector(s);
 const inits=s=>{const p=(s||'').trim().split(/\s+/);return ((p[0]?.[0]||'?')+(p[1]?.[0]||'')).toUpperCase();};
-function av(p,cls=''){const bg=p.color||'#cfd8e3';const label=p.photo?'':inits(p.name||p.first||'?');return `<span class="avatar ${cls}" style="background:${bg}">${p.photo?`<img src="${p.photo}" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:label}</span>`;}
+/* ---- photos on demand (BRIEF-033) ----
+   Avatars and meetup photos no longer travel with the bulk lists, so a screen that shows ONE
+   person fetches that one photo. `undefined` means not looked up yet, `null` means looked up
+   and there is none — the distinction is what stops a missing photo being re-fetched forever.
+   Renders stay synchronous: they draw initials, the fetch fills the cache, and render() runs
+   once more. */
+const PHOTO={}, MPHOTO={};
+function ensurePhotos(uids,matchIds){
+  const needU=(uids||[]).filter((u,i,a)=>u&&PHOTO[u]===undefined&&a.indexOf(u)===i);
+  const needM=(matchIds||[]).filter((m,i,a)=>m&&MPHOTO[m]===undefined&&a.indexOf(m)===i);
+  if(!needU.length&&!needM.length)return Promise.resolve(false);
+  needU.forEach(u=>{PHOTO[u]=null;});          // claim it now, so a re-render cannot re-request
+  needM.forEach(m=>{MPHOTO[m]=null;});
+  return Promise.all([
+    ...needU.map(u=>Promise.resolve(S.getPhoto?S.getPhoto(u):null).then(v=>{PHOTO[u]=v||null;}).catch(()=>{})),
+    ...needM.map(m=>Promise.resolve(S.getMatchPhoto?S.getMatchPhoto(m):null).then(v=>{MPHOTO[m]=v||null;}).catch(()=>{})),
+  ]).then(()=>true);
+}
+// Drop a cached photo so the next render re-fetches it. Must be called wherever a photo
+// CHANGES, or the session keeps showing the old one — a cache with no invalidation is just
+// a stale value with extra steps.
+function forgetPhoto(uid){ if(uid)delete PHOTO[uid]; }
+function forgetMatchPhoto(id){ if(id)delete MPHOTO[id]; }
+
+// Which photos the screen being drawn actually needs — one person at a time, never a list.
+function photosForView(){
+  const u=[],m=[];
+  const me=C.me&&(C.me.uid||'me');
+  if(view==='spin'&&current)u.push(current.uid);
+  else if(view==='profile'||view==='editprofile')u.push(me);
+  else if(view.startsWith('meet:')||view.startsWith('recap:')){
+    const id=view.slice(view.indexOf(':')+1);
+    const mm=(C.matches||[]).filter(x=>x.id===id)[0];
+    if(mm){ m.push(mm.id); if(mm.person)u.push(mm.person.uid); }
+  }
+  return [u,m];
+}
+// A person's avatar once it has been fetched. `p.photo` still wins where one is held locally
+// (the onboarding preview), and anything not yet loaded simply shows initials.
+// My own avatar: C.me carries no blob any more, so it comes from the cache (or the local
+// onboarding preview before the first save).
+function myFace(){ return (C.me&&C.me.photo)||PHOTO[(C.me&&(C.me.uid||'me'))]||null; }
+function facePhoto(p){ return (p&&p.photo)||(p&&p.uid&&PHOTO[p.uid])||null; }
+
+function av(p,cls=''){const bg=p.color||'#cfd8e3';const ph=facePhoto(p);const label=ph?'':inits(p.name||p.first||'?');return `<span class="avatar ${cls}" style="background:${bg}">${ph?`<img src="${ph}" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:label}</span>`;}
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2000);}
 function wcLabel(w){return w==='on-site'?'On-site':w==='remote'?'Fully remote':'Partially remote';}
 // BRIEF-011A: a comment stores only byUid, so the display name is resolved from the author's
@@ -516,7 +560,7 @@ async function refresh(){
   if(S.claimSignupBonus&&C.me&&!C.me.signupBonusGranted){
     if(await S.claimSignupBonus()){const [me2,lb2,sp2]=await Promise.all([S.getMe(),S.leaderboard(),S.spinState()]);C.me=me2;C.leaderboard=lb2;C.spin=sp2;}
   }
-  const unclaimed=C.matches.filter(m=>m.photo&&!m.photoAwarded);
+  const unclaimed=C.matches.filter(m=>m.hasPhoto&&!m.photoAwarded);
   if(unclaimed.length&&S.claimPhotoAward){
     let got=false;for(const m of unclaimed){ if(await S.claimPhotoAward(m.id))got=true; }
     if(got){const [me2,matches2,lb2]=await Promise.all([S.getMe(),S.myMatches(),S.leaderboard()]);C.me=me2;C.matches=matches2;C.leaderboard=lb2;}
@@ -600,6 +644,10 @@ function render(){
   else if(view==="notifs")s.innerHTML=viewNotifs();
   s.scrollTop=0;
   if(window.__demoBadgePaint)window.__demoBadgePaint();
+  // BRIEF-033: this screen may need one or two photos that no longer arrive with the lists.
+  // ensurePhotos() resolves false when there is nothing to fetch, so this cannot loop.
+  const [needU,needM]=photosForView();
+  ensurePhotos(needU,needM).then(got=>{ if(got)render(); });
 }
 // After a wall: deep-link, bring the post into view. render() resets scrollTop, so this
 // has to run after it, and the highlight clears itself so a later visit is not still lit.
@@ -1009,6 +1057,7 @@ window.finishOnboard=async function(el){
   // Token registration is the slowest step in the chain (service worker + getToken),
   // so keeping it off the critical path is most of the win here.
   S.welcome().catch(()=>{});
+  forgetPhoto(C.me&&(C.me.uid||'me'));      // the first avatar was just written by saveMe
   if(wantsPush){
     // The prompt already fired inside the tap above; getToken needs no gesture, so
     // this can finish in the background without Safari refusing it.
@@ -1037,7 +1086,11 @@ function pillPeople(){
   const tint=id=>{let h=0;const str=String(id||'');for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))>>>0;return PILL_TINTS[h%PILL_TINTS.length];};
   const real=(C.users||[]).filter(u=>u&&u.name).slice();
   real.sort((a,b)=>(b.createdAt&&b.createdAt.seconds||0)-(a.createdAt&&a.createdAt.seconds||0));
-  const list=real.slice(0,12).map(u=>({name:(u.first||(u.name||'').split(' ')[0]||''),photo:u.photo||null,tint:tint(u.uid),ini:inits(u.name)}));
+  // BRIEF-033: initials + colour. This runs on the WELCOME screen, where nobody is signed
+  // in — the avatar rule requires a signed-in reader, so fetching faces here could not work
+  // even if we wanted it to, and it is twelve people at once, which is the pattern we just
+  // removed everywhere else.
+  const list=real.slice(0,12).map(u=>({name:(u.first||(u.name||'').split(' ')[0]||''),photo:null,tint:tint(u.uid),ini:inits(u.name)}));
   if(list.length)return list;
   // holding state — no names, no photos, no invented colleagues
   return [{holder:true,tint:PILL_TINTS[0],ini:''},{holder:true,tint:PILL_TINTS[2],ini:''},{holder:true,tint:PILL_TINTS[3],ini:''}];
@@ -1095,14 +1148,14 @@ function viewCountdown(){
 function spinScreenHTML(){
   const idle=!current;
   const rule=C.me.floor?t('spin_rule_floor'):t('spin_rule_desk');
-  const faceInner=idle?`<span style="display:inline-flex;animation:ringSpin 3.6s linear infinite">${spinnerIcon(54)}</span>`:(current.photo?`<img src="${current.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:999px">`:inits(current.name));
+  const faceInner=idle?`<span style="display:inline-flex;animation:ringSpin 3.6s linear infinite">${spinnerIcon(54)}</span>`:(facePhoto(current)?`<img src="${facePhoto(current)}" style="width:100%;height:100%;object-fit:cover;border-radius:999px">`:inits(current.name));
   const faceBg=idle?"#3E6EA8":current.color;
   return `<div style="display:flex;flex-direction:column;min-height:calc(100vh - 150px)">
     <div style="text-align:center;font-size:11.5px;font-weight:700;letter-spacing:1.6px;color:#7C8798;">${t('spin_today')}</div>
     <div style="text-align:center;font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-.5px;margin-top:8px;">${idle?t('spin_idle_h'):t('spin_matched_h')}</div>
     <div style="display:flex;justify-content:center;margin:22px 0 -86px;position:relative;z-index:5;"><div style="position:relative;width:172px;height:172px;display:flex;align-items:center;justify-content:center;"><div style="position:absolute;inset:0;border-radius:999px;border:2px dashed #A9C6DC;animation:ringSpin 26s linear infinite;"></div><div id="spinFace" style="width:112px;height:112px;border-radius:999px;border:3px solid #F5F7FA;box-shadow:0 6px 20px rgba(16,24,40,.18);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:700;color:#fff;background-color:${faceBg};">${faceInner}</div></div></div>
     <div style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;border-radius:20px;padding:100px 20px 18px;background:linear-gradient(170deg,#3E6EA8 0%,#2F5F9E 42%,#20416F 100%);box-shadow:var(--shadow-lg);color:#fff;min-height:520px;">
-      ${idle?`<div style="text-align:center;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.82);margin:0 auto;max-width:300px;">${t('spin_idle_sub')}</div>`:`<div style="margin-top:18px;background:#fff;color:var(--ink);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(16,24,40,.18);animation:popIn .34s cubic-bezier(.2,.9,.3,1.2) both;"><div style="display:flex;align-items:center;gap:12px;"><div style="width:44px;height:44px;flex:none;border-radius:999px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;background:${current.color};">${current.photo?`<img src="${current.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(current.name)}</div><div style="min-width:0;"><div style="font-size:16px;font-weight:650;">${current.name}</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px;">${current.role} · ${current.dept}</div><div style="margin-top:4px">${langBadge(current.lang)}</div></div><div style="margin-left:auto;flex:none;padding:4px 9px;border-radius:999px;background:#F5F7FA;border:1px solid #ECEFF3;font-size:11px;font-weight:600;color:var(--muted);">${wcLabel(current.workClass)}</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #ECEFF3;font-size:13.5px;font-weight:600;color:var(--zb-blue);">${t('spin_suggested')} ${typeLabel(current._type)}</div></div>`}
+      ${idle?`<div style="text-align:center;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.82);margin:0 auto;max-width:300px;">${t('spin_idle_sub')}</div>`:`<div style="margin-top:18px;background:#fff;color:var(--ink);border-radius:16px;padding:16px;box-shadow:0 8px 30px rgba(16,24,40,.18);animation:popIn .34s cubic-bezier(.2,.9,.3,1.2) both;"><div style="display:flex;align-items:center;gap:12px;"><div style="width:44px;height:44px;flex:none;border-radius:999px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;background:${current.color};">${facePhoto(current)?`<img src="${facePhoto(current)}" style="width:100%;height:100%;object-fit:cover">`:inits(current.name)}</div><div style="min-width:0;"><div style="font-size:16px;font-weight:650;">${current.name}</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px;">${current.role} · ${current.dept}</div><div style="margin-top:4px">${langBadge(current.lang)}</div></div><div style="margin-left:auto;flex:none;padding:4px 9px;border-radius:999px;background:#F5F7FA;border:1px solid #ECEFF3;font-size:11px;font-weight:600;color:var(--muted);">${wcLabel(current.workClass)}</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid #ECEFF3;font-size:13.5px;font-weight:600;color:var(--zb-blue);">${t('spin_suggested')} ${typeLabel(current._type)}</div></div>`}
       <div style="flex:1;min-height:14px;"></div>${reelHTML()}
     </div>
     ${idle?`<button type="button" onclick="doSpin()" style="position:relative;overflow:hidden;margin-top:14px;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span id="spinLabel" style="position:relative;">${t('spin_btn')}${C.spin.freeSpin?'':` (−1 pt)`}</span></button>`:`<div style="margin-top:14px;display:flex;flex-direction:column;gap:9px;"><button type="button" onclick="sendReq()" style="position:relative;overflow:hidden;width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:19px;border-radius:999px;background:${DARKBTN};color:#fff;font-family:inherit;font-size:17px;font-weight:600;animation:btnGlow 4.6s ease-in-out infinite;">${SHEEN}<span style="position:relative;">${t('spin_send_to')} ${current.first}</span></button><button type="button" onclick="doSpin()" ${(!C.spin.freeSpin&&C.spin.points<1)?'disabled':''} style="width:100%;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px;border-radius:12px;background:#fff;border:1px solid #ECEFF3;color:var(--muted);font-family:inherit;font-size:14px;font-weight:600;${(!C.spin.freeSpin&&C.spin.points<1)?'opacity:.5;cursor:not-allowed;':''}">${icon('refresh',15)}<span>${C.spin.freeSpin?t('spin_again_free'):t('spin_again_cost')}</span></button><div class="muted small center">${C.spin.freeSpin?t('spin_free_line'):(C.spin.points<1?t('spin_out'):`You have ${C.spin.points} point${C.spin.points===1?'':'s'}. Meeting someone earns them back.`)}</div></div>`}
@@ -1166,13 +1219,13 @@ function talkingPointsHTML(m){
 function viewMeet(id){
   const m=C.matches.find(x=>x.id===id&&!x.completed);if(!m)return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} ${t('back')}</button><div class="card muted">${t('m_your_part_done')}</div><button class="btn secondary" onclick="go('recap:${id}')">${icon('check',18)} ${t('m_view_recap')}</button>`;
   const last=m.messages.length?m.messages[m.messages.length-1]:null;
-  const mp=typeof m.photo==='string'?m.photo:null;   // the shared meetup photo (base64), if set
+  const mp=MPHOTO[m.id]||null;        // BRIEF-033: fetched on demand for this one meetup
   return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">${t('meet_with')} ${m.person.first}</h2><p class="sub">${t('meet_shared')}</p>
    <div class="meet-hero"><div class="row">${av(m.person)}<div><div style="font-weight:800">${m.person.name}</div><div class="muted small">${m.person.role} · ${wcLabel(m.person.workClass)}</div></div></div><div class="small" style="margin-top:10px;opacity:.9">${t('meet_both_accepted',{type:`<b>${typeLabel(m.type)}</b>`})}</div><button class="btn white" style="margin-top:14px" onclick="go('thread:${m.id}')">${icon('chat',18)} ${t('meet_plan')}${m.unread?` &nbsp;<span class="badge">${m.unread}</span>`:''}</button>${last?`<div class="small" style="margin-top:10px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t('meet_last_msg')} ${(last.by==='me'?t('meet_you_prefix')+' ':'')+last.text}</div>`:''}</div>
    ${talkingPointsHTML(m)}
    ${talkingPointGenHTML()}
    <p class="muted small" style="margin:2px 2px 10px;line-height:1.5">${t('meet_log')}</p>
-   <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?t('pts_earned'):t('pts_available')}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.photo?`${mp?`<img src="${mp}" alt="${t('meet_your_photo')}" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('ob_photo_change')}</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
+   <div class="card"><div class="row between"><b>${t('meet_photo_h')}</b><span class="chip ${m.photoAwarded?'good':'grey'}">${m.photoAwarded?t('pts_earned'):t('pts_available')}</span></div><p class="muted small" style="margin:8px 0 10px">${t('meet_photo_sub')}</p>${m.hasPhoto?`${mp?`<img src="${mp}" alt="${t('meet_your_photo')}" style="display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;">`:`<div class="wall-photo" style="height:80px;background:linear-gradient(135deg,${C.me.color},${m.person.color})">You &amp; ${m.person.first}</div>`}<button class="btn ghost sm" style="width:100%;justify-content:center;margin-top:10px" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('ob_photo_change')}</button>`:`<button class="btn secondary sm" style="width:100%;justify-content:center" onclick="addPhoto('${m.id}')">${icon('camera',18)} ${t('meet_photo_add')}</button>`}</div>
    <div class="card"><div class="row between"><b>${t('meet_q_h')}</b><span class="chip ${myAnswersDone(m)?'good':'grey'}">${myAnswersDone(m)?'+5':t('pts_available')}</span></div>${m.questions.map((q,i)=>`<div class="q"><div class="t">${qText(q)}${q.tier===1?`<span class="tierpill">${t('key_idea')}</span>`:''}</div><textarea class="input" rows="2" oninput="ans('${m.id}',${i},this.value)" placeholder="${t('q_answer_ph')}">${m.answers[i]||''}</textarea></div>`).join('')}<p class="muted small">${t('meet_q_private')}</p></div>
    <button class="btn" id="completeBtn" onclick="complete('${m.id}')" ${canComplete(m)?'':'disabled'}>${icon('check',18)} ${t('meet_complete')}</button>
    <p class="muted small center" style="margin-top:8px">${canComplete(m)?t('meet_complete_ok'):t('meet_complete_hint')}</p>
@@ -1181,7 +1234,7 @@ function viewMeet(id){
 function viewRecap(id){
   const m=C.matches.find(x=>x.id===id);
   if(!m)return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} ${t('back')}</button><div class="card muted">${t('m_not_found')}</div>`;
-  const mp=typeof m.photo==='string'?m.photo:null;
+  const mp=MPHOTO[m.id]||null;
   const sc=typeToScene(m.type);
   return `<button class="btn ghost sm" onclick="go('meetups')">${icon('back',16)} ${t('back')}</button>
    <h2 style="margin-top:6px">${t('recap_h',{name:m.person.first})}</h2><p class="sub">${typeLabel(m.type)}${m.completed?' · '+t('recap_done'):''}</p>
@@ -1210,13 +1263,14 @@ function viewThread(id){
 }
 window.sendMsg=async function(id){const inp=$("#msgIn");const v=(inp.value||'').trim();if(!v)return;await S.sendMessage(id,v);await refresh();};
 function refreshCompleteBtn(m){const b=document.getElementById('completeBtn');if(b)b.disabled=!canComplete(m);}
-window.addPhoto=function(id){const had=!!(C.matches.find(x=>x.id===id)||{}).photo;
+window.addPhoto=function(id){const had=!!(C.matches.find(x=>x.id===id)||{}).hasPhoto;
+  // keep the on-demand cache honest: this device just set the photo, so it knows the bytes
   const m=C.matches.find(x=>x.id===id);
   const post=m?{names:(C.me.name||'You')+' & '+m.person.first,scene:typeToScene(m.type)}:null;
-  return new Promise(function(res){pickImage(async function(d){await S.setMatchPhoto(id,d,post);toast(had?t('ep_photo_toast'):t('meet_photo_added'));await refresh();res(true);},MEETUP_PX);});};
+  return new Promise(function(res){pickImage(async function(d){await S.setMatchPhoto(id,d,post);forgetMatchPhoto(id);toast(had?t('ep_photo_toast'):t('meet_photo_added'));await refresh();res(true);},MEETUP_PX);});};
 window.ans=async function(id,i,v){const m=C.matches.find(x=>x.id===id);if(!m)return;m.answers[i]=v;await S.setMatchAnswers(id,m.answers);refreshCompleteBtn(m);};
 window.complete=async function(id){const m=C.matches.find(x=>x.id===id);if(!m||!canComplete(m))return;
-  await S.completeMatch(id,{names:(C.me.name||'You')+' & '+m.person.first,scene:typeToScene(m.type),photo:typeof m.photo==='string'?m.photo:null});
+  await S.completeMatch(id,{names:(C.me.name||'You')+' & '+m.person.first,scene:typeToScene(m.type),photo:MPHOTO[m.id]||null});
   toast(m.photoAwarded?t('meet_done_toast_10'):t('meet_done_toast'));view="meetups";await refresh();};
 
 /* ---------------- WALL ---------------- */
@@ -1257,7 +1311,7 @@ window.mentionType=function(id){
   const list=mentionCandidates(tok.q);
   box.innerHTML=list.length
     ? list.map(u=>`<button type="button" class="mentopt" onclick="mentionPick('${id}','${u.uid}')">
-        <span class="avatar sm" style="background:${u.color||'#0079BD'}">${u.photo?`<img src="${u.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(u.name)}</span>
+        <span class="avatar sm" style="background:${u.color||'#0079BD'}">${inits(u.name)}</span>
         <span>${esc(u.name)}</span></button>`).join('')
     : `<div class="muted small" style="padding:8px 10px">${t('wall_mention_none')}</div>`;
   box.hidden=false;
@@ -1291,14 +1345,14 @@ function viewRanks(){
   // The whole ranked list, 1 -> end. The store returns every user already (builders
   // filtered, sorted by points, no Firestore .limit() on the users read), so this cap was
   // purely cosmetic and hid most of the company from their own leaderboard.
-  C.leaderboard.forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${r.photo?`<img src="${r.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(r.name)}</span><div class="nm">${esc(r.name)}${(r.admin&&!r.builder)?`<span class="noteligible">${t('ranks_not_eligible')}</span>`:''}</div><div class="p">${r.points}</div></div>`;});
+  C.leaderboard.forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${inits(r.name)}</span><div class="nm">${esc(r.name)}${(r.admin&&!r.builder)?`<span class="noteligible">${t('ranks_not_eligible')}</span>`:''}</div><div class="p">${r.points}</div></div>`;});
   return h+`</div>`;
 }
 
 /* ---------------- PROFILE ---------------- */
 function viewProfile(){
   const me=C.me;
-  return `<h2>${t('prof_h')}</h2><p class="sub">${t('prof_sub')}</p><div class="card center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span><div style="font-weight:800;font-size:18px;margin-top:12px">${me.name||'You'}</div><div class="muted small">${me.role} · ${me.dept}</div><div class="muted small">${me.email||''}</div><div style="margin-top:6px">${langBadge(me.lang)}</div><div style="margin-top:10px"><span class="chip">${me.points} ${t('pts_short')}</span> <span class="chip grey">${history().length} ${t('prof_meetups_chip')}</span></div></div>
+  return `<h2>${t('prof_h')}</h2><p class="sub">${t('prof_sub')}</p><div class="card center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${myFace()?`<img src="${myFace()}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span><div style="font-weight:800;font-size:18px;margin-top:12px">${me.name||'You'}</div><div class="muted small">${me.role} · ${me.dept}</div><div class="muted small">${me.email||''}</div><div style="margin-top:6px">${langBadge(me.lang)}</div><div style="margin-top:10px"><span class="chip">${me.points} ${t('pts_short')}</span> <span class="chip grey">${history().length} ${t('prof_meetups_chip')}</span></div></div>
    <button class="btn secondary" onclick="go('editprofile')">${icon('pencil',18)} ${t('prof_edit')}</button>
    <button class="btn secondary" style="margin-top:10px" onclick="go('bug')">${icon('bug',18)} ${t('prof_bug')}</button>
    ${C.admin?`<button class="btn secondary" style="margin-top:10px" onclick="go('admin')">${icon('chart',18)} ${t('prof_admin')}</button>`:''}
@@ -1323,7 +1377,7 @@ function viewProfile(){
 }
 function viewEditProfile(){
   const me=C.me;
-  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">${t('ep_h')}</h2><p class="sub">${t('ep_sub')}</p><div class="center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${me.photo?`<img src="${me.photo}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span></div><button class="btn secondary" style="margin-top:14px" onclick="epPickPhoto()">${icon('camera',18)} ${me.photo?t('ob_photo_change'):t('ob_photo_add')}</button><div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">${t('ob_colour')}</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="epColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${me.color===c?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div><div class="card"><label class="small" style="font-weight:700">Name</label><input class="input" id="ep-name" value="${me.name}" style="margin-top:6px">
+  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">${t('ep_h')}</h2><p class="sub">${t('ep_sub')}</p><div class="center"><span class="avatar lg" style="margin:0 auto;background:${me.color}">${myFace()?`<img src="${myFace()}" style="width:100%;height:100%;object-fit:cover">`:inits(me.name||'You')}</span></div><button class="btn secondary" style="margin-top:14px" onclick="epPickPhoto()">${icon('camera',18)} ${myFace()?t('ob_photo_change'):t('ob_photo_add')}</button><div class="card" style="margin-top:12px"><span class="small" style="font-weight:700">${t('ob_colour')}</span><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">${COLORS.map(c=>`<span onclick="epColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;border:${me.color===c?'3px solid var(--ink)':'3px solid #fff'};box-shadow:0 0 0 1px var(--line)"></span>`).join('')}</div></div><div class="card"><label class="small" style="font-weight:700">Name</label><input class="input" id="ep-name" value="${me.name}" style="margin-top:6px">
    <label class="small" style="font-weight:700;display:block;margin-top:14px">${t('lang_label')}</label>
    <select class="input" id="ep-lang" style="margin-top:6px" onchange="epLang(this.value)">${LANGS.map(l=>`<option value="${l}" ${(me.lang||'en')===l?'selected':''}>${window.ZB_T('lang_'+l,l)}</option>`).join('')}</select></div><button class="btn" onclick="saveProfile()">${icon('check',18)} ${t('ep_save')}</button>`;
 }
@@ -1352,8 +1406,8 @@ window.pushToggle=async function(){
 };
 
 window.epLang=async function(l){ await S.saveMe({lang:LANGS.indexOf(l)>-1?l:'en'}); await refresh(); toast(t('lang_label')); };
-window.epColor=async function(c){await S.saveMe({color:c,photo:null});await refresh();};
-window.epPickPhoto=function(){pickImage(async function(d){await S.saveMe({photo:d});await refresh();toast(t('ep_photo_toast'));});};
+window.epColor=async function(c){await S.saveMe({color:c,photo:null});forgetPhoto(C.me&&(C.me.uid||'me'));await refresh();};
+window.epPickPhoto=function(){pickImage(async function(d){await S.saveMe({photo:d});forgetPhoto(C.me&&(C.me.uid||'me'));await refresh();toast(t('ep_photo_toast'));});};
 window.saveProfile=async function(){const n=$("#ep-name").value.trim();await S.saveMe(n?{name:n}:{});toast(t('ep_saved_toast'));view='profile';await refresh();};
 window.signOut=async function(){toast(t('signed_out_toast'));await S.signOut();current=null;OB={email:"",pass:"",name:"",color:"#0079BD",hasPhoto:false,workClass:"partial",floor:false,role:"IT Sr Analyst",dept:"IT - EMEA"};onboardStep="welcome";mode="onboarding";renderOnboard();};
 window.askDelete=function(){$("#screen").innerHTML=`<h2>${t('del_h')}</h2><p class="sub">${t('del_sub')}</p><div class="card small" style="line-height:1.5">${t('del_gdpr')}</div><button class="btn danger" onclick="doDelete()">${icon('trash',18)} ${t('del_confirm')}</button><button class="btn ghost" style="margin-top:10px" onclick="go('profile')">${t('cancel')}</button>`;};
@@ -1387,6 +1441,8 @@ function viewAdmin(){
          </div>`).join(''):`<div class="muted small">No answers captured yet — they appear here as colleagues complete meetups.</div>`}
        <div class="row" style="gap:8px;margin-top:12px">
          <button class="btn secondary sm" onclick="exportData()">${icon('download',16)} Export answers</button>
+         <button class="btn ghost sm" style="margin-top:8px" onclick="migrateMedia(this)">${icon('refresh',16)} Migrate photos (one-time)</button>
+         <p class="muted small" style="margin:6px 2px 0;line-height:1.45">Moves existing avatars and meetup photos out of the bulk-read documents. Safe to re-run — already-migrated records are skipped. Back up first.</p>
          <button class="btn ghost sm" onclick="adminToggleAnon()">${adminAnon?'Show names':'Anonymise'}</button>
          <button class="btn ghost sm" onclick="reloadAdmin()">${icon('refresh',16)}</button>
        </div></div>`;
@@ -1422,6 +1478,28 @@ function csvCell(v){
   if(/^[=+\-@]/.test(v))v="'"+v;
   return '"'+v.replace(/"/g,'""')+'"';
 }
+// BRIEF-033 one-time migration. Admin-only (the store re-checks), idempotent, and reports
+// counts. Deliberately English and inside the admin dashboard, like the rest of the admin UI.
+window.migrateMedia=async function(el){
+  if(!C.admin)return;
+  if(!confirm("Move existing photos out of the user and match documents?\n\nSafe to re-run. Make sure the backup is done first."))return;
+  const btn=el||null; if(btn&&!btnBusy(btn))return;
+  try{
+    const r=await S.migrateMedia((msg)=>{ if(window.console)console.log("[zb] migrate:",msg); });
+    const line="Users moved "+r.users+" (skipped "+r.usersSkipped+") · meetups moved "+r.matches
+      +" (skipped "+r.matchesSkipped+") · embedded avatars stripped "+r.profilesStripped
+      +(r.errors?(" · errors "+r.errors):"");
+    if(window.console)console.log("[zb] migrate result",r);
+    toast(line);
+    alert("Photo migration complete.\n\n"+line.replace(/ · /g,"\n"));
+  }catch(e){
+    toast((e&&e.code)==="zb/not-admin"?"Admins only":"Migration failed — see the console.");
+    if(window.console)console.warn("[zb] migrate failed",e);
+  }
+  btnIdle(btn);
+  await refresh();
+};
+
 window.exportData=function(){
   const d=C.adminData;
   if(!C.admin){toast("Admins only");return;}

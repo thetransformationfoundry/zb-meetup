@@ -62,7 +62,7 @@ load("js/i18n.js");                  // ZB_I18N + ZB_T
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__TP=()=>TP;window.__qText=qText;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__PHOTOS=()=>PHOTO;window.__forgetPhoto=forgetPhoto;window.__mode=()=>mode;window.__MPHOTOS=()=>MPHOTO;window.__TP=()=>TP;window.__qText=qText;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -319,7 +319,11 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
 
   await window.addPhoto(id);
   const withPhoto = (await window.ZB_STORE.myMatches()).find(x => x.id === id);
-  chk("meetup photo stored as a base64 string", typeof withPhoto.photo === "string" && /^data:image\//.test(withPhoto.photo));
+  // BRIEF-033: the blob lives in its own doc now. The match says one EXISTS; the bytes come
+  // from getMatchPhoto(), which is what keeps the bulk match read light.
+  chk("meetup photo is flagged on the match and fetched on demand",
+      withPhoto.photo === undefined && withPhoto.hasPhoto === true
+      && /^data:image\//.test(await window.ZB_STORE.getMatchPhoto(id)));
   chk("meetup photo captures at 960px, not 256", global.__canvasPx === 960);
   global.__imgPx = 300;                       // a low-res source must not be upscaled
   await window.addPhoto(id);
@@ -1368,6 +1372,72 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   // the migrated legacy user (seeded as "QARA Manager") is in the pool as GSCC - QARA
   chk("a legacy-role colleague is matchable after normalising",
       pool.filter(r => r === QARA).length >= 1);
+
+  /* ---- BRIEF-033: base64 photos are out of the bulk-fetched documents ---- */
+  const lightUsers = await window.ZB_STORE.listUsers();
+  const lightBoard = await window.ZB_STORE.leaderboard();
+  chk("listUsers() carries no base64 — only a light hasPhoto flag",
+      lightUsers.length > 0
+      && lightUsers.every(u => u.photo === undefined)
+      && lightUsers.some(u => "hasPhoto" in u));
+  chk("the leaderboard carries no base64 either",
+      lightBoard.length > 0 && lightBoard.every(r => r.photo === undefined));
+  chk("nothing bulk-fetched smuggles a data: URL through",
+      JSON.stringify(lightUsers).indexOf("data:image") === -1
+      && JSON.stringify(lightBoard).indexOf("data:image") === -1);
+
+  // the photo is still reachable, one subject at a time. Set up here rather than relying on
+  // earlier state, so this block asserts the contract wherever it sits in the suite.
+  await window.ZB_STORE.saveMe({ photo: "data:image/jpeg;base64,AVATAR" });
+  chk("getPhoto(uid) returns that one person's avatar on demand",
+      (await window.ZB_STORE.getPhoto("me")) === "data:image/jpeg;base64,AVATAR");
+  chk("my own light profile still says a photo exists, without carrying it",
+      (await window.ZB_STORE.getMe()).hasPhoto === true);
+  chk("getPhoto is null, not an error, for someone with no avatar",
+      (await window.ZB_STORE.getPhoto("nobody-at-all")) === null);
+
+  // the match blob is out of myMatches(), but its existence is still known
+  const pmMate = (await window.ZB_STORE.listUsers())[0];
+  const pmQs = (await window.ZB_STORE.questionBank()).filter(q => q.tier !== 2).slice(0, 3);
+  const pmId = await window.ZB_STORE.createMatch(pmMate, "a coffee", pmQs);
+  await window.ZB_STORE.acceptMatch(pmId);
+  await window.ZB_STORE.setMatchPhoto(pmId, "data:image/jpeg;base64,MEETUP",
+      { names:"x", scene:"coffee" });
+  const photoMatch = (await window.ZB_STORE.myMatches()).filter(m => m.id === pmId)[0];
+  chk("a match exposes hasPhoto, never the blob",
+      !!photoMatch && photoMatch.photo === undefined && photoMatch.hasPhoto === true);
+  chk("getMatchPhoto(id) returns the meetup photo on demand",
+      (await window.ZB_STORE.getMatchPhoto(pmId)) === "data:image/jpeg;base64,MEETUP");
+
+  // the admin path is the other bulk read this brief exists to lighten
+  const adminData = await window.ZB_STORE.adminAnswers();
+  chk("the admin idea bank pulls no photo data at all",
+      JSON.stringify(adminData).indexOf("data:image") === -1);
+
+  // the leaderboard must render initials, not faces
+  await refreshAndSettle();
+  window.go("ranks");
+  chk("the leaderboard renders initials and colour, no img tags",
+      /class="rankrow/.test(scr()) && !/data:image/.test(scr()));
+
+  // The guardrail that matters most: photos must still APPEAR where one person is shown.
+  // render() draws initials, fetches, then re-renders — so settle before asserting.
+  // This block wrote the avatar straight to the store, bypassing the UI. Every UI path that
+  // changes a photo calls forgetPhoto(); mirror that BEFORE rendering, or the render would
+  // legitimately show the previously cached one.
+  window.__forgetPhoto("me");
+  const settle = async () => { for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0)); };
+  window.go("profile"); await settle(); window.go("profile");
+  chk("a profile still shows the avatar, loaded on demand",
+      /data:image\/jpeg;base64,AVATAR/.test(scr()));
+  window.go("meet:" + pmId); await settle(); window.go("meet:" + pmId);
+  chk("the shared space still shows the meetup photo, loaded on demand",
+      /data:image\/jpeg;base64,MEETUP/.test(scr()));
+
+  // both stores expose the migration + photo API (lockstep)
+  chk("both stores expose getPhoto, getMatchPhoto and migrateMedia",
+      ["getPhoto","getMatchPhoto","migrateMedia"].every(fn =>
+        typeof window.ZB_STORE[fn] === "function"));
 
   /* ---- BRIEF-032: the full workClass matrix ----
      Replaces the old floor assertions. `floor` no longer gates matching: warehouse and
