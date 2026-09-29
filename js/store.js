@@ -197,8 +197,8 @@
     // surfaced so the row can show the ineligibility chip. Display-only.
     leaderboard() {
       const all = USERS.filter(u => !u.builder)
-        .map(u => ({ name:u.name, points:u.points, color:u.color, me:false, admin:!!u.admin }));
-      if (ME && !ME.builder) all.push({ name:ME.name, points:ME.points, color:ME.color, me:true, admin:!!ME.admin });
+        .map(u => ({ uid:u.uid, name:u.name, points:u.points, color:u.color, hasPhoto:!!u.photo, me:false, admin:!!u.admin }));
+      if (ME && !ME.builder) all.push({ uid:"me", name:ME.name, points:ME.points, color:ME.color, hasPhoto:!!ME.photo, me:true, admin:!!ME.admin });
       return P(all.sort((a,b) => b.points - a.points));
     },
 

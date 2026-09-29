@@ -103,6 +103,44 @@ function ensurePhotos(uids,matchIds){
 // Drop a cached photo so the next render re-fetches it. Must be called wherever a photo
 // CHANGES, or the session keeps showing the old one — a cache with no invalidation is just
 // a stale value with extra steps.
+/* ---- BRIEF-034: faces on the leaderboard, one visible row at a time ----
+   The board can be hundreds of rows. Fetching every avatar on open is exactly the bulk
+   download BRIEF-033 removed, so each row renders initials and only swaps in a photo when it
+   actually scrolls near the viewport. Already-cached faces (seen on a spin card, or scrolled
+   past once) swap in with no fetch at all. */
+let faceObs=null;
+function hydrateFace(el){
+  if(!el||el.getAttribute==null)return Promise.resolve(false);
+  const uid=el.getAttribute('data-face');
+  if(!uid)return Promise.resolve(false);
+  el.removeAttribute('data-face');                 // claim it: never fetch the same row twice
+  const paint=()=>{
+    const src=PHOTO[uid];
+    if(!src)return false;                          // no photo after all: the initials stay
+    el.innerHTML=`<img src="${src}" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`;
+    return true;
+  };
+  if(PHOTO[uid]!==undefined)return Promise.resolve(paint());   // already cached — no read
+  return ensurePhotos([uid]).then(paint);
+}
+window.__hydrateFace=hydrateFace;
+function initFaceObserver(){
+  if(faceObs){faceObs.disconnect();faceObs=null;}                 // a re-render invalidates it
+  if(typeof document==='undefined'||!document.querySelectorAll)return;
+  const rows=document.querySelectorAll('[data-face]');
+  if(!rows||!rows.length)return;
+  if(typeof IntersectionObserver!=='function'){
+    // No observer (old browser, or the Node harness): leave initials rather than fall back to
+    // fetching the whole board, which is the thing this exists to avoid.
+    return;
+  }
+  // rootMargin gives the fetch a head start, so a face is usually there by the time the row is.
+  faceObs=new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){ faceObs.unobserve(e.target); hydrateFace(e.target); } });
+  },{rootMargin:'250px 0px'});
+  Array.prototype.forEach.call(rows,r=>faceObs.observe(r));
+}
+
 function forgetPhoto(uid){ if(uid)delete PHOTO[uid]; }
 function forgetMatchPhoto(id){ if(id)delete MPHOTO[id]; }
 
@@ -648,6 +686,8 @@ function render(){
   // ensurePhotos() resolves false when there is nothing to fetch, so this cannot loop.
   const [needU,needM]=photosForView();
   ensurePhotos(needU,needM).then(got=>{ if(got)render(); });
+  if(view==='ranks')initFaceObserver();
+  else if(faceObs){faceObs.disconnect();faceObs=null;}
 }
 // After a wall: deep-link, bring the post into view. render() resets scrollTop, so this
 // has to run after it, and the highlight clears itself so a later visit is not still lit.
@@ -1345,7 +1385,7 @@ function viewRanks(){
   // The whole ranked list, 1 -> end. The store returns every user already (builders
   // filtered, sorted by points, no Firestore .limit() on the users read), so this cap was
   // purely cosmetic and hid most of the company from their own leaderboard.
-  C.leaderboard.forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm" style="background:${r.color}">${inits(r.name)}</span><div class="nm">${esc(r.name)}${(r.admin&&!r.builder)?`<span class="noteligible">${t('ranks_not_eligible')}</span>`:''}</div><div class="p">${r.points}</div></div>`;});
+  C.leaderboard.forEach((r,i)=>{h+=`<div class="rankrow ${r.me?'me':''}"><div class="n">${i+1}</div><span class="avatar sm"${(r.hasPhoto&&r.uid)?` data-face="${r.uid}"`:''} style="background:${r.color}">${inits(r.name)}</span><div class="nm">${esc(r.name)}${(r.admin&&!r.builder)?`<span class="noteligible">${t('ranks_not_eligible')}</span>`:''}</div><div class="p">${r.points}</div></div>`;});
   return h+`</div>`;
 }
 

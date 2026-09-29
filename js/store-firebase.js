@@ -408,7 +408,18 @@ const ZB_STORE = {
   // Builders never appear or rank. Admins who are real colleagues (Donnae) DO rank
   // normally — `admin` is surfaced only so the row can show an ineligibility chip.
   // Display-only: nothing here changes points or ordering.
-  async leaderboard() { const uid = uidNow(); const all = await this._allUsers(); return all.filter(u => !u.builder).map(u => ({ name:u.name, points:u.points||0, color:u.color, photo:u.photo||null, me:u.uid===uid, admin:!!u.admin })).sort((a,b)=>b.points-a.points); },
+  // BRIEF-034: carries `uid` + `hasPhoto` so the board can lazy-load one face per visible
+  // row, and deliberately NO blob. BRIEF-033 removed the photo from profileToPublic but this
+  // method builds its own row objects from the raw docs, so it kept shipping `photo` — the
+  // harness only ever executes the demo store, so nothing caught it. Pre-migration that meant
+  // Ranks still pulled every avatar in one payload, which is the exact thing BRIEF-033 fixed.
+  async leaderboard() {
+    const uid = uidNow(); const all = await this._allUsers();
+    return all.filter(u => !u.builder)
+      .map(u => ({ uid:u.uid, name:u.name, points:u.points||0, color:u.color,
+                   hasPhoto: !!(u.hasPhoto || u.photo), me:u.uid === uid, admin:!!u.admin }))
+      .sort((a,b) => b.points - a.points);
+  },
 
   // ---- matches ----
   async myMatches() {

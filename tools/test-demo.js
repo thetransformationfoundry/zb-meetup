@@ -1439,6 +1439,64 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       ["getPhoto","getMatchPhoto","migrateMedia"].every(fn =>
         typeof window.ZB_STORE[fn] === "function"));
 
+  /* ---- BRIEF-034: faces back on the leaderboard, lazily ---- */
+  await window.ZB_STORE.saveMe({ photo: "data:image/jpeg;base64,MYFACE" });
+  await refreshAndSettle();
+  const board034 = await window.ZB_STORE.leaderboard();
+  chk("leaderboard rows carry uid and hasPhoto, and still no blob",
+      board034.length > 0
+      && board034.every(r => "uid" in r && "hasPhoto" in r && r.photo === undefined)
+      && board034.some(r => r.hasPhoto === true));
+  chk("the board payload is still free of base64",
+      JSON.stringify(board034).indexOf("data:image") === -1);
+
+  // The BRIEF-033 miss: only the DEMO store is executed here, so a blob can sit in the live
+  // store's leaderboard unnoticed. Read both sources and assert neither reintroduces one.
+  const srcLive = require("fs").readFileSync("js/store-firebase.js", "utf8");
+  const srcDemo = require("fs").readFileSync("js/store.js", "utf8");
+  const boardBody = src => { const i = src.indexOf("leaderboard()"); return src.slice(i, i + 700); };
+  chk("neither store's leaderboard() maps a photo field",
+      !/photo\s*:\s*u\.photo/.test(boardBody(srcLive))
+      && !/photo\s*:\s*u\.photo/.test(boardBody(srcDemo))
+      && /hasPhoto/.test(boardBody(srcLive)) && /hasPhoto/.test(boardBody(srcDemo)));
+
+  window.go("ranks");
+  const ranks034 = scr();
+  chk("rows render initials by default, with a lazy hook only where a photo exists",
+      /class="rankrow/.test(ranks034)
+      && !/data:image/.test(ranks034)
+      && (ranks034.match(/data-face="/g) || []).length === board034.filter(r => r.hasPhoto).length);
+  chk("a colleague with no photo gets no lazy hook at all",
+      board034.some(r => !r.hasPhoto)
+      && (ranks034.match(/data-face="/g) || []).length < board034.length);
+
+  // the hydration step itself: uses getPhoto, swaps the img in, and never re-fetches
+  let getPhotoCalls = 0;
+  const realGetPhoto = window.ZB_STORE.getPhoto.bind(window.ZB_STORE);
+  window.ZB_STORE.getPhoto = function(u){ getPhotoCalls++; return realGetPhoto(u); };
+  const fakeRow = (function(){
+    let attrs = { "data-face": "me" }, html = "TU";
+    return { getAttribute:k => (k in attrs ? attrs[k] : null),
+             removeAttribute:k => { delete attrs[k]; },
+             set innerHTML(v){ html = v; }, get innerHTML(){ return html; } };
+  })();
+  window.__forgetPhoto("me");
+  chk("hydrating a row fetches that one face through getPhoto and swaps the img in",
+      (await window.__hydrateFace(fakeRow)) === true
+      && /<img src="data:image\/jpeg;base64,MYFACE"/.test(fakeRow.innerHTML)
+      && /onerror=/.test(fakeRow.innerHTML)
+      && getPhotoCalls === 1);
+
+  const cachedRow = (function(){
+    let attrs = { "data-face": "me" }, html = "TU";
+    return { getAttribute:k => (k in attrs ? attrs[k] : null),
+             removeAttribute:k => { delete attrs[k]; },
+             set innerHTML(v){ html = v; }, get innerHTML(){ return html; } };
+  })();
+  chk("a face already in the PHOTO cache costs no second read",
+      (await window.__hydrateFace(cachedRow)) === true && getPhotoCalls === 1);
+  window.ZB_STORE.getPhoto = realGetPhoto;
+
   /* ---- BRIEF-032: the full workClass matrix ----
      Replaces the old floor assertions. `floor` no longer gates matching: warehouse and
      office both count as 'on-site', and the ONLY blocked pair is on-site <-> fully-remote.
