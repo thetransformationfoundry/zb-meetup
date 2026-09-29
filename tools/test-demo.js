@@ -1487,14 +1487,42 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       && /onerror=/.test(fakeRow.innerHTML)
       && getPhotoCalls === 1);
 
+  // End to end on a real seed colleague: the rendered row carries the hook, and hydrating
+  // THAT element turns it into an <img>. Two demo seeds now have a placeholder avatar, so
+  // this path is reachable in the demo instead of only via the signed-in user.
+  const seedFace = board034.filter(r => r.hasPhoto && r.uid !== "me")[0];
+  chk("a seed colleague with a photo appears on the board with a lazy hook",
+      !!seedFace && ranks034.indexOf('data-face="' + seedFace.uid + '"') > -1);
+  const seedRow = (function(){
+    let attrs = { "data-face": seedFace.uid }, html = "MH";
+    return { getAttribute:k => (k in attrs ? attrs[k] : null),
+             removeAttribute:k => { delete attrs[k]; },
+             set innerHTML(v){ html = v; }, get innerHTML(){ return html; } };
+  })();
+  chk("that row lazy-loads into an <img> with the colleague's own avatar",
+      (await window.__hydrateFace(seedRow)) === true
+      && /^<img src="data:image\//.test(seedRow.innerHTML)
+      && seedRow.innerHTML.indexOf(await window.ZB_STORE.getPhoto(seedFace.uid)) > -1);
+  chk("a row whose colleague has no photo is left as initials",
+      board034.some(r => !r.hasPhoto)
+      && (await window.__hydrateFace((function(){
+           let attrs = { "data-face": board034.filter(r => !r.hasPhoto)[0].uid }, html = "XY";
+           return { getAttribute:k => (k in attrs ? attrs[k] : null),
+                    removeAttribute:k => { delete attrs[k]; },
+                    set innerHTML(v){ html = v; }, get innerHTML(){ return html; } };
+         })())) === false);
+
   const cachedRow = (function(){
     let attrs = { "data-face": "me" }, html = "TU";
     return { getAttribute:k => (k in attrs ? attrs[k] : null),
              removeAttribute:k => { delete attrs[k]; },
              set innerHTML(v){ html = v; }, get innerHTML(){ return html; } };
   })();
+  // Relative to whatever has been fetched so far, not an absolute count — the assertion is
+  // "this hydration cost nothing", which stays true however many checks run before it.
+  const callsBefore = getPhotoCalls;
   chk("a face already in the PHOTO cache costs no second read",
-      (await window.__hydrateFace(cachedRow)) === true && getPhotoCalls === 1);
+      (await window.__hydrateFace(cachedRow)) === true && getPhotoCalls === callsBefore);
   window.ZB_STORE.getPhoto = realGetPhoto;
 
   /* ---- BRIEF-032: the full workClass matrix ----

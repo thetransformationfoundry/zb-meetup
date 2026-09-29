@@ -35,6 +35,20 @@
     ["Ruben","Vos","QARA Manager","Quality & Reg Affairs","partial",false],
   ].map(p => ({ uid:p[0]+p[1], name:p[0]+" "+p[1], first:p[0], role:p[2], dept:p[3], workClass:p[4], floor:p[5], color:col(), photo:null, points:20+Math.floor(Math.random()*70) }));
 
+  /* Two demo colleagues carry a placeholder avatar (BRIEF-034). Without one, every seed user
+     is photo:null, so hasPhoto is false everywhere and the lazy-loading leaderboard has
+     nothing to load — it could not be seen on localhost or asserted by the harness.
+
+     A ~290-byte inline SVG silhouette, not a real face: invented people should not have
+     photographs, and it keeps the seed data tiny. Everyone else stays initials, which is
+     also what makes the contrast visible in the demo. */
+  const DEMO_FACE_A = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjMDA3OUJEIi8+PGNpcmNsZSBjeD0iMzIiIGN5PSIyNSIgcj0iMTIiIGZpbGw9IiNDRkU2RjUiLz48cGF0aCBkPSJNOCA2NGMwLTEzIDExLTIxIDI0LTIxczI0IDggMjQgMjF6IiBmaWxsPSIjQ0ZFNkY1Ii8+PC9zdmc+";
+  const DEMO_FACE_B = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjMUU5RTVBIi8+PGNpcmNsZSBjeD0iMzIiIGN5PSIyNSIgcj0iMTIiIGZpbGw9IiNEREYzRTYiLz48cGF0aCBkPSJNOCA2NGMwLTEzIDExLTIxIDI0LTIxczI0IDggMjQgMjF6IiBmaWxsPSIjRERGM0U2Ii8+PC9zdmc+";
+  USERS.forEach(u => {
+    if (u.uid === "MiraHalvorsen") u.photo = DEMO_FACE_A;
+    if (u.uid === "LarsWieringa")  u.photo = DEMO_FACE_B;
+  });
+
   // Demo icebreakers so the meetup "Talking points" card has something to show. Invented
   // answers for invented people (see the seed-name note above) — three Tier-2 questions each.
   const DEMO_ICE = [
