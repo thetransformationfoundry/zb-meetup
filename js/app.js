@@ -190,6 +190,40 @@ function nameForUid(uid){
   const u=(C.users||[]).filter(x=>x&&x.uid===uid)[0];
   return u?(u.name||''):'';
 }
+/* ---- BRIEF-035: real wall timestamps ----
+   The wall printed t('wall_just_now') for every post. createdAt was always stored — it is
+   what listPosts orders by — but both stores dropped it from the mapping, so the UI never
+   had a time to show. It is returned now, and rendered through Intl.RelativeTimeFormat in
+   the viewer's language, which means "2 hours ago" / "2 uur geleden" / "acum 2 ore" with no
+   new dictionary strings (and so no dependency on the open NL/RO UI review). */
+function toMillis(v){
+  if(v==null)return 0;
+  if(typeof v==='number')return v;
+  if(typeof v==='string'){const n=Date.parse(v);return isNaN(n)?0:n;}
+  if(v instanceof Date)return v.getTime();
+  if(typeof v.toMillis==='function')return v.toMillis();          // Firestore Timestamp
+  if(typeof v.toDate==='function')return v.toDate().getTime();
+  if(typeof v.seconds==='number')return v.seconds*1000;           // plain {seconds,nanoseconds}
+  return 0;
+}
+function postTime(w){
+  const ms=toMillis(w&&w.createdAt);
+  // No timestamp yet — a server timestamp has not resolved on a post written seconds ago.
+  if(!ms)return t('wall_just_now');
+  const lang=myLang(), diff=Date.now()-ms;
+  if(diff<60000||diff<0)return t('wall_just_now');                // also guards a skewed clock
+  let rtf=null;
+  try{ if(typeof Intl!=='undefined'&&Intl.RelativeTimeFormat)rtf=new Intl.RelativeTimeFormat(lang,{numeric:'auto'}); }catch(e){}
+  const mins=Math.floor(diff/60000), hours=Math.floor(diff/3600000), days=Math.floor(diff/86400000);
+  if(!rtf||days>=7){
+    try{ return new Date(ms).toLocaleDateString(lang,{day:'numeric',month:'short'}); }
+    catch(e){ return new Date(ms).toLocaleDateString(); }
+  }
+  if(mins<60)return rtf.format(-mins,'minute');
+  if(hours<24)return rtf.format(-hours,'hour');
+  return rtf.format(-days,'day');                                  // "yesterday" via numeric:auto
+}
+
 function mention(txt){return esc(txt).replace(/@([A-Za-z]+)/g,'<span class="ment">@$1</span>');}
 function commentBody(c){
   const list=(c&&c.mentions)||[];
@@ -1319,7 +1353,7 @@ function viewWall(){
   const posts=[...real,...seeds].slice(0,Math.max(6,real.length));
   const motd=posts[0]||C.posts[0];const ms=SCENES[motd.scene]||SCENES.coffee;
   let h=`<h2>${t('wall_h')}</h2><p class="sub">${t('wall_sub')}</p><div class="card" style="background:linear-gradient(135deg,var(--zb-blue),var(--zb-blue-dark));color:#fff;border:none"><span class="chip gold" style="background:rgba(255,255,255,.2);color:#fff">${icon('trophy',14)} ${t('wall_motd')}</span><div style="font-weight:800;font-size:17px;margin-top:10px">${motd.names}</div><div class="small" style="opacity:.85">${ms.chip}</div></div>`;
-  posts.forEach(w=>{const s=SCENES[w.scene]||SCENES.coffee;h+=`<div class="card${wallFocus===w.id?' focus':''}" id="post${w.id}"><div class="row" style="margin-bottom:10px"><span class="avatar sm" style="background:${s.c1}">${initialsPair(w.names)}</span><div class="small"><b>${w.names}</b>${w.seed?'':' · <span style="color:var(--good);font-weight:700">'+t('wall_just_now')+'</span>'}</div></div>${sceneSquare(w.scene,s.chip,w.photo)}<div class="row" style="gap:16px;margin-top:10px"><button class="iconbtn ${w.liked?'liked':''}" onclick="like('${w.id}')">${icon('heart',19,w.liked)} ${w.hearts}</button><span class="iconbtn">${icon('chat',18)} ${w.comments.length}</span></div>${w.comments.map(c=>`<div class="comment"><b>${esc(commentAuthor(c))}</b> ${commentBody(c)}</div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="cin${w.id}" autocomplete="off" placeholder="${t('wall_comment_ph')}" oninput="mentionType('${w.id}')" onkeydown="if(event.key==='Enter')addComment('${w.id}')"><button class="btn sm secondary" onclick="addComment('${w.id}')">${icon('send',16)}</button></div><div class="mentbox" id="mb${w.id}" hidden></div></div>`;});
+  posts.forEach(w=>{const s=SCENES[w.scene]||SCENES.coffee;h+=`<div class="card${wallFocus===w.id?' focus':''}" id="post${w.id}"><div class="row" style="margin-bottom:10px"><span class="avatar sm" style="background:${s.c1}">${initialsPair(w.names)}</span><div class="small"><b>${w.names}</b>${w.seed?'':' · <span style="color:var(--good);font-weight:700">'+esc(postTime(w))+'</span>'}</div></div>${sceneSquare(w.scene,s.chip,w.photo)}<div class="row" style="gap:16px;margin-top:10px"><button class="iconbtn ${w.liked?'liked':''}" onclick="like('${w.id}')">${icon('heart',19,w.liked)} ${w.hearts}</button><span class="iconbtn">${icon('chat',18)} ${w.comments.length}</span></div>${w.comments.map(c=>`<div class="comment"><b>${esc(commentAuthor(c))}</b> ${commentBody(c)}</div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="cin${w.id}" autocomplete="off" placeholder="${t('wall_comment_ph')}" oninput="mentionType('${w.id}')" onkeydown="if(event.key==='Enter')addComment('${w.id}')"><button class="btn sm secondary" onclick="addComment('${w.id}')">${icon('send',16)}</button></div><div class="mentbox" id="mb${w.id}" hidden></div></div>`;});
   return h;
 }
 window.like=async function(id){await S.heartPost(id);await refresh();};
@@ -1481,8 +1515,6 @@ function viewAdmin(){
          </div>`).join(''):`<div class="muted small">No answers captured yet — they appear here as colleagues complete meetups.</div>`}
        <div class="row" style="gap:8px;margin-top:12px">
          <button class="btn secondary sm" onclick="exportData()">${icon('download',16)} Export answers</button>
-         <button class="btn ghost sm" style="margin-top:8px" onclick="migrateMedia(this)">${icon('refresh',16)} Migrate photos (one-time)</button>
-         <p class="muted small" style="margin:6px 2px 0;line-height:1.45">Moves existing avatars and meetup photos out of the bulk-read documents. Safe to re-run — already-migrated records are skipped. Back up first.</p>
          <button class="btn ghost sm" onclick="adminToggleAnon()">${adminAnon?'Show names':'Anonymise'}</button>
          <button class="btn ghost sm" onclick="reloadAdmin()">${icon('refresh',16)}</button>
        </div></div>`;
@@ -1518,28 +1550,6 @@ function csvCell(v){
   if(/^[=+\-@]/.test(v))v="'"+v;
   return '"'+v.replace(/"/g,'""')+'"';
 }
-// BRIEF-033 one-time migration. Admin-only (the store re-checks), idempotent, and reports
-// counts. Deliberately English and inside the admin dashboard, like the rest of the admin UI.
-window.migrateMedia=async function(el){
-  if(!C.admin)return;
-  if(!confirm("Move existing photos out of the user and match documents?\n\nSafe to re-run. Make sure the backup is done first."))return;
-  const btn=el||null; if(btn&&!btnBusy(btn))return;
-  try{
-    const r=await S.migrateMedia((msg)=>{ if(window.console)console.log("[zb] migrate:",msg); });
-    const line="Users moved "+r.users+" (skipped "+r.usersSkipped+") · meetups moved "+r.matches
-      +" (skipped "+r.matchesSkipped+") · embedded avatars stripped "+r.profilesStripped
-      +(r.errors?(" · errors "+r.errors):"");
-    if(window.console)console.log("[zb] migrate result",r);
-    toast(line);
-    alert("Photo migration complete.\n\n"+line.replace(/ · /g,"\n"));
-  }catch(e){
-    toast((e&&e.code)==="zb/not-admin"?"Admins only":"Migration failed — see the console.");
-    if(window.console)console.warn("[zb] migrate failed",e);
-  }
-  btnIdle(btn);
-  await refresh();
-};
-
 window.exportData=function(){
   const d=C.adminData;
   if(!C.admin){toast("Admins only");return;}

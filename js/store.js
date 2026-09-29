@@ -192,9 +192,6 @@
       return P((u && u.photo) || null);
     },
     getMatchPhoto(id) { const m = MATCHES.find(x => x.id === id); return P((m && m.photo) || null); },
-    // No inline media to move in the demo; present so the surfaces stay in lockstep.
-    migrateMedia() { return P({ users:0, usersSkipped:0, matches:0, matchesSkipped:0, profilesStripped:0, errors:0 }); },
-
     _myFlags() {
       const e = (this._email||"").toLowerCase();
       return { builder: !!(window.ZB_IS_BUILDER && window.ZB_IS_BUILDER(e)),
@@ -241,6 +238,12 @@
     _flagUser(uid, flags) {
       const u = USERS.find(x => x.uid === uid); if (!u) return P(false);
       Object.assign(u, flags || {}); return P(true);
+    },
+    // Demo-only, like _seedIncoming: backdate a real post so the wall's relative time can be
+    // asserted against the RENDER, not just the helper.
+    _agePost(id, ms) {
+      const w = POSTS.find(x => x.id === id); if (!w) return P(false);
+      w.createdAt = now() - ms; return P(true);
     },
     _seedIncoming(uid) {
       const other = USERS.find(u => u.uid === uid) || USERS[0];
@@ -302,7 +305,7 @@
         if (existing) existing.photo = photo;
         else if (post) {
           const pid = "p"+(wid++);
-          POSTS.unshift({ id:pid, seed:false, matchId:id, participants:["me", m.person && m.person.uid].filter(Boolean), names:post.names, scene:post.scene, photo, hearts:0, liked:false, comments:[] });
+          POSTS.unshift({ id:pid, seed:false, matchId:id, participants:["me", m.person && m.person.uid].filter(Boolean), names:post.names, scene:post.scene, photo, hearts:0, liked:false, comments:[], createdAt:now() });
           m.postId = pid;
         }
       }
@@ -335,7 +338,7 @@
       const photo = post.photo || shared || null;
       if (!m.postId && photo) {                            // ONE wall post per meetup
         const pid = "p"+(wid++);
-        POSTS.unshift({ id:pid, seed:false, matchId:id, participants:["me", m.person && m.person.uid].filter(Boolean), names:post.names, scene:post.scene, photo, hearts:0, liked:false, comments:[] });
+        POSTS.unshift({ id:pid, seed:false, matchId:id, participants:["me", m.person && m.person.uid].filter(Boolean), names:post.names, scene:post.scene, photo, hearts:0, liked:false, comments:[], createdAt:now() });
         m.postId = pid;
       }
       return P(true);

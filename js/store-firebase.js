@@ -339,68 +339,6 @@ const ZB_STORE = {
   /* ---- photos on demand (BRIEF-033) ----
      One person's avatar, or one meetup's photo. Cached in memory for the session, so the
      spin card, the shared space and a profile each cost at most one read per subject. */
-  /* ---- one-time media migration (BRIEF-033, admin only) ----
-     Moves every inline base64 photo into its own doc and clears the original. IDEMPOTENT:
-     a document already migrated is skipped, so re-running does no work and cannot lose a
-     photo — it never clears an inline copy without having written the new doc first.
-
-     It also strips `aProfile.photo` / `bProfile.photo`. Those are avatar snapshots embedded
-     in every match doc by createMatch, so each match carried TWO more base64 blobs on top of
-     its meetup photo. The brief did not mention them; adminAnswers() bulk-reads matches, so
-     leaving them would have left much of the admin slowness in place. New matches are already
-     clean because profileToPublic no longer carries a photo.
-
-     Safe to run while people are online: readPhoto() falls back to the inline copy, so a
-     half-migrated database still shows every face. */
-  async migrateMedia(onProgress) {
-    const isAdmin = ADMINS.includes((auth.currentUser && auth.currentUser.email || "").toLowerCase());
-    if (!isAdmin) throw Object.assign(new Error("admins only"), { code: "zb/not-admin" });
-    const out = { users:0, usersSkipped:0, matches:0, matchesSkipped:0, profilesStripped:0, errors:0 };
-    const say = m => { try { onProgress && onProgress(m, out); } catch (e) {} };
-
-    const users = await db.collection("users").get();
-    say("users: " + users.size);
-    for (const doc of users.docs) {
-      const d = doc.data() || {};
-      try {
-        if (typeof d.photo === "string" && d.photo) {
-          await mediaRef("users", doc.id).set({ photo:d.photo, updatedAt: nowTs() });   // write FIRST
-          await doc.ref.update({ photo: FV.delete(), hasPhoto: true });                 // then clear
-          out.users++;
-        } else {
-          if (d.hasPhoto === undefined) await doc.ref.update({ hasPhoto: false });
-          out.usersSkipped++;
-        }
-      } catch (e) { out.errors++; if (window.console) console.warn("[zb] user migrate failed", doc.id, e && e.code); }
-    }
-
-    const matches = await db.collection("matches").get();
-    say("matches: " + matches.size);
-    for (const doc of matches.docs) {
-      const d = doc.data() || {};
-      try {
-        const inline = matchPhoto(d);
-        const upd = {};
-        if (inline) {
-          await mediaRef("matches", doc.id).set({ photo:inline, updatedAt: nowTs() });
-          upd.photo = FV.delete(); upd.photos = FV.delete(); upd.hasPhoto = true;
-          out.matches++;
-        } else {
-          if (d.hasPhoto === undefined) upd.hasPhoto = false;
-          out.matchesSkipped++;
-        }
-        // the embedded avatar snapshots
-        if (d.aProfile && d.aProfile.photo) { upd["aProfile.photo"] = FV.delete(); out.profilesStripped++; }
-        if (d.bProfile && d.bProfile.photo) { upd["bProfile.photo"] = FV.delete(); out.profilesStripped++; }
-        if (Object.keys(upd).length) await doc.ref.update(upd);
-      } catch (e) { out.errors++; if (window.console) console.warn("[zb] match migrate failed", doc.id, e && e.code); }
-    }
-    Object.keys(_photoCache).forEach(k => delete _photoCache[k]);
-    cache["users"] = null;
-    say("done");
-    return out;
-  },
-
   getPhoto(uid) { return readPhoto("users", uid); },
   getMatchPhoto(id) { return readPhoto("matches", id); },
 
@@ -608,7 +546,11 @@ const ZB_STORE = {
   async listPosts() {
     const uid = uidNow();
     const real = await ttl("posts", 15000, () => db.collection("posts").orderBy("createdAt","desc").limit(30).get()
-      .then(q => q.docs.map(doc => { const d = doc.data(); return { id:doc.id, seed:false, names:d.names, scene:d.scene, photo:d.photo||null, hearts:d.hearts||0, liked:(d.heartedBy||[]).includes(uid), comments:d.comments||[] }; })));
+      .then(q => q.docs.map(doc => { const d = doc.data(); return { id:doc.id, seed:false, names:d.names, scene:d.scene, photo:d.photo||null, hearts:d.hearts||0, liked:(d.heartedBy||[]).includes(uid), comments:d.comments||[],
+                 // BRIEF-035: the wall shows a real relative time. createdAt was always stored
+                 // (it is what orderBy uses) but was dropped here, so the UI never had it.
+                 // Null on a just-written post until the server timestamp resolves.
+                 createdAt: d.createdAt || null }; })));
     return real.concat(SEEDS.map(s => ({ ...s, comments:s.comments.slice() })));
   },
   async heartPost(id) {

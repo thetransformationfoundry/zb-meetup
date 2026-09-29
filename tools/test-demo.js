@@ -62,7 +62,7 @@ load("js/i18n.js");                  // ZB_I18N + ZB_T
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__PHOTOS=()=>PHOTO;window.__forgetPhoto=forgetPhoto;window.__mode=()=>mode;window.__MPHOTOS=()=>MPHOTO;window.__TP=()=>TP;window.__qText=qText;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__PHOTOS=()=>PHOTO;window.__forgetPhoto=forgetPhoto;window.__mode=()=>mode;window.__MPHOTOS=()=>MPHOTO;window.__postTime=postTime;window.__TP=()=>TP;window.__qText=qText;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -1435,9 +1435,69 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       /data:image\/jpeg;base64,MEETUP/.test(scr()));
 
   // both stores expose the migration + photo API (lockstep)
-  chk("both stores expose getPhoto, getMatchPhoto and migrateMedia",
-      ["getPhoto","getMatchPhoto","migrateMedia"].every(fn =>
-        typeof window.ZB_STORE[fn] === "function"));
+  chk("both stores expose the on-demand photo API",
+      ["getPhoto","getMatchPhoto"].every(fn => typeof window.ZB_STORE[fn] === "function"));
+  // BRIEF-035: the one-time migration is done and its scaffolding is gone from both stores.
+  chk("the one-time migrateMedia scaffolding is gone",
+      window.ZB_STORE.migrateMedia === undefined
+      && !/migrateMedia/.test(require("fs").readFileSync("js/store-firebase.js", "utf8"))
+      && !/migrateMedia/.test(require("fs").readFileSync("js/app.js", "utf8")));
+  // ...but the fallback that reads a straggler inline photo must stay.
+  chk("the legacy inline-photo fallback is kept in readPhoto()",
+      /not migrated yet: read the inline copy/.test(require("fs").readFileSync("js/store-firebase.js", "utf8")));
+
+  /* ---- BRIEF-035: real, localized wall timestamps ---- */
+  chk("both stores now return createdAt on a real post",
+      (await window.ZB_STORE.listPosts()).filter(p2 => !p2.seed).every(p2 => "createdAt" in p2));
+  const HOUR = 3600000;
+  const at = ms => ({ seed:false, createdAt:ms });
+  chk("a post written seconds ago still reads 'just now'",
+      window.__postTime(at(Date.now() - 20000)) === window.ZB_T("wall_just_now", "en"));
+  chk("a missing timestamp falls back to 'just now', never blank or Invalid Date",
+      window.__postTime({ seed:false, createdAt:null }) === window.ZB_T("wall_just_now", "en")
+      && window.__postTime({ seed:false }) === window.ZB_T("wall_just_now", "en"));
+  chk("older posts read as real relative times, not a blanket 'just now'",
+      /^5 minutes ago$/.test(window.__postTime(at(Date.now() - 5 * 60000)))
+      && /^2 hours ago$/.test(window.__postTime(at(Date.now() - 2 * HOUR)))
+      && /^yesterday$/.test(window.__postTime(at(Date.now() - 26 * HOUR))));
+  chk("a Firestore Timestamp shape is understood, not just a number",
+      window.__postTime(at(Date.now() - 2 * HOUR))
+        === window.__postTime({ seed:false, createdAt:{ seconds:Math.floor((Date.now() - 2*HOUR)/1000) } }));
+  chk("beyond a week it shows a short date instead of a growing day count",
+      !/ago/.test(window.__postTime(at(Date.now() - 10 * 86400000))));
+  chk("a clock skewed into the future does not print a negative time",
+      window.__postTime(at(Date.now() + 60000)) === window.ZB_T("wall_just_now", "en"));
+
+  // localized with no new dictionary strings — the whole point of using Intl here
+  await window.ZB_STORE.saveMe({ lang:"nl" }); await refreshAndSettle();
+  const nl2h = window.__postTime(at(Date.now() - 2 * HOUR));
+  await window.ZB_STORE.saveMe({ lang:"ro" }); await refreshAndSettle();
+  const ro2h = window.__postTime(at(Date.now() - 2 * HOUR));
+  await window.ZB_STORE.saveMe({ lang:"en" }); await refreshAndSettle();
+  chk("the relative time follows the viewer's language",
+      nl2h === "2 uur geleden" && ro2h === "acum 2 ore" && nl2h !== ro2h);
+
+  // The render itself, not just the helper: an aged post must SHOW its relative time.
+  const realPost = (await window.ZB_STORE.listPosts()).filter(p2 => !p2.seed)[0];
+  await window.ZB_STORE._agePost(realPost.id, 2 * HOUR);
+  await refreshAndSettle();
+  window.go("wall");
+  chk("the wall renders the real relative time, not a hardcoded 'just now'",
+      scr().indexOf("2 hours ago") > -1);
+
+  // The live store is never executed here — the same blind spot that let a blob sit in
+  // leaderboard() through BRIEF-033 — so assert its source maps createdAt.
+  chk("the live store's listPosts maps createdAt through to the UI",
+      /createdAt:\s*d\.createdAt/.test(require("fs").readFileSync("js/store-firebase.js", "utf8")));
+
+  // seeds are unchanged: holding posts carry no time at all
+  window.go("wall");
+  const wallScr = scr();
+  const seedNames = (await window.ZB_STORE.listPosts()).filter(p2 => p2.seed)[0].names;
+  chk("seed posts still show no timestamp",
+      wallScr.indexOf(seedNames) > -1
+      && (wallScr.match(/color:var\(--good\);font-weight:700/g) || []).length
+         === (await window.ZB_STORE.listPosts()).filter(p2 => !p2.seed).length);
 
   /* ---- BRIEF-034: faces back on the leaderboard, lazily ---- */
   await window.ZB_STORE.saveMe({ photo: "data:image/jpeg;base64,MYFACE" });
