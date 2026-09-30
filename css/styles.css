@@ -181,7 +181,22 @@ textarea.input{resize:vertical}
 .tabbar{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:460px;display:flex;background:var(--card);border-top:1px solid var(--line);z-index:30;padding-bottom:env(safe-area-inset-bottom,0px)}
 .tabbar button{flex:1;border:none;background:none;padding:9px 0 12px;font-family:inherit;font-size:10.5px;font-weight:600;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
 .tabbar button.active{color:var(--zb-blue)}
-.ic{display:inline-block;vertical-align:middle}
+/* BRIEF-036 — an icon must never be its own tap target.
+   The heart is a small .iconbtn whose inline SVG covers nearly the whole control. Older
+   WebKit let a tap on that child SVG fire the parent button; the newest WebKit does not
+   deliver it reliably, so the heart read as dead on an iPhone 18 Pro while working on a 13.
+   Making icons transparent to pointers means the tap always lands on the button itself.
+
+   Verified safe before applying: `class="ic"` has exactly one producer (icon(), app.js:36),
+   no <svg> anywhere carries an inline handler, and no addEventListener binds to an svg or
+   .ic — every handler is on a parent button or anchor. So nothing relies on an icon being
+   the click target. */
+.ic{display:inline-block;vertical-align:middle;pointer-events:none}
+/* spinnerIcon() emits a bare <svg> with no .ic class, and one of them sits inside the
+   bottom Spin tab — the most-tapped control in the app — so .ic alone would have left it
+   exposed to exactly the same failure. This covers every icon inside a control, whichever
+   function drew it. */
+.btn svg,.iconbtn svg,.tabbar button svg{pointer-events:none}
 .btn.white{background:#fff;color:var(--zb-blue);animation:none;box-shadow:none;border-radius:12px} .btn.white:hover{background:#eef5fb;filter:none}
 .prize{background:linear-gradient(135deg,#0079BD,#005f95);color:#fff;border:none}
 .prizerow{display:flex;gap:9px;margin-top:14px}

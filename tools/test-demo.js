@@ -395,9 +395,14 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   const first = window.__TP();
   const shown = document.getElementById("tpOut").innerHTML;
   const bank2 = (await window.ZB_STORE.questionBank()).filter(q => q.tier === 2);
+  // The card escapes the question before rendering, so compare against the escaped form.
+  // Matching the raw string made this flaky roughly 1 run in 34: t2q30's Romanian text
+  // contains a double quote, which esc() renders as &quot; — green until that one was drawn.
+  const escLike = x => String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+                                .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   chk("it reveals a Tier-2 icebreaker, in the viewer's language",
       !!first && bank2.some(q => q.id === first)
-      && shown.indexOf(window.__qText(bank2.filter(q => q.id === first)[0], "ro")) > -1);
+      && shown.indexOf(escLike(window.__qText(bank2.filter(q => q.id === first)[0], "ro"))) > -1);
   chk("the revealed card carries the translated label and the reveal animation",
       shown.indexOf(window.ZB_T("tp_label", "ro")) > -1 && /class="[^"]*tp-card/.test(shown));
   chk("the reveal reuses the blue hero treatment rather than a second blue",
@@ -1445,6 +1450,24 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   // ...but the fallback that reads a straggler inline photo must stay.
   chk("the legacy inline-photo fallback is kept in readPhoto()",
       /not migrated yet: read the inline copy/.test(require("fs").readFileSync("js/store-firebase.js", "utf8")));
+
+  /* ---- BRIEF-036: icons must never be their own tap target ----
+     No harness can reproduce iOS WebKit hit-testing, so these are source-level guards on the
+     rule AND on the invariant that makes it safe. */
+  const cssSrc = require("fs").readFileSync("css/styles.css", "utf8");
+  const appSrc036 = require("fs").readFileSync("js/app.js", "utf8");
+  chk("icon SVGs are transparent to taps, so the parent button receives them",
+      /\.ic\{[^}]*pointer-events:none/.test(cssSrc)
+      && /\.btn svg[^{]*\{pointer-events:none\}/.test(cssSrc));
+  chk("the bare spinnerIcon in the Spin tab is covered too, not just .ic",
+      /\.tabbar button svg/.test(cssSrc)
+      && /spinnerIcon\(21\)/.test(appSrc036));
+  // The fix assumes nothing relies on an icon being the click target. If that ever stops
+  // being true, pointer-events:none would silently kill that control — so assert it.
+  chk("no icon SVG carries its own handler, inline or bound",
+      !/<svg[^>]*\son[a-z]+=/.test(appSrc036)
+      && !/addEventListener[^\n]*\b(svg|\.ic)\b/.test(appSrc036)
+      && (appSrc036.match(/class="ic"/g) || []).length === 1);
 
   /* ---- BRIEF-035: real, localized wall timestamps ---- */
   chk("both stores now return createdAt on a real post",
