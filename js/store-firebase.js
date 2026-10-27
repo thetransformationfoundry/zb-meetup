@@ -339,6 +339,53 @@ const ZB_STORE = {
   /* ---- photos on demand (BRIEF-033) ----
      One person's avatar, or one meetup's photo. Cached in memory for the session, so the
      spin card, the shared space and a profile each cost at most one read per subject. */
+  /* ---- campaign pause (BRIEF-037) ----
+     app/campaign is its own document, not a field on app/config, because the rules must let
+     a SIGNED-OUT visitor read it: someone opening an old invite link has to be shown the
+     closed screen rather than a sign-up form. It holds the flag and nothing else, so making
+     it world-readable exposes nothing.
+
+     Read fresh every time — no ttl() — because reopening must take effect on the next app
+     open, not whenever a cache happens to expire. A missing document means not paused. */
+  /* Final standings for the admin CSV (BRIEF-037). Its own admin-only read because the
+     client never holds everyone's matches — myMatches() is mine, and adminAnswers() returns
+     answers, not completion counts — and leaderboard() carries neither `lang` nor a meetup
+     count. Leaving the board untouched matters more than reusing it here. Read-only. */
+  async adminStandings() {
+    const email = (auth.currentUser && auth.currentUser.email || "").toLowerCase();
+    if (!ADMINS.includes(email)) throw Object.assign(new Error("admins only"), { code:"zb/not-admin" });
+    const all = await this._allUsers();
+    const ms = await db.collection("matches").get();
+    const done = {};
+    ms.docs.forEach(d => Object.keys((d.data() || {}).completedBy || {}).forEach(uid => {
+      done[uid] = (done[uid] || 0) + 1;
+    }));
+    return all.filter(u => !u.builder)
+      .map(u => ({ name:u.name || "", points:u.points || 0, meetups: done[u.uid] || 0,
+                   admin: !!u.admin, lang: u.lang || "en" }))
+      .sort((a, b) => b.points - a.points);
+  },
+
+  async getCampaign() {
+    try {
+      const s = await db.collection("app").doc("campaign").get();
+      if (!s.exists) return { paused:false };
+      const d = s.data() || {};
+      return { paused: d.paused === true, pausedAt: d.pausedAt || null, pausedBy: d.pausedBy || "" };
+    } catch (e) {
+      // A read failure must not lock colleagues out of a live campaign.
+      if (window.console) console.warn("[zb] campaign read failed", e && e.code);
+      return { paused:false };
+    }
+  },
+  async setCampaignPaused(on) {
+    const email = (auth.currentUser && auth.currentUser.email || "").toLowerCase();
+    if (!ADMINS.includes(email)) throw Object.assign(new Error("admins only"), { code:"zb/not-admin" });
+    await db.collection("app").doc("campaign").set(
+      { paused: !!on, pausedAt: nowTs(), pausedBy: email }, { merge:true });
+    return true;
+  },
+
   getPhoto(uid) { return readPhoto("users", uid); },
   getMatchPhoto(id) { return readPhoto("matches", id); },
 
