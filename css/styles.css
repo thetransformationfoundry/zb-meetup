@@ -364,3 +364,7 @@ select.input{appearance:none;-webkit-appearance:none;background:#fff url("data:i
 .zb-cl-admin{min-height:44px;padding:10px 18px;border:0;background:none;cursor:pointer;font-family:inherit;
   font-size:13px;font-weight:600;color:rgba(255,255,255,.78);text-decoration:underline;text-underline-offset:3px}
 @media (prefers-reduced-motion:reduce){ .zb-cl-card{animation:none} }
+/* The admin's way out of preview, on the closed screen itself (BRIEF-037). */
+.zb-cl-preview{font-size:12px;color:rgba(255,255,255,.72);margin-bottom:2px}
+.zb-cl-preview button{min-height:32px;border:0;background:none;cursor:pointer;font-family:inherit;
+  font-size:12px;font-weight:700;color:#fff;text-decoration:underline;text-underline-offset:3px}

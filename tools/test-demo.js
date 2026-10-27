@@ -1501,6 +1501,20 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
       window.__view() === "closed");
   preview(null);
 
+  // the escape hatch: an admin in preview cannot reach the dashboard, so the way out must
+  // be on the closed screen itself
+  await asAdmin(true); preview("1"); window.go("ranks");
+  chk("an admin previewing sees a way out on the closed screen itself",
+      window.__view() === "closed"
+      && scr().indexOf(window.ZB_T("preview_as", "en")) > -1
+      && /onclick="exitPreview\(\)"/.test(scr()));
+  window.exitPreview();
+  chk("exiting preview puts the admin straight back into the app",
+      window.__view() !== "closed" || (window.go("ranks"), window.__view() === "ranks"));
+  chk("?preview is remembered between visits, so the hatch is not cosmetic",
+      /localStorage\.setItem\('zbPreviewCountdown'/.test(require("fs").readFileSync("js/app.js","utf8")));
+  preview(null);
+
   // (d) demo mode is never paused
   const demoWas = window.ZB_DEMO;
   window.ZB_DEMO = true; await asAdmin(false); window.go("ranks");

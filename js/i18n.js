@@ -213,6 +213,8 @@ window.ZB_I18N = {
   m_your_part_done:{en:"You've finished your part of this meetup.",nl:"Je hebt jouw deel van deze meetup afgerond.",ro:"Ți-ai finalizat partea din această întâlnire."},
   m_view_recap:{en:"View the recap",nl:"Bekijk de samenvatting",ro:"Vezi rezumatul"},
   demo_badge:{en:"Demo — sample data, nothing is saved",nl:"Demo — voorbeeldgegevens, er wordt niets opgeslagen",ro:"Demo — date de exemplu, nu se salvează nimic"},
+  preview_as:{en:"Previewing as colleague",nl:"Voorbeeld als collega",ro:"Previzualizare ca și coleg"},
+  preview_exit:{en:"Exit preview",nl:"Voorbeeld verlaten",ro:"Ieși din previzualizare"},
   closed_eyebrow:{en:"CAMPAIGN COMPLETE",nl:"CAMPAGNE AFGEROND",ro:"CAMPANIE ÎNCHEIATĂ"},
   closed_h:{en:"Thank you, ZB!",nl:"Bedankt, ZB!",ro:"Mulțumim, ZB!"},
   closed_sub:{en:"Every coffee, walk and call made a difference. Thank you for getting to know your colleagues.",nl:"Elke koffie, wandeling en call heeft verschil gemaakt. Bedankt dat je je collega’s beter hebt leren kennen.",ro:"Fiecare cafea, plimbare și apel a contat. Mulțumim că ți-ai cunoscut mai bine colegii."},

@@ -9,6 +9,7 @@ const S = window.ZB_STORE, CFG = window.ZB_CONFIG;
 const P = {
   // Four-point sparkle, drawn to match the Phosphor set's weight. Inline, not the emoji
   // "✦" — nav and buttons never carry emoji (CLAUDE.md guardrail).
+  pause:'<path d="M9.5 5v14M14.5 5v14"/>',
   sparkle:'<path d="M12 2.6c.9 4.6 1.9 5.6 6.5 6.5-4.6.9-5.6 1.9-6.5 6.5-.9-4.6-1.9-5.6-6.5-6.5 4.6-.9 5.6-1.9 6.5-6.5Z"/><path d="M18.4 15.1c.45 2.3.95 2.8 3.25 3.25-2.3.45-2.8.95-3.25 3.25-.45-2.3-.95-2.8-3.25-3.25 2.3-.45 2.8-.95 3.25-3.25Z"/>',
   target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>',
   users:'<circle cx="9" cy="8" r="3.2"/><path d="M3.4 19a5.6 5.6 0 0 1 11.2 0"/><path d="M15.5 5.2A2.8 2.8 0 0 1 17 10.6M16 13.4a5 5 0 0 1 4.6 5.6"/>',
@@ -1273,6 +1274,8 @@ function viewClosed(){
       </div>
     </div>
     <div class="zb-cl-foot">
+      ${(C.admin&&previewClosed())?`<div class="zb-cl-preview">${esc(t('preview_as'))} ·
+        <button type="button" onclick="exitPreview()">${esc(t('preview_exit'))}</button></div>`:''}
       ${ttfCredit(true)}
       <button type="button" class="zb-cl-admin" onclick="closedAdminSignIn()">${esc(t('closed_admin'))}</button>
     </div>
@@ -1592,7 +1595,7 @@ window.sendBug=async function(){const txt=($("#bugtxt").value||'').trim();if(!tx
 function viewAdmin(){
   const completed=history().length,activeN=activeMatches().length,parts=C.users.length+1;
   const topQ=[...C.questions].sort((a,b)=>(b.count||0)-(a.count||0)).slice(0,5);
-  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">Admin dashboard</h2>${campaignCardHTML()}<p class="sub">Super-admin view (Donnae + Sean).</p>
+  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">Admin dashboard</h2><p class="sub">Super-admin view (Donnae + Sean).</p>${campaignCardHTML()}
    <div class="card"><div class="row"><div class="stat"><div class="v">${completed}</div><div class="l">My meetups</div></div><div class="stat"><div class="v">${activeN}</div><div class="l">Active now</div></div><div class="stat"><div class="v">${parts}</div><div class="l">People</div></div><div class="stat"><div class="v">${C.posts.length}</div><div class="l">Wall posts</div></div></div></div>
    ${(function(){
      const d=C.adminData;
@@ -1653,15 +1656,18 @@ function campaignCardHTML(){
     ? `<span class="chip">Paused${when?` since ${esc(when)}`:''}${c.pausedBy?` by ${esc(c.pausedBy)}`:''}</span>`
     : `<span class="chip good">Live</span>`;
   const action=c.paused?'Reopen campaign':'Pause campaign';
+  const ic=c.paused?'refresh':'pause';
   return `<div class="card" style="margin:10px 0 14px">
     <div class="row between"><b>Campaign</b>${state}</div>
+    ${previewClosed()?`<p class="muted small" style="margin:8px 0 0">${esc(t('preview_as'))} ·
+      <a href="javascript:void(0)" onclick="exitPreview()" style="color:var(--zb-blue);font-weight:700">${esc(t('preview_exit'))}</a></p>`:''}
     ${campaignConfirm?`
       <p class="muted small" style="margin:10px 0 10px;line-height:1.5">Colleagues will see the thank-you screen and can't use the app. No data is deleted. You can reopen any time.</p>
       <div class="row" style="gap:8px">
         <button class="btn sm" style="flex:1;justify-content:center" onclick="campaignApply()">${icon('check',16)} Yes, ${esc(action.toLowerCase())}</button>
         <button class="btn ghost sm" style="flex:1;justify-content:center" onclick="campaignCancel()">Cancel</button>
       </div>`
-    :`<button class="btn ${c.paused?'':'secondary'} sm" style="width:100%;justify-content:center;margin-top:10px" onclick="campaignAsk()">${icon('refresh',16)} ${esc(action)}</button>`}
+    :`<button class="btn ${c.paused?'':'secondary'} sm" style="width:100%;justify-content:center;margin-top:10px" onclick="campaignAsk()">${icon(ic,16)} ${esc(action)}</button>`}
   </div>`;
 }
 // Amsterdam, same convention as every other timestamp a human reads.
@@ -1674,6 +1680,15 @@ function fmt037(v){
     return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
   }catch(e){return '';}
 }
+/* ?preview=1 is REMEMBERED between visits (localStorage), and while the campaign is paused
+   an admin in preview cannot reach the dashboard at all — go() forces every route to the
+   closed screen. So the way out has to live ON that screen, not only on the dashboard, or
+   the only escape would be typing ?preview=0 from memory. */
+window.exitPreview=function(){
+  try{ localStorage.removeItem('zbPreviewCountdown'); }catch(e){}
+  render();
+};
+
 window.campaignAsk=function(){ if(!C.admin)return; campaignConfirm=true; render(); };
 window.campaignCancel=function(){ campaignConfirm=false; render(); };
 window.campaignApply=async function(){
