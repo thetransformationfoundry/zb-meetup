@@ -360,8 +360,30 @@ const previewCountdown=()=>{try{return localStorage.getItem('zbPreviewCountdown'
    admin what colleagues see. The shape matters: `!C.admin ||` comes FIRST, so a non-admin
    is paused whatever ?preview says — preview is an admin-only affordance, and a colleague
    cannot type their way out of the closed screen. A demo tab is never paused. */
+/* ---- BRIEF-037: local simulation switch (demo builds only) ----
+   Reaching "paused + non-admin" locally is otherwise impossible: pausing needs an admin, and
+   an admin sees the app rather than the closed screen. This drives both states from the URL
+   WITHOUT writing app/campaign anywhere — the real pause only ever happens at switch-over.
+
+     ?simulate=paused             the campaign reads as paused
+     ?simulate=colleague          you are treated as a non-admin (the admin UI disappears)
+     ?simulate=paused,colleague   both — the colleague lockout
+
+   Inert unless this is a local demo build: ZB_LIVE true (the real app) returns nothing, and
+   a ?demo=1 tab returns nothing too, because demo is never paused by design. Nothing is
+   persisted — it lives in the URL for that page load, so it cannot get stuck on. Written as
+   a pure function so the harness can prove it is inert on live rather than infer it. */
+function simFlags(search, live, demo){
+  if(live||demo)return {};
+  const m=String(search||'').match(/[?&]simulate=([a-z,]+)/);
+  if(!m)return {};
+  const p=m[1].split(',');
+  return { paused:p.indexOf('paused')>-1, colleague:p.indexOf('colleague')>-1 };
+}
+const SIM=(function(){try{return simFlags(location.search,window.ZB_LIVE,window.ZB_DEMO);}catch(e){return {};}})();
+
 const previewClosed=previewCountdown;
-const campaignPaused=()=>!window.ZB_DEMO&&!!(C.campaign&&C.campaign.paused)&&(!C.admin||previewClosed());
+const campaignPaused=()=>!window.ZB_DEMO&&(!!(C.campaign&&C.campaign.paused)||!!SIM.paused)&&(!C.admin||previewClosed());
 
 const spinLocked=()=>!window.ZB_DEMO&&!!SPIN_UNLOCK&&Date.now()<SPIN_UNLOCK.getTime()&&(!C.admin||previewCountdown());
 function unlockParts(){
@@ -631,6 +653,7 @@ async function refresh(){
   // list, and matches carry a profile snapshot taken at creation time, so both can hold legacy strings.
   if(me)me.role=normalizeRole(me.role);
   if(S.getCampaign){ try{ C.campaign=await S.getCampaign(); }catch(e){} }
+  if(SIM.colleague)C.admin=false;        // local only: stand in a colleague's shoes
   const users2=users.map(u=>Object.assign({},u,{role:normalizeRole(u.role)}));
   const matches2=matches.map(m=>m.person?Object.assign({},m,{person:Object.assign({},m.person,{role:normalizeRole(m.person.role)})}):m);
   C.me=me;C.users=users2;C.matches=matches2;C.posts=posts;C.notifs=notifs;C.questions=questions;C.spin=spin;C.admin=admin;C.leaderboard=lb;C.bugs=bugs;

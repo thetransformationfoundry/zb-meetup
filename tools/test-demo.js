@@ -62,7 +62,7 @@ load("js/i18n.js");                  // ZB_I18N + ZB_T
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__PHOTOS=()=>PHOTO;window.__forgetPhoto=forgetPhoto;window.__mode=()=>mode;window.__MPHOTOS=()=>MPHOTO;window.__postTime=postTime;window.__TP=()=>TP;window.__qText=qText;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__PHOTOS=()=>PHOTO;window.__forgetPhoto=forgetPhoto;window.__mode=()=>mode;window.__simFlags=simFlags;window.__MPHOTOS=()=>MPHOTO;window.__postTime=postTime;window.__TP=()=>TP;window.__qText=qText;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -1513,6 +1513,15 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   window.go("ranks");
   chk("reopening gives colleagues the app back on the next load",
       window.__view() === "ranks" && /class="rankrow/.test(scr()));
+
+  // the local simulation switch must be incapable of affecting the real app
+  chk("?simulate only works on a local demo build — never on live, never in a demo tab",
+      JSON.stringify(window.__simFlags("?simulate=paused,colleague", false, false)) === '{"paused":true,"colleague":true}'
+      && JSON.stringify(window.__simFlags("?simulate=paused", true, false)) === "{}"      // the live app
+      && JSON.stringify(window.__simFlags("?simulate=paused", false, true)) === "{}"      // a ?demo=1 tab
+      && JSON.stringify(window.__simFlags("", false, false)) === "{}");
+  chk("the simulation writes nothing — it is read from the URL, never stored",
+      !/zbSimulate|localStorage\.setItem\(["']zbSim/.test(require("fs").readFileSync("js/app.js", "utf8")));
 
   // (g) the strings
   chk("every closed_* string exists in all three languages",
