@@ -10,6 +10,16 @@ service cloud.firestore {
     }
     function isMe(uid) { return signedIn() && request.auth.uid == uid; }
 
+    /* BRIEF-037 — campaign pause. Writes stop for colleagues; reads and DELETES do not.
+       Deletes stay open on purpose: GDPR erasure must keep working while paused.
+       exists() first, and .get('paused', false), so this is safe before the document is
+       ever written — these rules get published before the first pause. */
+    function paused() {
+      return exists(/databases/$(database)/documents/app/campaign)
+        && get(/databases/$(database)/documents/app/campaign).data.get('paused', false) == true;
+    }
+    function writable() { return isAdmin() || !paused(); }
+
     function allowedDomain() {
       return signedIn() && request.auth.token.email is string
         && request.auth.token.email.lower()
@@ -18,8 +28,9 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if signedIn();
-      allow create: if isMe(uid) && allowedDomain();
-      allow update, delete: if isMe(uid) || isAdmin();
+      allow create: if isMe(uid) && allowedDomain() && writable();
+      allow update: if isAdmin() || (isMe(uid) && !paused());
+      allow delete: if isMe(uid) || isAdmin();          // erasure stays open while paused
     }
     // Push tokens (BRIEF-004). Rules do NOT cascade into subcollections, so
     // users/{uid} above does not cover these — without this match every read
@@ -30,7 +41,9 @@ service cloud.firestore {
     // colleague's devices. The Cloud Functions use the Admin SDK and bypass
     // rules, so sending and dead-token cleanup are unaffected.
     match /users/{uid}/fcmTokens/{token} {
-      allow read, write: if isMe(uid);
+      allow read: if isMe(uid);
+      allow write: if isAdmin() || (isMe(uid) && !paused());
+      allow delete: if isMe(uid) || isAdmin();          // a device may always unsubscribe
     }
     // Avatars (BRIEF-033). The base64 moved out of users/{uid} so that bulk read stays light.
     // Visibility is UNCHANGED from when it was an inline field: any signed-in colleague could
@@ -38,21 +51,28 @@ service cloud.firestore {
     // migration needs in order to move everyone else's existing photo into this doc.
     match /users/{uid}/media/{doc} {
       allow read: if signedIn();
-      allow write: if isMe(uid) || isAdmin();
+      allow write: if isAdmin() || (isMe(uid) && !paused());
+      allow delete: if isMe(uid) || isAdmin();          // erasure stays open while paused
     }
     // The shared meetup photo (BRIEF-033), moved out of matches/{id} for the same reason.
     // Mirrors the match rule exactly: the two participants and admins, which preserves
     // BRIEF-013 — either participant may set or replace the shared photo, not just the author.
     match /matches/{id}/media/{doc} {
-      allow read, write: if isAdmin()
+      allow read: if isAdmin()
         || (signedIn() && (
+             request.auth.uid == get(/databases/$(database)/documents/matches/$(id)).data.a
+          || request.auth.uid == get(/databases/$(database)/documents/matches/$(id)).data.b));
+      allow write: if isAdmin()
+        || (!paused() && signedIn() && (
              request.auth.uid == get(/databases/$(database)/documents/matches/$(id)).data.a
           || request.auth.uid == get(/databases/$(database)/documents/matches/$(id)).data.b));
     }
     match /matches/{id} {
-      allow read, update, delete: if isAdmin()
+      allow read, delete: if isAdmin()
         || (signedIn() && (request.auth.uid == resource.data.a || request.auth.uid == resource.data.b));
-      allow create: if signedIn() && request.auth.uid == request.resource.data.a;
+      allow update: if isAdmin()
+        || (!paused() && signedIn() && (request.auth.uid == resource.data.a || request.auth.uid == resource.data.b));
+      allow create: if signedIn() && request.auth.uid == request.resource.data.a && writable();
     }
     // A comment may only be appended by its own author: exactly one new element, whose byUid
     // is the caller's uid. Before this, comments carried a client-supplied display name and no
@@ -91,10 +111,11 @@ service cloud.firestore {
 
     match /posts/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.auth.uid == request.resource.data.authorUid;
+      allow create: if signedIn() && request.auth.uid == request.resource.data.authorUid && writable();
       // Who may write at all: the author and admins may edit the post's content; everyone else
       // is limited to the interaction fields (BRIEF-010).
       allow update: if signedIn()
+        && writable()
         && (
              request.auth.uid == resource.data.authorUid
           || isAdmin()
@@ -109,19 +130,26 @@ service cloud.firestore {
     }
     match /questionBank/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
     match /notifications/{uid}/items/{id} {
-      // Your own list is yours to read, mark read and clear.
-      allow read, update, delete: if isMe(uid);
+      // Your own list is yours to read, mark read and clear. Marking read is an update, so
+      // it pauses with everything else; reading and clearing stay open (clearing is a delete,
+      // and deletes are never gated — see the GDPR note on paused()).
+      allow read, delete: if isMe(uid);
+      allow update: if isAdmin() || (isMe(uid) && !paused());
       // A colleague must be able to DELIVER a notification into someone else's list -
       // that is how requests, accepts and messages reach the bell. Constrained: the
       // sender stamps their own uid, cannot pre-mark it read, and cannot add fields
       // outside this shape. They still cannot read or edit anyone else's list.
       allow create: if signedIn()
+        && writable()
         && request.resource.data.fromUid == request.auth.uid
         && request.resource.data.read == false
         && request.resource.data.keys()
              .hasOnly(['type','icon','text','target','fromUid','read','createdAt']);
     }
-    match /bugReports/{id} { allow read: if isAdmin(); allow create: if signedIn(); }
+    match /bugReports/{id} { allow read: if isAdmin(); allow create: if signedIn() && writable(); }
+    // Readable by anyone — it holds one boolean and nothing else. Rules OR together, so the
+    // generic app/{doc} rule below still applies; no other document under app/ is affected.
+    match /app/campaign { allow read: if true; allow write: if isAdmin(); }
     match /app/{doc} { allow read: if signedIn(); allow write: if isAdmin(); }
   }
 }

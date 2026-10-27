@@ -186,6 +186,39 @@
     // BRIEF-027, mirroring store-firebase.js: builder = the agency DOMAIN, admin = the
     // admin list. Donnae is admin:true, builder:false and participates normally.
     // ---- photos on demand (BRIEF-033), same signatures as the live store ----
+    /* ---- campaign pause (BRIEF-037), same contract as the live store ----
+       Kept in localStorage so a demo/local session survives a refresh, and defaulting to NOT
+       paused so the demo and the harness are never locked out by accident. */
+    // Mirrors the live contract (BRIEF-037): admin-only, read-only, builders excluded.
+    adminStandings() {
+      const e = (this._email || "").toLowerCase();
+      if (!(window.ZB_CONFIG.ADMIN_EMAILS || []).map(x => x.toLowerCase()).includes(e))
+        return Promise.reject(Object.assign(new Error("admins only"), { code:"zb/not-admin" }));
+      const done = {};
+      MATCHES.forEach(m => Object.keys(m.completedBy || {}).forEach(uid => { done[uid] = (done[uid] || 0) + 1; }));
+      const rows = USERS.filter(u => !u.builder).map(u => ({
+        name:u.name, points:u.points, meetups: done[u.uid] || 0, admin: !!u.admin, lang: u.lang || "en" }));
+      if (ME && !ME.builder) rows.push({ name:ME.name, points:ME.points, meetups: done["me"] || 0,
+                                         admin: !!ME.admin, lang: ME.lang || "en" });
+      return P(rows.sort((a, b) => b.points - a.points));
+    },
+
+    getCampaign() {
+      let on = false, at = null, by = "";
+      try {
+        const raw = localStorage.getItem("zbCampaign");
+        if (raw) { const d = JSON.parse(raw); on = d.paused === true; at = d.pausedAt || null; by = d.pausedBy || ""; }
+      } catch (e) {}
+      return P({ paused:on, pausedAt:at, pausedBy:by });
+    },
+    setCampaignPaused(on) {
+      const e = (this._email || "").toLowerCase();
+      if (!(window.ZB_CONFIG.ADMIN_EMAILS || []).map(x => x.toLowerCase()).includes(e))
+        return Promise.reject(Object.assign(new Error("admins only"), { code:"zb/not-admin" }));
+      try { localStorage.setItem("zbCampaign", JSON.stringify({ paused:!!on, pausedAt:now(), pausedBy:e })); } catch (err) {}
+      return P(true);
+    },
+
     getPhoto(uid) {
       if (ME && (uid === "me" || uid === ME.uid)) return P(ME.photo || null);
       const u = USERS.find(x => x.uid === uid);

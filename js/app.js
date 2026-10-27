@@ -9,6 +9,7 @@ const S = window.ZB_STORE, CFG = window.ZB_CONFIG;
 const P = {
   // Four-point sparkle, drawn to match the Phosphor set's weight. Inline, not the emoji
   // "✦" — nav and buttons never carry emoji (CLAUDE.md guardrail).
+  pause:'<path d="M9.5 5v14M14.5 5v14"/>',
   sparkle:'<path d="M12 2.6c.9 4.6 1.9 5.6 6.5 6.5-4.6.9-5.6 1.9-6.5 6.5-.9-4.6-1.9-5.6-6.5-6.5 4.6-.9 5.6-1.9 6.5-6.5Z"/><path d="M18.4 15.1c.45 2.3.95 2.8 3.25 3.25-2.3.45-2.8.95-3.25 3.25-.45-2.3-.95-2.8-3.25-3.25 2.3-.45 2.8-.95 3.25-3.25Z"/>',
   target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>',
   users:'<circle cx="9" cy="8" r="3.2"/><path d="M3.4 19a5.6 5.6 0 0 1 11.2 0"/><path d="M15.5 5.2A2.8 2.8 0 0 1 17 10.6M16 13.4a5 5 0 0 1 4.6 5.6"/>',
@@ -356,6 +357,35 @@ const previewCountdown=()=>{try{return localStorage.getItem('zbPreviewCountdown'
 // A demo tab is always past the gate: the whole point of the link is to show the app
 // working, and a visitor landing on a countdown sees nothing. This reads window.ZB_DEMO,
 // which is false for every live tab, so the real countdown is untouched for colleagues.
+/* BRIEF-037. Reuses the same ?preview switch as the countdown, so one QA flag shows an
+   admin what colleagues see. The shape matters: `!C.admin ||` comes FIRST, so a non-admin
+   is paused whatever ?preview says — preview is an admin-only affordance, and a colleague
+   cannot type their way out of the closed screen. A demo tab is never paused. */
+/* ---- BRIEF-037: local simulation switch (demo builds only) ----
+   Reaching "paused + non-admin" locally is otherwise impossible: pausing needs an admin, and
+   an admin sees the app rather than the closed screen. This drives both states from the URL
+   WITHOUT writing app/campaign anywhere — the real pause only ever happens at switch-over.
+
+     ?simulate=paused             the campaign reads as paused
+     ?simulate=colleague          you are treated as a non-admin (the admin UI disappears)
+     ?simulate=paused,colleague   both — the colleague lockout
+
+   Inert unless this is a local demo build: ZB_LIVE true (the real app) returns nothing, and
+   a ?demo=1 tab returns nothing too, because demo is never paused by design. Nothing is
+   persisted — it lives in the URL for that page load, so it cannot get stuck on. Written as
+   a pure function so the harness can prove it is inert on live rather than infer it. */
+function simFlags(search, live, demo){
+  if(live||demo)return {};
+  const m=String(search||'').match(/[?&]simulate=([a-z,]+)/);
+  if(!m)return {};
+  const p=m[1].split(',');
+  return { paused:p.indexOf('paused')>-1, colleague:p.indexOf('colleague')>-1 };
+}
+const SIM=(function(){try{return simFlags(location.search,window.ZB_LIVE,window.ZB_DEMO);}catch(e){return {};}})();
+
+const previewClosed=previewCountdown;
+const campaignPaused=()=>!window.ZB_DEMO&&(!!(C.campaign&&C.campaign.paused)||!!SIM.paused)&&(!C.admin||previewClosed());
+
 const spinLocked=()=>!window.ZB_DEMO&&!!SPIN_UNLOCK&&Date.now()<SPIN_UNLOCK.getTime()&&(!C.admin||previewCountdown());
 function unlockParts(){
   const ms=Math.max(0,SPIN_UNLOCK.getTime()-Date.now()), t=Math.floor(ms/1000);
@@ -480,7 +510,7 @@ window.checkUpdate=function(){
 };
 
 /* ---------------- state ---------------- */
-let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],spin:{points:0,freeSpin:true},admin:false,leaderboard:[],bugs:[],build:null,adminData:null};
+let C={me:null,users:[],matches:[],posts:[],notifs:[],questions:[],spin:{points:0,freeSpin:true},admin:false,leaderboard:[],bugs:[],build:null,adminData:null,campaign:{paused:false}};
 let adminOpenQ=null,adminAnon=false;   // which question is expanded; whether to hide who said what
 let view="spin", onboardStep=0, mode="onboarding", authBusy=false, current=null;
 let obSubmitting=false, iceSaving=false;   // BRIEF-026: one onboarding submit at a time
@@ -623,6 +653,8 @@ async function refresh(){
   // Roles are normalised ON READ (see normalizeRole): live users onboarded on the old 18-role
   // list, and matches carry a profile snapshot taken at creation time, so both can hold legacy strings.
   if(me)me.role=normalizeRole(me.role);
+  if(S.getCampaign){ try{ C.campaign=await S.getCampaign(); }catch(e){} }
+  if(SIM.colleague)C.admin=false;        // local only: stand in a colleague's shoes
   const users2=users.map(u=>Object.assign({},u,{role:normalizeRole(u.role)}));
   const matches2=matches.map(m=>m.person?Object.assign({},m,{person:Object.assign({},m.person,{role:normalizeRole(m.person.role)})}):m);
   C.me=me;C.users=users2;C.matches=matches2;C.posts=posts;C.notifs=notifs;C.questions=questions;C.spin=spin;C.admin=admin;C.leaderboard=lb;C.bugs=bugs;
@@ -687,6 +719,16 @@ function render(){
   // nothing else reachable — there is nothing in the app worth showing yet. The chrome and the
   // rest of the app come back on their own the moment the lock lifts, because this re-evaluates
   // on every render and every countdown tick.
+  // Paused: the thank-you screen is all there is. Checked BEFORE the countdown, so a
+  // paused campaign wins over a future relaunch's unlock date either way.
+  if(campaignPaused()){
+    view="closed";
+    $("#appbar").style.display='none';$("#tabbar").style.display='none';$("#screen").style.padding='0';
+    S.setViewing && S.setViewing(view);
+    cdStop();
+    $("#screen").innerHTML=viewClosed();
+    return;
+  }
   if(spinLocked()){
     if(view!=="spin"&&view!=="howitworks")view="spin";
     $("#appbar").style.display='none';$("#tabbar").style.display='none';$("#screen").style.padding='0';
@@ -747,6 +789,9 @@ function routeTarget(target){
 }
 window.routeTarget=routeTarget;
 window.go=v=>{
+  // Paused beats every other route, including a push deep-link: there is nothing else
+  // for a colleague to reach.
+  if(campaignPaused()){view="closed";render();return;}
   // While locked the only routes are the countdown and How It Works — a deep-linked
   // notification must not drop a held user into an empty app.
   if(spinLocked()&&v!=="spin"&&v!=="howitworks")v="spin";
@@ -845,7 +890,9 @@ function howItWorksHTML(inApp){
     </div>
   </div>`;
 }
-window.obGoCreate=function(){stopTagline();onboardStep='lang';renderOnboard();};   // language first (BRIEF-023A)
+window.obGoCreate=function(){
+  if(campaignPaused())return;          // no sign-ups while the campaign is paused
+  stopTagline();onboardStep='lang';renderOnboard();};   // language first (BRIEF-023A)
 window.obGoSignIn=function(){stopTagline();onboardStep='signin';renderOnboard();};
 window.obHow=function(){stopTagline();onboardStep='how';renderOnboard();};
 window.obBackWelcome=function(){onboardStep='welcome';renderOnboard();};
@@ -923,6 +970,15 @@ window.awardToSpin=async function(){
 
 /* ---------------- onboarding ---------------- */
 function renderOnboard(){
+  // Paused and signed out: show the closed screen instead of welcome/sign-up. The admin
+  // sign-in link sets onboardStep='signin', which is why that step is allowed through.
+  if(campaignPaused()&&onboardStep!=='signin'){
+    const ab=$("#appbar"),tb=$("#tabbar");
+    if(ab)ab.style.display='none'; if(tb)tb.style.display='none';
+    $("#screen").style.padding='0';
+    $("#screen").innerHTML=viewClosed();
+    return;
+  }
   const sc=$("#screen"),ab=$("#appbar"),tb=$("#tabbar");
   if(onboardStep==='welcome'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=welcomeHTML();startTagline();return; }
   if(onboardStep==='how'){ ab.style.display='none';tb.style.display='none';sc.style.padding='0';sc.innerHTML=howItWorksHTML();return; }
@@ -1009,8 +1065,8 @@ function renderOnboard(){
       <button class="btn" onclick="obSignIn(this)">${icon('check',18)} ${t('si_btn')}</button>
       <button class="btn ghost" style="margin-top:2px;font-size:14px" onclick="obForgot(null,this)">${t('ob_forgot')}</button>
       <div class="hr"></div>
-      <p class="muted small center" style="margin:0 0 8px">${t('si_new')}</p>
-      <button class="btn alt" onclick="obGoCreate()">${t('si_create')}</button>
+      ${campaignPaused()?'':`<p class="muted small center" style="margin:0 0 8px">${t('si_new')}</p>
+      <button class="btn alt" onclick="obGoCreate()">${t('si_create')}</button>`}
     </div></div>`;
     return;
   }
@@ -1188,6 +1244,50 @@ function laneBand(cls,laneIdx,people){
     return `<div class="lane">${pillHTML(p1,dir,dur,d1,a1)}${two?pillHTML(p2,dir,dur,d2,a2):''}</div>`;
   }).join('')}</div>`;
 }
+/* ---- BRIEF-037: the campaign-closed screen ----
+   Ported from Context/design-closed-screen/ the way BRIEF-019 ported the countdown: the
+   design's own layout, sizes and colours, rendered with our icon set and dictionary rather
+   than pasted markup. No backdrop-filter anywhere here — the card animates, which is the
+   combination that flickers on Android Chrome (CLAUDE.md). */
+function viewClosed(){
+  const row=(ic,tint,fg,h,b)=>`<div class="zb-cl-row">
+      <div class="zb-cl-ic" style="background:${tint};color:${fg}">${icon(ic,19)}</div>
+      <div style="min-width:0"><div class="zb-cl-rh">${esc(t(h))}</div>
+        <div class="zb-cl-rb">${esc(t(b))}</div></div></div>`;
+  return `<div class="zb-cl">
+    <div class="zb-cl-deco" aria-hidden="true">
+      <span class="d1"></span><span class="d2"></span><span class="d3"></span>
+      <span class="d4"></span><span class="d5"></span><span class="d6"></span>
+    </div>
+    <div class="zb-cl-card">
+      <img class="logo" src="assets/zimmer-biomet-logo.svg" alt="Zimmer Biomet">
+      <div class="zb-cl-mark">
+        <span class="ring" aria-hidden="true"></span><span class="ring-dashed" aria-hidden="true"></span>
+        <span class="disc">${icon('heart',34)}</span>
+      </div>
+      <div class="zb-cl-eyebrow"><span class="dot" aria-hidden="true"></span>${esc(t('closed_eyebrow'))}</div>
+      <h1>${esc(t('closed_h'))}</h1>
+      <p class="zb-cl-sub">${esc(t('closed_sub'))}</p>
+      <div class="zb-cl-rows">
+        ${row('trophy','#FBF3D5','#8A6A00','closed_win_h','closed_win')}
+        ${row('refresh','#E6F2F9','#005f95','closed_tuned_h','closed_tuned')}
+      </div>
+    </div>
+    <div class="zb-cl-foot">
+      ${(C.admin&&previewClosed())?`<div class="zb-cl-preview">${esc(t('preview_as'))} ·
+        <button type="button" onclick="exitPreview()">${esc(t('preview_exit'))}</button></div>`:''}
+      ${ttfCredit(true)}
+      <button type="button" class="zb-cl-admin" onclick="closedAdminSignIn()">${esc(t('closed_admin'))}</button>
+    </div>
+  </div>`;
+}
+// The only way out of the closed screen: reveal the EXISTING sign-in form. It signs in only —
+// no create-account path is reachable while paused — and a non-admin who signs in that way
+// lands straight back here, because campaignPaused() does not care how you arrived.
+window.closedAdminSignIn=function(){
+  mode="onboarding"; onboardStep="signin"; renderOnboard();
+};
+
 function viewCountdown(){
   const cd=unlockParts(), people=pillPeople();   // `cd`, not `t` — `t` is the translate helper
   // fewer signups -> fewer lanes, rather than repeating a name within a lane
@@ -1495,7 +1595,7 @@ window.sendBug=async function(){const txt=($("#bugtxt").value||'').trim();if(!tx
 function viewAdmin(){
   const completed=history().length,activeN=activeMatches().length,parts=C.users.length+1;
   const topQ=[...C.questions].sort((a,b)=>(b.count||0)-(a.count||0)).slice(0,5);
-  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">Admin dashboard</h2><p class="sub">Super-admin view (Donnae + Sean).</p>
+  return `<button class="btn ghost sm" onclick="go('profile')">${icon('back',16)} ${t('back')}</button><h2 style="margin-top:6px">Admin dashboard</h2><p class="sub">Super-admin view (Donnae + Sean).</p>${campaignCardHTML()}
    <div class="card"><div class="row"><div class="stat"><div class="v">${completed}</div><div class="l">My meetups</div></div><div class="stat"><div class="v">${activeN}</div><div class="l">Active now</div></div><div class="stat"><div class="v">${parts}</div><div class="l">People</div></div><div class="stat"><div class="v">${C.posts.length}</div><div class="l">Wall posts</div></div></div></div>
    ${(function(){
      const d=C.adminData;
@@ -1515,6 +1615,7 @@ function viewAdmin(){
          </div>`).join(''):`<div class="muted small">No answers captured yet — they appear here as colleagues complete meetups.</div>`}
        <div class="row" style="gap:8px;margin-top:12px">
          <button class="btn secondary sm" onclick="exportData()">${icon('download',16)} Export answers</button>
+         <button class="btn secondary sm" style="margin-top:8px" onclick="exportStandings()">${icon('download',16)} Export final standings</button>
          <button class="btn ghost sm" onclick="adminToggleAnon()">${adminAnon?'Show names':'Anonymise'}</button>
          <button class="btn ghost sm" onclick="reloadAdmin()">${icon('refresh',16)}</button>
        </div></div>`;
@@ -1544,6 +1645,94 @@ function viewAdmin(){
 // CSV rather than .xlsx: a real xlsx is a zip archive, which would mean pulling in a library
 // (SheetJS ~100KB) and this app deliberately has no build step. Excel opens this natively —
 // UTF-8 BOM so accented names survive, CRLF line endings, and every field quoted.
+/* ---- BRIEF-037: Campaign card (admin, English-only like the rest of admin) ----
+   An inline two-step confirm rather than window.confirm: the browser dialog is banned by the
+   tooling guardrail, and a native dialog is also the one thing a screenshot cannot capture. */
+let campaignConfirm=false;
+function campaignCardHTML(){
+  const c=C.campaign||{paused:false};
+  const when=c.pausedAt?fmt037(c.pausedAt):'';
+  const state=c.paused
+    ? `<span class="chip">Paused${when?` since ${esc(when)}`:''}${c.pausedBy?` by ${esc(c.pausedBy)}`:''}</span>`
+    : `<span class="chip good">Live</span>`;
+  const action=c.paused?'Reopen campaign':'Pause campaign';
+  const ic=c.paused?'refresh':'pause';
+  return `<div class="card" style="margin:10px 0 14px">
+    <div class="row between"><b>Campaign</b>${state}</div>
+    ${previewClosed()?`<p class="muted small" style="margin:8px 0 0">${esc(t('preview_as'))} ·
+      <a href="javascript:void(0)" onclick="exitPreview()" style="color:var(--zb-blue);font-weight:700">${esc(t('preview_exit'))}</a></p>`:''}
+    ${campaignConfirm?`
+      <p class="muted small" style="margin:10px 0 10px;line-height:1.5">Colleagues will see the thank-you screen and can't use the app. No data is deleted. You can reopen any time.</p>
+      <div class="row" style="gap:8px">
+        <button class="btn sm" style="flex:1;justify-content:center" onclick="campaignApply()">${icon('check',16)} Yes, ${esc(action.toLowerCase())}</button>
+        <button class="btn ghost sm" style="flex:1;justify-content:center" onclick="campaignCancel()">Cancel</button>
+      </div>`
+    :`<button class="btn ${c.paused?'':'secondary'} sm" style="width:100%;justify-content:center;margin-top:10px" onclick="campaignAsk()">${icon(ic,16)} ${esc(action)}</button>`}
+  </div>`;
+}
+// Amsterdam, same convention as every other timestamp a human reads.
+function fmt037(v){
+  try{
+    const d=v&&v.toDate?v.toDate():(typeof v==='number'?new Date(v):(v&&v.seconds?new Date(v.seconds*1000):null));
+    if(!d)return '';
+    const p={};new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Amsterdam',year:'numeric',month:'2-digit',
+      day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(d).forEach(x=>{p[x.type]=x.value;});
+    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+  }catch(e){return '';}
+}
+/* ?preview=1 is REMEMBERED between visits (localStorage), and while the campaign is paused
+   an admin in preview cannot reach the dashboard at all — go() forces every route to the
+   closed screen. So the way out has to live ON that screen, not only on the dashboard, or
+   the only escape would be typing ?preview=0 from memory. */
+window.exitPreview=function(){
+  try{ localStorage.removeItem('zbPreviewCountdown'); }catch(e){}
+  render();
+};
+
+window.campaignAsk=function(){ if(!C.admin)return; campaignConfirm=true; render(); };
+window.campaignCancel=function(){ campaignConfirm=false; render(); };
+window.campaignApply=async function(){
+  if(!C.admin)return;
+  const want=!(C.campaign&&C.campaign.paused);
+  campaignConfirm=false;
+  try{
+    await S.setCampaignPaused(want);
+    C.campaign=await S.getCampaign();
+    toast(want?"Campaign paused":"Campaign reopened");
+  }catch(e){
+    toast((e&&e.code)==='zb/not-admin'?"Admins only":"Couldn't change the campaign state");
+    if(window.console)console.warn("[zb] campaign toggle failed",e);
+  }
+  render();
+};
+
+/* Final standings CSV. Same rules as the board: builders out, sorted by points, admins
+   marked not eligible. No email column — the minimum that answers "who won". */
+window.exportStandings=async function(){
+  if(!C.admin){toast("Admins only");return;}
+  let standings;
+  try{ standings=await S.adminStandings(); }
+  catch(e){ toast((e&&e.code)==='zb/not-admin'?"Admins only":"Couldn't build the standings"); return; }
+  const rows=[["Rank","Name","Points","Meetups completed","Eligible for prizes","Language"]];
+  standings.forEach((r,i)=>rows.push([
+    i+1, r.name, r.points, r.meetups, r.admin?"No — admin":"Yes", r.lang
+  ]));
+  const csv="\uFEFF"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
+  if(downloadCsv(csv,"zb-meetup-standings-"+new Date().toISOString().slice(0,10)+".csv"))
+    toast(standings.length+" colleagues exported");
+};
+
+// One download path for both admin CSVs. Extracted verbatim from the answers export, which
+// behaves exactly as before — only the toast text differs between callers.
+function downloadCsv(csv,name){
+  try{
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+    const a=document.createElement("a");a.href=url;a.download=name;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    return true;
+  }catch(e){ toast("Couldn't start the download"); return false; }
+}
 function csvCell(v){
   v=String(v==null?'':v);
   // A leading = + - @ makes Excel treat the cell as a formula; prefix so it stays text.
@@ -1562,13 +1751,7 @@ window.exportData=function(){
     q.text,q.tier||'',a.text,adminAnon?'anonymised':a.by,a.type,a.date,a.matchId])));
   const csv="\uFEFF"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
   const name="zb-meetup-answers-"+new Date().toISOString().slice(0,10)+".csv";
-  try{
-    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
-    const a=document.createElement("a");a.href=url;a.download=name;
-    document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),2000);
-    toast((rows.length-1)+" answers exported");
-  }catch(e){ toast("Couldn't start the download"); }
+  if(downloadCsv(csv,name))toast((rows.length-1)+" answers exported");
 };
 let qEditId=null;   // which question is open for inline editing
 window.qEdit=function(id){qEditId=id;render();};
@@ -1700,6 +1883,9 @@ window.ZB_BOOT=function(){
   if(S.onChange)S.onChange(()=>{ if(mode==='app'&&!authBusy) refreshQuietly('live update'); });
   S.onAuth(async user=>{
     if(authBusy)return;
+    // BRIEF-037: read the pause flag before anything renders, signed-out included — someone
+    // opening an old invite link must meet the thank-you screen, not a sign-up form.
+    if(S.getCampaign){ try{ C.campaign=await S.getCampaign(); }catch(e){} }
     if(!user){mode="onboarding";onboardStep="welcome";renderOnboard();return;}
     const me=await S.getMe();
     if(!me||!me.name){mode="onboarding";if(onboardStep<1)onboardStep=1;OB.email=user.email||OB.email;renderOnboard();return;}

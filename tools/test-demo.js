@@ -62,7 +62,7 @@ load("js/i18n.js");                  // ZB_I18N + ZB_T
 window.ZB_LIVE = false;              // force the demo store for the test
 load("js/store.js");
 // Export the real internals for assertions instead of adding window.* hooks to production code.
-load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__PHOTOS=()=>PHOTO;window.__forgetPhoto=forgetPhoto;window.__mode=()=>mode;window.__MPHOTOS=()=>MPHOTO;window.__postTime=postTime;window.__TP=()=>TP;window.__qText=qText;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
+load("js/app.js", "\n;window.__eligible=eligible;window.__normalizeRole=normalizeRole;window.__ROLES=ROLES;window.__pickQuestions=pickQuestions;window.__qText=qText;window.__langBadge=langBadge;window.__FLAG_SVG=FLAG_SVG;window.__notifText=notifText;window.__spinLocked=()=>spinLocked();window.__refreshPush=refreshPush;window.__PUSH=()=>PUSH;window.__view=()=>view;window.__PHOTOS=()=>PHOTO;window.__forgetPhoto=forgetPhoto;window.__mode=()=>mode;window.__simFlags=simFlags;window.__MPHOTOS=()=>MPHOTO;window.__postTime=postTime;window.__TP=()=>TP;window.__qText=qText;window.__refreshQuietly=refreshQuietly;window.__unlock=SPIN_UNLOCK;");
 
 const scr = () => document.querySelector("#screen").innerHTML;
 const bar = () => document.querySelector("#appbar").innerHTML;
@@ -1451,6 +1451,147 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("the legacy inline-photo fallback is kept in readPhoto()",
       /not migrated yet: read the inline copy/.test(require("fs").readFileSync("js/store-firebase.js", "utf8")));
 
+  /* ---- BRIEF-037: campaign pause ---- */
+  const asAdmin = async on => { window.ZB_STORE._email = on
+      ? "donnae.abbood@zimmerbiomet.com" : "someone.else@zimmerbiomet.com"; await refreshAndSettle(); };
+  const setPaused = async on => {
+    const was = window.ZB_STORE._email;
+    window.ZB_STORE._email = "donnae.abbood@zimmerbiomet.com";
+    await window.ZB_STORE.setCampaignPaused(on);
+    window.ZB_STORE._email = was; await refreshAndSettle();
+  };
+  const preview = v => { try { v === null ? global.localStorage.removeItem("zbPreviewCountdown")
+                                          : global.localStorage.setItem("zbPreviewCountdown", v); } catch (e) {} };
+  const email037 = window.ZB_STORE._email;
+
+  chk("not paused by default — the demo and a live campaign are never locked out",
+      (await window.ZB_STORE.getCampaign()).paused === false);
+
+  // (a) paused + non-admin -> closed screen, no chrome, nothing else reachable
+  await setPaused(true); await asAdmin(false);
+  window.go("ranks");
+  const closed = scr();
+  chk("paused: a colleague gets the closed screen whatever they ask for",
+      window.__view() === "closed"
+      && closed.indexOf(window.ZB_T("closed_h", "en")) > -1
+      && !/class="rankrow/.test(closed));
+  chk("paused: the app chrome is hidden, like the countdown",
+      document.querySelector("#appbar").style.display === "none"
+      && document.querySelector("#tabbar").style.display === "none");
+  ["wall", "profile", "spin", "meetups", "notifs"].forEach(v => window.go(v));
+  chk("paused: every route still lands on the closed screen",
+      window.__view() === "closed");
+
+  // the guardrail Sean called out: ?preview is ADMIN-ONLY
+  for (const v of ["0", "1", null]) {
+    preview(v); window.go("ranks");
+    if (window.__view() !== "closed") { console.log("   preview=" + v + " let a colleague out"); break; }
+  }
+  chk("preview is admin-only: ?preview=0, =1 or unset all still close a colleague out",
+      window.__view() === "closed");
+  preview(null);
+
+  // (b) paused + admin -> the normal app; admin + ?preview=1 -> the closed screen
+  await asAdmin(true);
+  window.go("ranks");
+  chk("paused: an admin still has the whole app",
+      window.__view() === "ranks" && /class="rankrow/.test(scr()));
+  preview("1"); window.go("ranks");
+  chk("paused: an admin with ?preview=1 sees what colleagues see",
+      window.__view() === "closed");
+  preview(null);
+
+  // the escape hatch: an admin in preview cannot reach the dashboard, so the way out must
+  // be on the closed screen itself
+  await asAdmin(true); preview("1"); window.go("ranks");
+  chk("an admin previewing sees a way out on the closed screen itself",
+      window.__view() === "closed"
+      && scr().indexOf(window.ZB_T("preview_as", "en")) > -1
+      && /onclick="exitPreview\(\)"/.test(scr()));
+  window.exitPreview();
+  chk("exiting preview puts the admin straight back into the app",
+      window.__view() !== "closed" || (window.go("ranks"), window.__view() === "ranks"));
+  chk("?preview is remembered between visits, so the hatch is not cosmetic",
+      /localStorage\.setItem\('zbPreviewCountdown'/.test(require("fs").readFileSync("js/app.js","utf8")));
+  preview(null);
+
+  // (d) demo mode is never paused
+  const demoWas = window.ZB_DEMO;
+  window.ZB_DEMO = true; await asAdmin(false); window.go("ranks");
+  chk("a demo tab is never paused, so the app can still be shown",
+      window.__view() === "ranks");
+  window.ZB_DEMO = demoWas;
+
+  // (c) reopening restores the app
+  await setPaused(false); await asAdmin(false);
+  window.go("ranks");
+  chk("reopening gives colleagues the app back on the next load",
+      window.__view() === "ranks" && /class="rankrow/.test(scr()));
+
+  // the local simulation switch must be incapable of affecting the real app
+  chk("?simulate only works on a local demo build — never on live, never in a demo tab",
+      JSON.stringify(window.__simFlags("?simulate=paused,colleague", false, false)) === '{"paused":true,"colleague":true}'
+      && JSON.stringify(window.__simFlags("?simulate=paused", true, false)) === "{}"      // the live app
+      && JSON.stringify(window.__simFlags("?simulate=paused", false, true)) === "{}"      // a ?demo=1 tab
+      && JSON.stringify(window.__simFlags("", false, false)) === "{}");
+  chk("the simulation writes nothing — it is read from the URL, never stored",
+      !/zbSimulate|localStorage\.setItem\(["']zbSim/.test(require("fs").readFileSync("js/app.js", "utf8")));
+
+  // (g) the strings
+  chk("every closed_* string exists in all three languages",
+      ["closed_eyebrow","closed_h","closed_sub","closed_win_h","closed_win","closed_tuned_h","closed_tuned","closed_admin"]
+        .every(k => ["en","nl","ro"].every(l => (window.ZB_T(k, l) || "").length > 1 && window.ZB_T(k, l) !== k)));
+  chk("the closed screen follows the viewer's language",
+      window.ZB_T("closed_h","nl") !== window.ZB_T("closed_h","en")
+      && window.ZB_T("closed_h","ro") !== window.ZB_T("closed_h","en"));
+
+  // (f) the standings CSV
+  await asAdmin(true);
+  const st = await window.ZB_STORE.adminStandings();
+  chk("standings exclude builders and are sorted by points",
+      st.length > 0 && !st.some(r => /Builder/.test(r.name))
+      && st.every((r, i, a) => i === 0 || a[i-1].points >= r.points));
+  chk("standings carry the columns the CSV needs, including per-person meetups",
+      st.every(r => "name" in r && "points" in r && "meetups" in r && "admin" in r && "lang" in r));
+  chk("no email address is anywhere in the standings data",
+      JSON.stringify(st).indexOf("@") === -1);
+  window.ZB_STORE._email = email037; await refreshAndSettle();
+
+  // (e) source-level: both scheduled functions must read the flag before sending
+  const fnSrc = require("fs").readFileSync("functions/index.js", "utf8");
+  const bodyOf = name => {
+    const i = fnSrc.indexOf("exports." + name); const r = fnSrc.slice(i);
+    const end = r.indexOf("\nexports."); return end > -1 ? r.slice(0, end) : r;
+  };
+  chk("both scheduled pushes check the pause flag before doing any work",
+      ["dailyReminder", "dailySpinNudge"].every(n => {
+        const b = bodyOf(n);
+        const gate = b.indexOf("campaignPaused()");
+        const work = Math.min(...["sendToUser", "collection("].map(x => { const i = b.indexOf(x); return i < 0 ? 1e9 : i; }));
+        return gate > -1 && gate < work && /campaign paused, skipped/.test(b);
+      }));
+
+  // rules: writes gated, deletes never
+  const rules037 = require("fs").readFileSync("firestore.rules", "utf8");
+  chk("the rules gate colleague writes on the pause flag",
+      /function paused\(\)/.test(rules037) && /function writable\(\)/.test(rules037)
+      && /exists\(\/databases\/\$\(database\)\/documents\/app\/campaign\)/.test(rules037));
+  chk("app/campaign is readable signed-out, and nothing else under app/ is",
+      /match \/app\/campaign \{ allow read: if true;/.test(rules037)
+      && /match \/app\/\{doc\} \{ allow read: if signedIn\(\);/.test(rules037));
+  const openWrites = [], gatedDeletes = [];
+  (rules037.match(/allow [a-z, ]+:[^;]*;/g) || []).forEach(r => {
+    const verbs = r.slice(6, r.indexOf(":"));
+    const gated = /writable\(\)|!paused\(\)/.test(r);
+    const adminOnly = /:\s*if isAdmin\(\);?\s*$/.test(r);     // questionBank, app/* — never paused
+    if (/create|update|write/.test(verbs) && !gated && !adminOnly) openWrites.push(verbs.trim());
+    if (/delete/.test(verbs) && gated) gatedDeletes.push(verbs.trim());
+  });
+  if (openWrites.length) console.log("   ungated writes:", openWrites.join(" | "));
+  chk("no colleague write path is left ungated", openWrites.length === 0);
+  chk("no delete rule is gated — GDPR erasure keeps working while paused",
+      gatedDeletes.length === 0);
+
   /* ---- BRIEF-038: the campaign export is read-only, and stays outside the repo ---- */
   const expSrc = require("fs").readFileSync("tools/export-campaign.js", "utf8");
   // The brief's required guard: no write-call syntax may appear in the file at all.
@@ -1559,7 +1700,17 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   // store's leaderboard unnoticed. Read both sources and assert neither reintroduces one.
   const srcLive = require("fs").readFileSync("js/store-firebase.js", "utf8");
   const srcDemo = require("fs").readFileSync("js/store.js", "utf8");
-  const boardBody = src => { const i = src.indexOf("leaderboard()"); return src.slice(i, i + 700); };
+  // Anchor on the DEFINITION and end the region at the next method, rather than slicing a
+  // fixed length from the first mention: a comment elsewhere containing "leaderboard()" moved
+  // the window onto the wrong text and the check failed for nothing. (LEARNINGS 2026-10-01:
+  // a test that extracts a region has to end the region.)
+  const boardBody = src => {
+    const m = /^\s*(?:async\s+)?leaderboard\(\)\s*\{/m.exec(src);
+    if (!m) return "";
+    const rest = src.slice(m.index + m[0].length);
+    const end = /^\s{2,4}(?:async\s+)?[a-zA-Z_]\w*\s*\(/m.exec(rest);
+    return rest.slice(0, end ? end.index : 1500);
+  };
   chk("neither store's leaderboard() maps a photo field",
       !/photo\s*:\s*u\.photo/.test(boardBody(srcLive))
       && !/photo\s*:\s*u\.photo/.test(boardBody(srcDemo))
@@ -1733,7 +1884,11 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   const rules = fs2.readFileSync("firestore.rules", "utf8");
   chk("tokens are readable and writable only by their owner",
       /match \/users\/\{uid\}\/fcmTokens\/\{token\}/.test(rules)
-      && /allow read, write: if isMe\(uid\);/.test(rules));
+      && /allow read: if isMe\(uid\);/.test(rules)
+      // BRIEF-037 split this so a paused campaign stops token writes but never the delete
+      // that unsubscribes a device.
+      && /allow write: if isAdmin\(\) \|\| \(isMe\(uid\) && !paused\(\)\);/.test(rules)
+      && /allow delete: if isMe\(uid\) \|\| isAdmin\(\);/.test(rules));
 
   // With push available, the You screen must offer a real two-way switch.
   const realState = window.ZB_STORE.pushState;

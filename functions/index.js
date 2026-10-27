@@ -29,6 +29,18 @@ const { t } = require("./i18n");
 const db = () => admin.firestore();
 const DAY = 24 * 60 * 60 * 1000;
 
+/* BRIEF-037 — the scheduled pushes must stop while the campaign is paused. Without this,
+   every colleague keeps getting a 09:00 "time to spin" push for an app that shows them a
+   thank-you screen. Reads app/campaign; a missing document means not paused, and a read
+   failure also means not paused — a transient Firestore error should not silently stop a
+   live campaign's pushes. */
+async function campaignPaused() {
+  try {
+    const s = await db().collection("app").doc("campaign").get();
+    return s.exists && (s.data() || {}).paused === true;
+  } catch (e) { console.error("campaign flag unreadable, continuing", e && e.message); return false; }
+}
+
 // All four run in europe-west1, inside the eur3 multi-region that holds the
 // database. Two reasons: colleague data (names, message text, tokens) stays in
 // the EU rather than crossing to us-central1 and back on every push, and the
@@ -79,6 +91,7 @@ exports.onNotificationCreated = eu.firestore
 exports.dailyReminder = eu.pubsub
   .schedule("0 10 * * *").timeZone("Europe/Amsterdam")
   .onRun(async () => {
+    if (await campaignPaused()) { console.log("dailyReminder: campaign paused, skipped"); return null; }
     const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 3 * DAY);
     // Range on ONE field only, then filter status in code. Adding
     // .where("status","==","active") would need a composite index and so an
@@ -119,6 +132,7 @@ const SPIN_UNLOCK_MS = Date.parse("2026-09-16T09:00:00+02:00");
 exports.dailySpinNudge = eu.pubsub
   .schedule("0 9 * * *").timeZone("Europe/Amsterdam")
   .onRun(async () => {
+    if (await campaignPaused()) { console.log("dailySpinNudge: campaign paused, skipped"); return null; }
     if (Date.now() < SPIN_UNLOCK_MS) { console.log("dailySpinNudge: before unlock, skipped"); return null; }
     const users = await db().collection("users").get();
     let sent = 0, skipped = 0;

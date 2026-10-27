@@ -317,3 +317,54 @@ select.input{appearance:none;-webkit-appearance:none;background:#fff url("data:i
   font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
   color:rgba(255,255,255,.88)}
 .tp-q{margin-top:8px;font-size:17px;line-height:1.45;font-weight:650;color:#fff}
+
+/* ---- BRIEF-037: campaign-closed screen ----
+   Ported from Context/design-closed-screen/. Sizes, colours and spacing follow the approved
+   390x844 artboard; the card is centred and allowed to scroll on a short screen (iPhone SE)
+   rather than being clipped. NO backdrop-filter: the card animates in, and that pairing is
+   what flickers on Android Chrome (CLAUDE.md guardrail). */
+.zb-cl{position:fixed;inset:0;z-index:50;overflow-y:auto;
+  display:flex;flex-direction:column;justify-content:center;gap:18px;
+  padding:calc(40px + env(safe-area-inset-top,0px)) 20px calc(24px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(170deg,#3E6EA8 0%,#2F5F9E 42%,#20416F 100%);
+  font-family:inherit;color:var(--ink)}
+.zb-cl-deco{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.zb-cl-deco span{position:absolute;display:block}
+.zb-cl-deco .d1{width:420px;height:420px;left:-150px;top:-170px;border-radius:999px;border:2px dashed rgba(255,255,255,.14)}
+.zb-cl-deco .d2{width:300px;height:300px;right:-140px;bottom:-90px;border-radius:999px;border:2px solid rgba(255,255,255,.10)}
+.zb-cl-deco .d3{width:9px;height:9px;left:54px;top:84px;border-radius:999px;background:var(--gold)}
+.zb-cl-deco .d4{width:6px;height:6px;left:318px;top:62px;border-radius:999px;background:#E6F2F9}
+.zb-cl-deco .d5{width:12px;height:4px;left:292px;top:118px;border-radius:4px;background:var(--gold);transform:rotate(-28deg)}
+.zb-cl-deco .d6{width:5px;height:5px;left:96px;top:40px;border-radius:999px;background:rgba(255,255,255,.7)}
+.zb-cl-card{position:relative;border-radius:28px;padding:26px 22px 20px;text-align:center;
+  background:rgba(255,255,255,.96);box-shadow:0 24px 60px rgba(4,14,28,.34),0 2px 8px rgba(4,14,28,.16);
+  animation:riseIn .5s cubic-bezier(.2,.9,.3,1) both}
+.zb-cl-card .logo{height:23px;width:auto;display:block;margin:0 auto 18px}
+.zb-cl-mark{position:relative;width:112px;height:112px;margin:0 auto;display:flex;align-items:center;justify-content:center}
+.zb-cl-mark .ring{position:absolute;inset:0;border-radius:999px;border:2px solid rgba(0,121,189,.30)}
+.zb-cl-mark .ring-dashed{position:absolute;inset:12px;border-radius:999px;border:2px dashed rgba(0,121,189,.24)}
+.zb-cl-mark .disc{width:76px;height:76px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+  color:#fff;background:linear-gradient(160deg,#3E6EA8 0%,#2F5F9E 45%,#20416F 100%);
+  box-shadow:0 12px 28px rgba(32,65,111,.34)}
+.zb-cl-eyebrow{display:inline-flex;align-items:center;gap:7px;margin-top:16px;padding:6px 13px 6px 10px;
+  border-radius:999px;background:#E6F2F9;color:#005f95;font-size:11px;font-weight:700;letter-spacing:1.3px}
+.zb-cl-eyebrow .dot{width:7px;height:7px;border-radius:999px;background:var(--zb-blue)}
+.zb-cl h1{margin:12px 0 0;font-size:30px;font-weight:700;line-height:1.12;letter-spacing:-.8px;color:var(--ink)}
+.zb-cl-sub{margin:12px auto 0;max-width:300px;font-size:15px;line-height:1.55;color:var(--muted)}
+.zb-cl-rows{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);
+  display:flex;flex-direction:column;gap:14px;text-align:left}
+.zb-cl-row{display:flex;align-items:flex-start;gap:12px}
+.zb-cl-ic{width:38px;height:38px;flex:none;border-radius:999px;display:flex;align-items:center;justify-content:center}
+.zb-cl-rh{font-size:15px;font-weight:650;color:var(--ink)}
+.zb-cl-rb{margin-top:2px;font-size:13.5px;line-height:1.45;color:var(--muted)}
+.zb-cl-foot{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px}
+.zb-cl-foot .ttf{margin-top:0;color:rgba(255,255,255,.72)}
+.zb-cl-foot .ttf a{color:rgba(255,255,255,.92)}
+/* 44px tall: a real tap target, per the design */
+.zb-cl-admin{min-height:44px;padding:10px 18px;border:0;background:none;cursor:pointer;font-family:inherit;
+  font-size:13px;font-weight:600;color:rgba(255,255,255,.78);text-decoration:underline;text-underline-offset:3px}
+@media (prefers-reduced-motion:reduce){ .zb-cl-card{animation:none} }
+/* The admin's way out of preview, on the closed screen itself (BRIEF-037). */
+.zb-cl-preview{font-size:12px;color:rgba(255,255,255,.72);margin-bottom:2px}
+.zb-cl-preview button{min-height:32px;border:0;background:none;cursor:pointer;font-family:inherit;
+  font-size:12px;font-weight:700;color:#fff;text-decoration:underline;text-underline-offset:3px}
