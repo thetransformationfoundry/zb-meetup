@@ -1451,6 +1451,28 @@ const refreshAndSettle = async () => { await window.clearNotifs(); await tick(6)
   chk("the legacy inline-photo fallback is kept in readPhoto()",
       /not migrated yet: read the inline copy/.test(require("fs").readFileSync("js/store-firebase.js", "utf8")));
 
+  /* ---- BRIEF-038: the campaign export is read-only, and stays outside the repo ---- */
+  const expSrc = require("fs").readFileSync("tools/export-campaign.js", "utf8");
+  // The brief's required guard: no write-call syntax may appear in the file at all.
+  const writeCalls = expSrc.match(/\.set\(|\.update\(|\.delete\(|\.add\(|batch\(|runTransaction\(/g) || [];
+  if (writeCalls.length) console.log("   write calls found:", writeCalls.join(" "));
+  chk("the export script contains no Firestore write call", writeCalls.length === 0);
+  // Stronger than a grep: writes are unreachable because the wrapper only exposes reads.
+  chk("its Firestore handle is an allow-list of read methods, so writes are unreachable",
+      /function roQuery\(/.test(expSrc) && /function roDb\(/.test(expSrc)
+      && /get: \(\) => q\.get\(\)/.test(expSrc));
+  chk("it refuses an --out path inside the repo, and uses ADC rather than a key file",
+      /--out is inside the repo/.test(expSrc)
+      && /gcloud auth application-default login/.test(expSrc)
+      && !/serviceAccount|credential\.cert|GOOGLE_APPLICATION_CREDENTIALS/.test(expSrc));
+  const gitignore = require("fs").readFileSync(".gitignore", "utf8");
+  chk("export output is gitignored, so personal data cannot reach the public repo",
+      /^exports\/$/m.test(gitignore) && /^ZB-MeetUP-campaign-export-\*$/m.test(gitignore));
+  // And the artefact itself: run the fixture export end to end.
+  const fixture = require("child_process").spawnSync(process.execPath, ["tools/test-export.js"], { encoding:"utf8" });
+  if (fixture.status !== 0) console.log((fixture.stdout || "").split("\n").filter(l => l.startsWith("✗")).join("\n"));
+  chk("the export fixture passes end to end (files, not source text)", fixture.status === 0);
+
   /* ---- BRIEF-036: icons must never be their own tap target ----
      No harness can reproduce iOS WebKit hit-testing, so these are source-level guards on the
      rule AND on the invariant that makes it safe. */

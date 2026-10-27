@@ -21,3 +21,9 @@ _demo/
 # here, and never wire the private backup in as a submodule.
 Context/
 CLAUDE.md
+
+# BRIEF-038: campaign export output. It contains colleagues' names, work email
+# addresses and photographs — it must never reach this public repo. The script also
+# refuses an --out path inside the repo; this is the second lock on the same door.
+exports/
+ZB-MeetUP-campaign-export-*
