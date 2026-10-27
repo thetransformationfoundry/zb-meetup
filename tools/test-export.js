@@ -52,8 +52,15 @@ const ADMIN_STUB = { initializeApp(){}, firestore: () => ({ collection: fakeColl
 
 /* ---- run the real script against it ---- */
 const REPO = path.resolve(__dirname, "..");
-const adminPath = require.resolve(path.join(REPO, "functions", "node_modules", "firebase-admin"));
-require.cache[adminPath] = { id:adminPath, filename:adminPath, loaded:true, exports:ADMIN_STUB };
+// Write the stub to a real temp module and point the script at it. Seeding require.cache
+// against functions/node_modules only worked when the Functions dependencies happened to be
+// installed — they are gitignored, so CI never has them and the fixture failed there while
+// passing locally. This way the fixture needs nothing installed.
+const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), "zb-admin-stub-"));
+const stubFile = path.join(stubDir, "admin-stub.js");
+fs.writeFileSync(stubFile, "module.exports = global.__ZB_ADMIN_STUB;", "utf8");
+global.__ZB_ADMIN_STUB = ADMIN_STUB;
+process.env.ZB_ADMIN_MODULE = stubFile;
 
 const out = fs.mkdtempSync(path.join(os.tmpdir(), "zb-export-test-"));
 process.argv = ["node", "export-campaign.js", "--out", out];
@@ -123,6 +130,7 @@ process.argv = ["node", "export-campaign.js", "--out", out];
       && /Tier-1 only/.test(readme));
 
   fs.rmSync(out, { recursive:true, force:true });
+  fs.rmSync(stubDir, { recursive:true, force:true });
   console.log(`\n${fail ? "EXPORT FIXTURE FAILED ❌" : "EXPORT FIXTURE GREEN ✅"}  (${pass} passed, ${fail} failed)`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error("\n✖ fixture run failed:", e && e.stack || e); process.exit(1); });

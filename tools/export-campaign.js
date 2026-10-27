@@ -109,8 +109,14 @@ async function main() {
     die("--out is inside the repo (" + outRoot + ").\nThis export contains names and email addresses and must never\nland in a public repository. Point --out at OneDrive instead.");
   if (!fs.existsSync(outRoot)) die("--out folder does not exist: " + outRoot);
 
+  // firebase-admin normally comes from the Functions install. ZB_ADMIN_MODULE lets the
+  // fixture point at a stub so tools/test-export.js can exercise this script end to end
+  // without the Functions dependencies present — which is the case in CI, where
+  // functions/node_modules is gitignored and never installed. It only decides WHERE the
+  // Firestore client comes from; the read-only wrapper below still applies either way.
+  const adminPath = process.env.ZB_ADMIN_MODULE || path.join(REPO, "functions", "node_modules", "firebase-admin");
   let admin;
-  try { admin = require(path.join(REPO, "functions", "node_modules", "firebase-admin")); }
+  try { admin = require(adminPath); }
   catch (e) { die("firebase-admin not found under functions/node_modules.\nRun:  cd functions && npm install"); }
 
   try { admin.initializeApp({ projectId: PROJECT_ID }); }
